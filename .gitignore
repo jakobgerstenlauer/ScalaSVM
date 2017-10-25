@@ -1,0 +1,9 @@
+  .cache-main
+  .classpath
+  .project
+  .settings/
+  bin/
+  build.sbt.v1
+  build_sbt.old
+  project/
+  target/
