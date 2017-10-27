@@ -21,49 +21,49 @@ class Data(val par: DataParams){
 	def getN_test()  : Int = par.N_test
 	def getd() : Int = par.d
 
-def isValid() = isFilled
-override def toString : String = {
-	val sb = new StringBuilder
-	sb.append("Synthetic dataset with "+par.d+" variables.\n")
-	sb.append("Observations: "+ par.N_train +" (training), " + par.N_test+ "(test)\n")
-	if(isFilled)sb.append("Data was already generated.\n")
-	else sb.append("Data was not yet generated.\n")
-	return sb.toString()
-} 
+	def isValid() = isFilled
 
-def simulate() : Unit = {
+	override def toString : String = {
+		val sb = new StringBuilder
+		sb.append("Synthetic dataset with "+par.d+" variables.\n")
+		sb.append("Observations: "+ par.N_train +" (training), " + par.N_test+ "(test)\n")
+		if(isFilled)sb.append("Data was already generated.\n")
+		else sb.append("Data was not yet generated.\n")
+		return sb.toString()
+	} 
 
-	// Set locations of two modes, theta1 and theta2
-	val theta1 = DenseVector.rand(par.d)
-	val theta2 = DenseVector.rand(par.d)
+	def simulate() : Unit = {
 
-	//Randomly allocate observations to each class (0 or 1)
-	val z = DenseVector.rand(par.N).map(x=>2*x).map(x=>floor(x)).map(x=>(2*x)-1)
-	z_train = z(0 until par.N_train)
-	z_test = z(par.N_train until par.N)
+		// Set locations of two modes, theta1 and theta2
+		val theta1 = DenseVector.rand(par.d)
+		val theta2 = DenseVector.rand(par.d)
 
-	val mvn1 = breeze.stats.distributions.MultivariateGaussian(theta1, diag(DenseVector.fill(par.d){1.0}))
-	val mvn2 = breeze.stats.distributions.MultivariateGaussian(theta2, diag(DenseVector.fill(par.d){1.0}))
+		//Randomly allocate observations to each class (0 or 1)
+		val z = DenseVector.rand(par.N).map(x=>2*x).map(x=>floor(x)).map(x=>(2*x)-1)
+		z_train = z(0 until par.N_train)
+		z_test = z(par.N_train until par.N)
 
-	// Simulate each observation depending on the component its been allocated
-	// Create all inputs (predictors)
-	var x = DenseVector.zeros[Double](par.d) 
+		val mvn1 = breeze.stats.distributions.MultivariateGaussian(theta1, diag(DenseVector.fill(par.d){1.0}))
+		val mvn2 = breeze.stats.distributions.MultivariateGaussian(theta2, diag(DenseVector.fill(par.d){1.0}))
 
-	for(i <- 0 to (par.N - 1)){
-  		if ( z(i) == 0 ) {
-    			x = mvn1.sample()
-  		}else{
-    			x = mvn2.sample()
-  		}
+		// Simulate each observation depending on the component its been allocated
+		// Create all inputs (predictors)
+		var x = DenseVector.zeros[Double](par.d) 
+
+		for(i <- 0 to (par.N - 1)){
+  			if ( z(i) == 0 ) {
+    				x = mvn1.sample()
+  			}else{
+    				x = mvn2.sample()
+  			}
   
-		//Matrix assignment to row
-		if( i < par.N_train ){
-			X_train(i, ::) := DenseVector(x.toArray).t
-		}else{
-			X_test(i - par.N_train, ::) := DenseVector(x.toArray).t
+			//Matrix assignment to row
+			if( i < par.N_train ){
+				X_train(i, ::) := DenseVector(x.toArray).t
+			}else{
+				X_test(i - par.N_train, ::) := DenseVector(x.toArray).t
+			}
 		}
+		isFilled = true
 	}
-	isFilled = true
-}
-
 }

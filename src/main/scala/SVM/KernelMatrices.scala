@@ -9,24 +9,29 @@ import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.SparkContext
 
-class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc: SparkContext){
+class KernelMatrixFactory(val d: Data, val kf: KernelFunction, val epsilon: Double, val sc: SparkContext){
+
+private val K = initKernelMatrixTraining()
+private val S = initKernelMatrixTest()
 
 def getData() : Data = return d
+def getKernelMatrixTraining() : CoordinateMatrix = return K
+def getKernelMatrixTest() : CoordinateMatrix = return S
 
-def getKernelMatrixTraining() : CoordinateMatrix={
+def initKernelMatrixTraining() : Unit = {
 	assert( d.isValid() , "The input data is not defined!")
 	val listOfMatrixEntries =  for (i <- 0 until d.getN_train(); j <- 0 until d.getN_train(); value = kf.kernel(d.X_train(i,::).t, d.X_train(j,::).t); if (value > epsilon)) yield (new MatrixEntry(i, j, value))
 	// Create an RDD of matrix entries ignoring all matrix entries which are smaller than epsilon.
 	val entries: RDD[MatrixEntry] = sc.parallelize(listOfMatrixEntries)
-	return new CoordinateMatrix(entries, d.getN_train(), d.getN_train())
+	K = new CoordinateMatrix(entries, d.getN_train(), d.getN_train())
 }
 
-def getKernelMatrixTest() : CoordinateMatrix={
+def initKernelMatrixTest() : Unit = {
 	assert( d.isValid() , "The input data is not defined!")
         val listOfMatrixEntries =  for (i <- 0 until d.getN_train(); j <- 0 until d.getN_test(); value = kf.kernel(d.X_train(i,::).t, d.X_test(j,::).t); if (value > epsilon)) yield (new MatrixEntry(i, j, value))
         // Create an RDD of matrix entries ignoring all matrix entries which are smaller than epsilon.
         val entries: RDD[MatrixEntry] = sc.parallelize(listOfMatrixEntries)
-        return new CoordinateMatrix(entries, d.getN_train(), d.getN_test())
+        S = new CoordinateMatrix(entries, d.getN_train(), d.getN_test())
 }
 
 }

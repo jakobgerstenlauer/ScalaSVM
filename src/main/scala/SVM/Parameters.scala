@@ -28,7 +28,7 @@ case class ModelParams(val C: Double = 1.0, val lambda: Double = 0.1) extends Pa
   assert(lambda>=0.0)
   
   /**
-   * Define a learning rate delta. 
+   * Define a VARIABLE learning rate delta. 
    * Note that delta has to be smaller than 1/lambda for the algorithm to work!
    */
   var delta = 0.1/lambda 
