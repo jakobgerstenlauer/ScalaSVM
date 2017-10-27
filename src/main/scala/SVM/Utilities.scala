@@ -7,7 +7,8 @@ import breeze.linalg.operators
 import breeze.stats.distributions._
 
 class Data(val par: DataParams){
-	
+
+	var isFilled = false	
 	//empty data matrices for training and test set
         var X_train = DenseMatrix.zeros[Double](par.N_train, par.d)
         var X_test = DenseMatrix.zeros[Double](par.N_test, par.d)
@@ -18,7 +19,17 @@ class Data(val par: DataParams){
 
 	def getN_train() : Int = par.N_train
 	def getN_test()  : Int = par.N_test
-	def getd()  : Int = par.d
+	def getd() : Int = par.d
+
+def isValid() = isFilled
+override def toString : String = {
+	val sb = new StringBuilder
+	sb.append("Synthetic dataset with "+par.d+" variables.\n")
+	sb.append("Observations: "+ par.N_train +" (training), " + par.N_test+ "(test)\n")
+	if(isFilled)sb.append("Data was already generated.\n")
+	else sb.append("Data was not yet generated.\n")
+	return sb.toString()
+} 
 
 def simulate() : Unit = {
 
@@ -52,6 +63,7 @@ def simulate() : Unit = {
 			X_test(i - par.N_train, ::) := DenseVector(x.toArray).t
 		}
 	}
+	isFilled = true
 }
 
 }

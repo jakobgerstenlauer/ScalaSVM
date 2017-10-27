@@ -7,12 +7,13 @@ import breeze.linalg.NumericOps
 import breeze.linalg.operators
 
 abstract class KernelParameter{
-	def showParameters() : Unit
 }
-case class GaussianKernelParameter(gamma: Double) extends KernelParameter{
-	def showParameters() : Unit = {
-		println("The kernel parameter gamma is: "+gamma)
-	}
+
+case class GaussianKernelParameter(sigma: Double) extends KernelParameter{
+	override def toString() : String = {
+        	return "Gaussian kernel parameter sigma "+sigma+". \n"
+  	}  
+
 }
 
 abstract class KernelFunction{
@@ -24,11 +25,17 @@ abstract class KernelFunction{
 case class GaussianKernel(kernelParam : GaussianKernelParameter) extends KernelFunction{
 	def kernel(x: DenseVector[Double], y: DenseVector[Double]) : Double ={
 		 assert(x.length == y.length, "Incompatible vectors x and y in rbf() function!")
-  		 assert(kernelParam.gamma>0.0, "Gamma must be positive!")
+  		 assert(kernelParam.sigma>0.0, "Sigma must be positive!")
   		 val diff = x - y
 		 val squares = diff :* diff
   		 val squared_euclidean_distance = sum(squares)
-  		 return exp( -kernelParam.gamma * squared_euclidean_distance)
+  		 return exp( -kernelParam.sigma * squared_euclidean_distance)
 	}
+	override def toString() : String = {
+        	val sb = new StringBuilder
+        	sb.append("Gaussian kernel: \n")
+	        sb.append("sigma: "+kernelParam.sigma+"\n")
+	        return sb.toString()
+  	}  
 }
 
