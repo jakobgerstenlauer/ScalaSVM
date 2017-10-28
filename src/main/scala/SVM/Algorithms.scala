@@ -16,7 +16,7 @@ case class AllMatrixElementsZeroException(smth:String) extends Exception(smth)
 **/
 case class Alphas(val N: Int){
 	
-	var alpha: DenseVector[Double] = DenseVector.zeros[Double](N) 
+	var alpha: DenseVector[Double] = DenseVector.rand(N) 
 	var alpha_old: DenseVector[Double] = DenseVector.zeros[Double](N)
 
 	def getDelta():Double = sum(abs(alpha - alpha_old))
@@ -43,7 +43,7 @@ class SGD(var alphas: Alphas, val ap: AlgoParams, val mp: ModelParams, val kmf: 
 
 	val matOps : DistributedMatrixOps = new DistributedMatrixOps(sc)
 
-	def iterate(sc: SparkContext) : Unit = {
+	def iterate() : Unit = {
 
 		//Decrease the step size, i.e. learning rate:
 		mp.updateDelta(ap.learningRateDecline)
@@ -193,7 +193,7 @@ trait hasBagging extends Algorithm{
     		assert(epsilon > 0, "The value of epsilon must be positive!")
     		assert(a.length > 0, "The input vector with the alphas is empty!!!")
     		assert(m.rows > 0, "The dense matrix m must have at least 1 row!!!")
-    		assert(m.cols == a.length, "The number of columns of the matrix m must be equal to the length of alpha!!!")
+    		assert(m.cols == a.length, "The number of columns of the matrix m("+m.cols+") must be equal to the length of alpha("+a.length+")!!!")
   
     		def exceeds(x: Double, e: Double) : Boolean = {
       			val abs_x = abs(x)
