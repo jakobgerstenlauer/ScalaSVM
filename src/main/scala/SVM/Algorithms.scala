@@ -9,8 +9,16 @@ import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.SparkContext
 
-case class Alphas(var alpha: DenseVector[Double], var alpha_old: DenseVector[Double]){
-	assert(alpha.length == alpha_old.length)
+case class AllMatrixElementsZeroException(smth:String) extends Exception(smth)
+
+/**
+* N: The number of observations in the training set
+**/
+case class Alphas(val N: Int){
+	
+	var alpha: DenseVector[Double] = DenseVector.zeros[Double](N) 
+	var alpha_old: DenseVector[Double] = DenseVector.zeros[Double](N)
+
 	def getDelta():Double = sum(abs(alpha - alpha_old))
 	
 	def updateAlphaAsConjugateGradient() : Unit = {
@@ -31,7 +39,10 @@ abstract class Algorithm
 /**
 *Stochastic gradient descent algorithm
 **/
-class SGD(var alphas: Alphas, val ap: AlgoParams, val mp: ModelParams, val kmf: KernelMatrixFactory) extends Algorithm with hasMomentum with hasBagging with hasGradientDescent{
+class SGD(var alphas: Alphas, val ap: AlgoParams, val mp: ModelParams, val kmf: KernelMatrixFactory, sc: SparkContext) extends Algorithm with hasMomentum with hasBagging with hasGradientDescent with hasTestEvaluator{
+
+	val matOps : DistributedMatrixOps = new DistributedMatrixOps(sc)
+
 	def iterate(sc: SparkContext) : Unit = {
 
 		//Decrease the step size, i.e. learning rate:
@@ -44,29 +55,66 @@ class SGD(var alphas: Alphas, val ap: AlgoParams, val mp: ModelParams, val kmf: 
 		val Alpha = getDistributedAlphas(ap, alphas, kmf, sc)
 
 		//Update the alphas using gradient descent
-  		gradientDescent(Alpha, alphas, ap, mp, kmf)
+  		gradientDescent(Alpha, alphas, ap, mp, kmf, matOps)
+		
+		//Compute correct minus incorrect classifications on test set
+		val predictionQuality = evaluateOnTestSet(alphas, ap, kmf, matOps)
+		
+		val delta_alpha = alphas.getDelta()
+  		println("Prediction quality test: "+ predictionQuality + " delta alpha: " + delta_alpha)
 	}
 }
 
-class Norma(alphas: Alphas, ap:AlgoParams, mp:ModelParams, kmf:KernelMatrixFactory) 
-	extends SGD(alphas, ap, mp, kmf) 
+class Norma(alphas: Alphas, ap:AlgoParams, mp:ModelParams, kmf:KernelMatrixFactory, sc: SparkContext) 
+	extends SGD(alphas, ap, mp, kmf, sc) 
 
-class Silk(alphas: Alphas, ap:AlgoParams, mp:ModelParams, kmf:KernelMatrixFactory)
-	extends SGD(alphas, ap, mp, kmf) 
+class Silk(alphas: Alphas, ap:AlgoParams, mp:ModelParams, kmf:KernelMatrixFactory, sc: SparkContext)
+	extends SGD(alphas, ap, mp, kmf, sc) 
 
-case class AllMatrixElementsZeroException extends Exception
+trait hasTestEvaluator extends Algorithm{
+	/**
+	* Returns the number of correct predictions minus the nr of misclassifications for a test set.
+	*
+	* alphas: The alpha parameters.
+	* ap:     AlgoParams object storing parameters of the algorithm
+	* kmf:    KernelMatrixFactory that contains the distributed matrices for the data set
+	* matOps: A matrix operations object 
+	***/
+	def evaluateOnTestSet(alphas: Alphas, ap: AlgoParams, kmf: KernelMatrixFactory, matOps: DistributedMatrixOps) : Int = {
+
+		//Get the distributed kernel matrix for the test set:
+		val S = kmf.S
+		val Z = kmf.Z_test
+		val epsilon = max(ap.epsilon, min(alphas.alpha))
+		val A = matOps.distributeRowVector(alphas.alpha, epsilon)
+
+ 		assert(Z!=null && A!=null && S!=null, "One of the input matrices is undefined!")
+  		assert(A.numCols()>0, "The number of columns of A is zero.")
+  		assert(A.numRows()>0, "The number of rows of A is zero.")
+  		assert(S.numCols()>0, "The number of columns of S is zero.")
+  		assert(S.numRows()>0, "The number of rows of S is zero.")
+  		assert(A.numCols()==S.numRows(),"The number of columns of A does not equal the number of rows of S!")
+  		assert(S.numCols()==Z.numRows(),"The number of columns of S does not equal the number of rows of Z!")  
+
+		val P = matOps.coordinateMatrixMultiply(A, S)
+		val E = matOps.coordinateMatrixSignumAndMultiply(P, Z)
+
+		//This a matrix with only one entry which we retrieve with first():
+		return E.entries.map({ case MatrixEntry(i, j, v) => v }).first().toInt
+	}
+}
 
 trait hasGradientDescent extends Algorithm{
  	
-	def gradientDescent(Alpha: CoordinateMatrix, alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory) : Unit = {
+	def gradientDescent(Alpha: CoordinateMatrix, alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, matOps: DistributedMatrixOps) : Unit = {
 		
 		//Get the distributed kernel matrix for the training set:
-		val K = kmf.getKernelMatrixTraining()
+		val K = kmf.K
         	assert(Alpha.numCols()==K.numRows(),"The number of columns of Alpha does not equal the number of rows of K!")  
 		
 		//Calculate the predictions for all replicates (rows of Alpha) with different batches of observations. 
 		//Note that elements alpha_i are zero for all observations that are not part of a given batch.
-		val predictionsMatrix = coordinateMatrixMultiply(Alpha, K)
+		val predictionsMatrix = matOps.coordinateMatrixMultiply(Alpha, K)
   		
 		//Make sure, that there is at least one non-zero matrix element in the matrix:
 		val nonSparseElements = predictionsMatrix.entries.count()
@@ -75,7 +123,8 @@ trait hasGradientDescent extends Algorithm{
   		}  
 
 		//Calculate the vector of length batch replicates whose elements represent the nr of misclassifications: 
-  		val errorMatrix = coordinateMatrixSignumAndMultiply(predictionsMatrix, Z)
+  		val Z = kmf.Z
+		val errorMatrix = matOps.coordinateMatrixSignumAndMultiply(predictionsMatrix, Z)
 
   		//Find the index with the smallest error and use these alphas:
   		assert(errorMatrix.entries.count()>0,"No elements in errorMatrix!")
@@ -90,21 +139,29 @@ trait hasGradientDescent extends Algorithm{
 		val (precision, index) = sortedPrecisionMap.first()
 
 		//Retrieve the vector of alphas for this row index
-		val alphas_opt = getRow(Alpha, index.toInt)
-  
+		val alphas_opt = matOps.getRow(Alpha, index.toInt)
+  		val isInBatch = alphas_opt.map(x => if(x>0) 1 else 0) 
+
  		//Retrieve the vector of predictions for this row index
-		val prediction = getRow(predictionsMatrix, index.toInt)
- 
+		val prediction = matOps.getRow(predictionsMatrix, index.toInt)
+ 		
+		//Extract model parameters
+		val lambda = mp.lambda 
+		val delta = mp.delta
+		val C = mp.C
+		//Extract the labels for the training set
+		val z = kmf.getData().z_train
+		
 		val shrinking = 1 - lambda * delta  
 		val tau = (lambda * delta)/(1 + lambda * delta)
-		val shrinkedValues = shrinking * alpha_old
-		val deviance =  prediction *:* z
+		val shrinkedValues = shrinking * alphas.alpha_old
+		val deviance =  prediction :* z
   
 		//Compare the different update formulas for soft margin and hinge-loss in "Online Learning with Kernels", Kivinen, Smola, Williamson (2004)
 		//http://realm.sics.se/papers/KivSmoWil04(1).pdf
 		val term1 = (1.0 - tau) * deviance
 		val term2 = DenseVector.ones[Double](z.length) - term1
-		val alpha_hat = z *:* term2 
+		val alpha_hat = z :* term2 
 		val tuples_alpha_y = (alpha_hat.toArray.toList zip z.toArray.toList)
 		val threshold = (1.0 - tau) * C
 		val updated = tuples_alpha_y.map{ case (alpha_hat, y) => if (y * alpha_hat < 0.0 ) 0.0 else 
