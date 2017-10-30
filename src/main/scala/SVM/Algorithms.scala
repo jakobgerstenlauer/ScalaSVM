@@ -144,21 +144,12 @@ trait hasGradientDescent extends Algorithm{
 
 		//Retrieve the vector of alphas for this row index
 		val alphas_opt_optional = matOps.getRow(Alpha, index.toInt)
-		alphas_opt_optional match {
-			case Some(i) => printVector(i, max_index, "alpha_opt")
-			case None => throw new EmptyRowException("Row "+index.toInt+" of Alpha is empty!")
-		} 
-		//val alphas_opt = getOrElse(alphas_opt_optional, 
-		
+		val alphas_opt = getOrElse(alphas_opt_optional,throw new EmptyRowException("Row "+index.toInt+" of matrix Alpha is empty!")) 
   		val isInBatch = alphas_opt.map(x => if(x>0) 1 else 0) 
 
  		//Retrieve the vector of predictions for this row index
-		val prediction = matOps.getRow(predictionsMatrix, index.toInt)
-		prediction match {
-			case Some(i) => printVector(i, max_index, "predictions")
-			case None => throw new EmptyRowException("Row "+index.toInt+" of prediction is empty!")
-		} 
-
+		val prediction_optional = matOps.getRow(predictionsMatrix, index.toInt)
+		val prediction = getOrElse(prediction_optional, throw new EmptyRowException("Row "+index.toInt+" of the prediction matrix is empty!")) 
  		
 		//Extract model parameters
 		val lambda = mp.lambda 
