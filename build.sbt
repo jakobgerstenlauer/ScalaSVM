@@ -1,6 +1,7 @@
 name := "Dist_Online_SVM"
 scalaVersion := "2.11.8"
-val sparkVersion = "1.6.1"
+val sparkVersion = "2.2.0"
+//val sparkVersion = "1.6.1"
 version      := "0.1.0"
 
 libraryDependencies  ++= Seq(

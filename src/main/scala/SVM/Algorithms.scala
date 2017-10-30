@@ -29,6 +29,7 @@ case class Alphas(val N: Int){
                 if(alpha_old_norm > 0.000001){
                         momentum = dot_product / alpha_old_norm
                 }
+                println("momentum: "+momentum)
                 alpha = alpha + momentum * alpha_old
 		alpha_old = alpha
         }

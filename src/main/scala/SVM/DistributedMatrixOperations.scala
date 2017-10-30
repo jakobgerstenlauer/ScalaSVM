@@ -12,6 +12,20 @@ case class allAlphasZeroException(smth:String) extends Exception(smth)
 
 class DistributedMatrixOps(sc: SparkContext){
 
+/**
+* Prints all elementens of a CoordinateMatrix to the console.
+**/
+def print(m: CoordinateMatrix): Unit = {
+	m.entries.foreach(println)
+}
+
+/**
+* Prints the first row of a CoordinateMatrix to the console.
+**/
+def printFirstRow(m: CoordinateMatrix): Unit = {
+	m.entries.filter({case MatrixEntry(i,j,v) => if(i==0) true else false}).foreach(println)
+}
+
 //Source:
 //https://www.balabit.com/blog/scalable-sparse-matrix-multiplication-in-apache-spark/
 def coordinateMatrixMultiply(leftMatrix: CoordinateMatrix, rightMatrix: CoordinateMatrix): CoordinateMatrix = {

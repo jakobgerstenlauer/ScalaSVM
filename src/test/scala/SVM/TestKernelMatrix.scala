@@ -23,12 +23,10 @@ object testKernelMatrix extends App {
         d.simulate()
 	println(d)
 	val appName = "TestKernelMatrix"
-	//TODO Define name of master and start actual spark cluster.
-	val master = "master"
-	val conf = new SparkConf().setAppName(appName).setMaster(master)
+	val conf = new SparkConf().setAppName(appName).setMaster("spark://jakob-Lenovo-G50-80:7077")
 	val sparkContext = new SparkContext(conf)
 	val epsilon = 0.0001 
 	val fac = new KernelMatrixFactory(d, gaussianKernel, epsilon, sparkContext)
-	val K = fac.getKernelMatrixTraining()
-	val S = fac.getKernelMatrixTest()
+	val K = fac.K
+	val S = fac.S
 }
