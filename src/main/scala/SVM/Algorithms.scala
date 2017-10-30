@@ -10,17 +10,15 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.SparkContext
 
 case class AllMatrixElementsZeroException(smth:String) extends Exception(smth)
+case class EmptyRowException(smth:String) extends Exception(smth)
 
 /**
 * N: The number of observations in the training set
 **/
 case class Alphas(val N: Int){
-	
 	var alpha: DenseVector[Double] = DenseVector.rand(N) 
 	var alpha_old: DenseVector[Double] = DenseVector.zeros[Double](N)
-
 	def getDelta():Double = sum(abs(alpha - alpha_old))
-	
 	def updateAlphaAsConjugateGradient() : Unit = {
                 val diff = alpha - alpha_old
                 val dot_product = alpha.t * diff
@@ -106,6 +104,10 @@ trait hasTestEvaluator extends Algorithm{
 }
 
 trait hasGradientDescent extends Algorithm{
+
+	def printVector(vector: DenseVector[Double], max_index: Int, label: String) : Unit = {
+		println(label + " (1 to "+max_index+" ):"+ vector(0 until max_index))
+	}
  	
 	def gradientDescent(Alpha: CoordinateMatrix, alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, matOps: DistributedMatrixOps) : Unit = {
 		
@@ -138,13 +140,25 @@ trait hasGradientDescent extends Algorithm{
 		val sortedPrecisionMap = precision_index_map.sortByKey(ascending=false)
 		assert(sortedPrecisionMap.count()>0,"No elements in sortedPrecisionMap!")
 		val (precision, index) = sortedPrecisionMap.first()
+		val max_index = max(10, kmf.getData().getd())
 
 		//Retrieve the vector of alphas for this row index
-		val alphas_opt = matOps.getRow(Alpha, index.toInt)
+		val alphas_opt_optional = matOps.getRow(Alpha, index.toInt)
+		alphas_opt_optional match {
+			case Some(i) => printVector(i, max_index, "alpha_opt")
+			case None => throw new EmptyRowException("Row "+index.toInt+" of Alpha is empty!")
+		} 
+		//val alphas_opt = getOrElse(alphas_opt_optional, 
+		
   		val isInBatch = alphas_opt.map(x => if(x>0) 1 else 0) 
 
  		//Retrieve the vector of predictions for this row index
 		val prediction = matOps.getRow(predictionsMatrix, index.toInt)
+		prediction match {
+			case Some(i) => printVector(i, max_index, "predictions")
+			case None => throw new EmptyRowException("Row "+index.toInt+" of prediction is empty!")
+		} 
+
  		
 		//Extract model parameters
 		val lambda = mp.lambda 
@@ -190,21 +204,22 @@ trait hasBagging extends Algorithm{
 		return DenseMatrix.rand(ap.numBaggingReplicates, kmf.getData().getN_train()).map(x=>if(x < ap.batchProb) 1.0 else 0.0)
 	}
 
+  
+    	private	def exceeds(x: Double, e: Double) : Boolean = {
+      		val abs_x = abs(x)
+      		return abs_x > e      
+    	}
+
 	private def createStochasticGradientMatrix(a: DenseVector[Double], m: DenseMatrix[Double], epsilon: Double, sc: SparkContext) : CoordinateMatrix = {
     		assert(epsilon > 0, "The value of epsilon must be positive!")
     		assert(a.length > 0, "The input vector with the alphas is empty!!!")
     		assert(m.rows > 0, "The dense matrix m must have at least 1 row!!!")
     		assert(m.cols == a.length, "The number of columns of the matrix m("+m.cols+") must be equal to the length of alpha("+a.length+")!!!")
-  
-    		def exceeds(x: Double, e: Double) : Boolean = {
-      			val abs_x = abs(x)
-      			return abs_x > e      
-    		}
 
     		val listOfMatrixEntries =  for (i <- 0 until m.rows; j <- 0 until a.length) yield (new MatrixEntry(i, j, m(i,j) * a(j)))
     		// Create an RDD of matrix entries ignoring all matrix entries which are smaller than epsilon.
     		val entries: RDD[MatrixEntry] = sc.parallelize(listOfMatrixEntries.filter(x => exceeds(x.value,epsilon)))
-    		//entries.collect().map({ case MatrixEntry(row, column, value) => println("row: "+row+" column: "+column+" value: "+value)})
+    		entries.collect().map({ case MatrixEntry(row, column, value) => println("row: "+row+" column: "+column+" value: "+value)})
  
     		if(entries.count()==0){
       			throw new allAlphasZeroException("All values of the distributed matrix are zero!")

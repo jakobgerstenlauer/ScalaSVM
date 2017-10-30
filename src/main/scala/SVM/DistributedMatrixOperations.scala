@@ -26,6 +26,13 @@ def printFirstRow(m: CoordinateMatrix): Unit = {
 	m.entries.filter({case MatrixEntry(i,j,v) => if(i==0) true else false}).foreach(println)
 }
 
+/**
+* Prints the nth row (starting with 0) of a CoordinateMatrix to the console.
+**/
+def printRow(m: CoordinateMatrix, row: Int): Unit = {
+	m.entries.map({case MatrixEntry(i,j,v) => if(i==row) println("col:"+j+":"+v)})
+}
+
 //Source:
 //https://www.balabit.com/blog/scalable-sparse-matrix-multiplication-in-apache-spark/
 def coordinateMatrixMultiply(leftMatrix: CoordinateMatrix, rightMatrix: CoordinateMatrix): CoordinateMatrix = {
@@ -126,36 +133,16 @@ def distributeTranspose(a: DenseVector[Double]) : CoordinateMatrix={
     return new CoordinateMatrix(entriesTest, a.length.toLong, 1)
 }
 
-def getRow(m: CoordinateMatrix, rowIndex: Int): DenseVector[Double]={
-  assert(m!= null, "The input matrix is not defined!")
-  assert(m.numRows()-1>=rowIndex, "The row index is higher than the number of rows of the input matrix!")
-  assert(rowIndex>=0, "The row index must be positive!")
-  val values = m.toIndexedRowMatrix.rows.filter(_.index == rowIndex).map(x => x.vector.toArray).collect()
-  return new DenseVector(values(0))
-}
-
-def createStochasticGradientMatrix(a: DenseVector[Double], m: DenseMatrix[Double], epsilon: Double) : CoordinateMatrix={
-    assert(epsilon > 0, "The value of epsilon must be positive!")
-    assert(a.length > 0, "The input vector with the alphas is empty!!!")
-    assert(m.rows > 0, "The dense matrix m must have at least 1 row!!!")
-    assert(m.cols == a.length, "The number of columns of the matrix m must be equal to the length of alpha!!!")
-  
-    def exceeds(x: Double, e: Double) : Boolean = {
-      val abs_x = abs(x)
-      return abs_x > e      
+def getRow(m: CoordinateMatrix, rowIndex: Int): Option[DenseVector[Double]]={
+    assert(m!= null, "The input matrix is not defined!")
+    assert(m.numRows()-1>=rowIndex, "The row index is higher than the number of rows of the input matrix!")
+    assert(rowIndex>=0, "The row index must be positive!")
+    val values = m.toIndexedRowMatrix.rows.filter(_.index == rowIndex).map(x => x.vector.toArray).collect()
+    try{	
+	Some(new DenseVector(values(0)))
+    } catch {
+	case e: Exception => None
     }
-
-    val listOfMatrixEntries =  for (i <- 0 until m.rows; j <- 0 until a.length) yield (new MatrixEntry(i, j, m(i,j) * a(j)))
-    // Create an RDD of matrix entries ignoring all matrix entries which are smaller than epsilon.
-    val entries: RDD[MatrixEntry] = sc.parallelize(listOfMatrixEntries.filter(x => exceeds(x.value,epsilon)))
-    //entries.collect().map({ case MatrixEntry(row, column, value) => println("row: "+row+" column: "+column+" value: "+value)})
- 
-    if(entries.count()==0){
-      throw new allAlphasZeroException("All values of the distributed matrix are zero!")
-    }  
-  
-    // Create a distributed CoordinateMatrix from an RDD[MatrixEntry].
-    return new CoordinateMatrix(entries, m.rows, a.length.toLong)
 }
 
 }
