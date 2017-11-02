@@ -18,11 +18,12 @@ case class EmptyRowException(smth:String) extends Exception(smth)
 case class Alphas(val N: Int){
 	var alpha: DenseVector[Double] = DenseVector.rand(N) 
 	var alpha_old: DenseVector[Double] = DenseVector.zeros[Double](N)
+	var momentum: Double = 0
 	def getDelta():Double = sum(abs(alpha - alpha_old))
 	def updateAlphaAsConjugateGradient() : Unit = {
                 val diff = alpha - alpha_old
                 val dot_product = alpha.t * diff
-                var momentum = 0.0
+                momentum = 0.0
                 val alpha_old_norm = sqrt(alpha_old.map(x => pow(x,2)).reduce(_ + _))
                 if(alpha_old_norm > 0.000001){
                         momentum = dot_product / alpha_old_norm
