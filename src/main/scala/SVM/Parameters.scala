@@ -22,7 +22,7 @@ case class AlgoParams(val maxIter: Int = 30, val minDeltaAlpha: Double = 0.001, 
  * C: The parameter C of the C-SVM model.
  * lambda: The regularization parameter.
  */
-case class ModelParams(val C: Double = 1.0, val lambda: Double = 0.1) extends Parameters {
+case class ModelParams(val C: Double = 1.0, val lambda: Double = 0.1, var delta: Double = 0.5) extends Parameters {
  
   assert(C>0)
   assert(lambda>=0.0)
@@ -31,7 +31,7 @@ case class ModelParams(val C: Double = 1.0, val lambda: Double = 0.1) extends Pa
    * Define a VARIABLE learning rate delta. 
    * Note that delta has to be smaller than 1/lambda for the algorithm to work!
    */
-  var delta = 0.1/lambda 
+  if(delta => 1/lambda) delta = 0.99 * (1/lambda) 
 
   def updateDelta(learningRateDecline: Double):Unit={
 	delta = delta * learningRateDecline

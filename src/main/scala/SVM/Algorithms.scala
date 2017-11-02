@@ -135,6 +135,7 @@ trait hasGradientDescent extends Algorithm{
   		//value: row idex  
 		val precision_index_map = errorMatrix.entries.map({ case MatrixEntry(row, column, value) => (value,row) })
 		assert(precision_index_map.count()>0,"No elements in precision_index_map!")
+		
 		//Sort the map according to the accuracy of the given coefficients alpha and get the first precision index pair:
   		//Compare: http://spark.apache.org/docs/latest/rdd-programming-guide.html#rdd-operations
 		val sortedPrecisionMap = precision_index_map.sortByKey(ascending=false)
@@ -210,7 +211,7 @@ trait hasBagging extends Algorithm{
     		val listOfMatrixEntries =  for (i <- 0 until m.rows; j <- 0 until a.length) yield (new MatrixEntry(i, j, m(i,j) * a(j)))
     		// Create an RDD of matrix entries ignoring all matrix entries which are smaller than epsilon.
     		val entries: RDD[MatrixEntry] = sc.parallelize(listOfMatrixEntries.filter(x => exceeds(x.value,epsilon)))
-    		entries.collect().map({ case MatrixEntry(row, column, value) => println("row: "+row+" column: "+column+" value: "+value)})
+    		//entries.collect().map({ case MatrixEntry(row, column, value) => println("row: "+row+" column: "+column+" value: "+value)})
  
     		if(entries.count()==0){
       			throw new allAlphasZeroException("All values of the distributed matrix are zero!")
