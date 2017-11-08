@@ -30,6 +30,8 @@ case class Alphas(val N: Int){
                 }
                 println("momentum: "+momentum)
                 alpha = alpha + momentum * alpha_old
+                val alpha_norm = sqrt(alpha.map(x => pow(x,2)).reduce(_ + _))
+		alpha = alpha / alpha_norm
 		alpha_old = alpha
         }
 }
