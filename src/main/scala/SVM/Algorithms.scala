@@ -192,7 +192,7 @@ trait hasBagging extends Algorithm{
 
 	def getDistributedAlphas(ap: AlgoParams, alphas: Alphas, kmf: KernelMatrixFactory, sc: SparkContext) : CoordinateMatrix = {
 		val batchMatrix = getBatchMatrix(ap, kmf)
-		return createStochasticGradientMatrix(alphas.alpha, batchMatrix, ap.epsilon, sc)
+		return createStochasticGradientMatrix(alphas, batchMatrix, ap.epsilon, sc)
 	}
 
 	private def getBatchMatrix(ap: AlgoParams, kmf: KernelMatrixFactory) : DenseMatrix[Double] = {
@@ -205,13 +205,17 @@ trait hasBagging extends Algorithm{
       		return abs_x > e      
     	}
 
-	private def createStochasticGradientMatrix(a: DenseVector[Double], m: DenseMatrix[Double], epsilon: Double, sc: SparkContext) : CoordinateMatrix = {
-    		assert(epsilon > 0, "The value of epsilon must be positive!")
+	private def createStochasticGradientMatrix(alphas: Alphas, m: DenseMatrix[Double], epsilon: Double, sc: SparkContext) : CoordinateMatrix = {
+    		
+		val a = alphas.alpha
+		val a_old = alphas.alpha_old
+		assert(epsilon > 0, "The value of epsilon must be positive!")
     		assert(a.length > 0, "The input vector with the alphas is empty!!!")
     		assert(m.rows > 0, "The dense matrix m must have at least 1 row!!!")
     		assert(m.cols == a.length, "The number of columns of the matrix m("+m.cols+") must be equal to the length of alpha("+a.length+")!!!")
 
-    		val listOfMatrixEntries =  for (i <- 0 until m.rows; j <- 0 until a.length) yield (new MatrixEntry(i, j, m(i,j) * a(j)))
+		//If entry i,j of the matrix m is 1 we set element i,j of A to a else a_old:
+    		val listOfMatrixEntries =  for (i <- 0 until m.rows; j <- 0 until a.length) yield (new MatrixEntry(i, j, m(i,j)*a(j)+(1-m(i,j))*a_old(j)))
     		// Create an RDD of matrix entries ignoring all matrix entries which are smaller than epsilon.
     		val entries: RDD[MatrixEntry] = sc.parallelize(listOfMatrixEntries.filter(x => exceeds(x.value,epsilon)))
     		//entries.collect().map({ case MatrixEntry(row, column, value) => println("row: "+row+" column: "+column+" value: "+value)})
