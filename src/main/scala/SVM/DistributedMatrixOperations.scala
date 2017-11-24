@@ -13,7 +13,7 @@ case class allAlphasZeroException(smth:String) extends Exception(smth)
 class DistributedMatrixOps(sc: SparkContext){
 
 /**
-* Prints all elementens of a CoordinateMatrix to the console.
+* Prints all elements of a CoordinateMatrix to the console.
 **/
 def print(m: CoordinateMatrix): Unit = {
 	m.entries.foreach(println)

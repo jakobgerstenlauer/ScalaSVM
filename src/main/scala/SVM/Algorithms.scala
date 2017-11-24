@@ -16,7 +16,7 @@ case class EmptyRowException(smth:String) extends Exception(smth)
 * N: The number of observations in the training set
 **/
 case class Alphas(val N: Int){
-	var alpha: DenseVector[Double] = DenseVector.rand(N) 
+	var alpha: DenseVector[Double] = DenseVector.ones[Double](N) - DenseVector.rand(N) 
 	var alpha_old: DenseVector[Double] = DenseVector.zeros[Double](N)
 	var momentum: Double = 0
 	def getDelta():Double = sum(abs(alpha - alpha_old))
@@ -128,7 +128,9 @@ trait hasGradientDescent extends Algorithm{
     			throw new allAlphasZeroException("All values of alpha are zero!")
   		}  
 
-		//Calculate the vector of length batch replicates whose elements represent the nr of misclassifications: 
+                predictionsMatrix.entries.collect().map({ case MatrixEntry(row, column, value) => (row,value)}).groupBy(_._1).mapValues(_.unzip._2.sum).map(println)
+		
+                //Calculate the vector of length batch replicates whose elements represent the nr of misclassifications: 
   		val Z = kmf.Z
 		val errorMatrix = matOps.coordinateMatrixSignumAndMultiply(predictionsMatrix, Z)
 
