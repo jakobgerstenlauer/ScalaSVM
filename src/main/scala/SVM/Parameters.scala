@@ -33,8 +33,8 @@ case class ModelParams(C: Double = 1.0, lambda: Double = 0.1, delta: Double = 0.
    */
   assert(delta >= 1/lambda) 
 
-  def updateDelta(learningRateDecline: Double): ModelParams = {
-	copy(delta = delta * learningRateDecline)
+  def updateDelta(ap: AlgoParams): ModelParams = {
+	copy(delta = delta * ap.learningRateDecline)
   }
 
   override def toString : String = {

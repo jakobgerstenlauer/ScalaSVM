@@ -16,29 +16,34 @@ case class EmptyRowException(smth:String) extends Exception(smth)
 * N: The number of observations in the training set
 **/
 case class Alphas(N: Int, 
-  alpha: DenseVector[Double] = DenseVector.ones[Double](N) - DenseVector.rand(N),
-  alphaOld: DenseVector[Double] = DenseVector.zeros[Double](N)
-  ){
-	def getDelta() : Double = sum(abs(alpha - alphaOld))
-	
-        def updateAlphaAsConjugateGradient() : Alphas = {
-                val diff = alpha - alphaOld
-                val dotProduct = alpha.t * diff
-                val alphaOldNorm = sqrt(alphaOld.map(x => pow(x,2)).reduce(_ + _))
-                if(alphaOldNorm > 0.000001){
-                    val momentum = dotProduct / alphaOldNorm
-                    val alphaUpdated = alpha + momentum * alphaOld
-                    val alphaUpdatedNorm = sqrt(alphaUpdated.map(x => pow(x,2)).reduce(_ + _))
-                    //Return a copy of this object with alpha updated according to the
-                    //Polak-Ribiere conjugate gradient formula.
-                    //Compare: https://en.wikipedia.org/wiki/Conjugate_gradient_method
-		    copy(alpha = alphaUpdated / alphaUpdatedNorm, alphaOld = alpha)
-                }else{
-                    //If the norm of alpha in the previous step is below a threshold,
-                    //return a copy of this object without any changes.
-                    copy()
-                }
-        }
+  alpha: DenseVector[Double],
+  alphaOld: DenseVector[Double]){
+
+  //Secondary constructor with random default values for the alphas  
+  def this(N: Int) {
+    this(N, DenseVector.ones[Double](N) - DenseVector.rand(N), DenseVector.ones[Double](N) - DenseVector.rand(N))
+  }
+
+  def getDelta() : Double = sum(abs(alpha - alphaOld))
+      
+  def updateAlphaAsConjugateGradient() : Alphas = {
+          val diff = alpha - alphaOld
+          val dotProduct = alpha.t * diff
+          val alphaOldNorm = sqrt(alphaOld.map(x => pow(x,2)).reduce(_ + _))
+          if(alphaOldNorm > 0.000001){
+              val momentum = dotProduct / alphaOldNorm
+              val alphaUpdated = alpha + momentum * alphaOld
+              val alphaUpdatedNorm = sqrt(alphaUpdated.map(x => pow(x,2)).reduce(_ + _))
+              //Return a copy of this object with alpha updated according to the
+              //Polak-Ribiere conjugate gradient formula.
+              //Compare: https://en.wikipedia.org/wiki/Conjugate_gradient_method
+              copy(alpha = alphaUpdated / alphaUpdatedNorm, alphaOld = alpha)
+          }else{
+              //If the norm of alpha in the previous step is below a threshold,
+              //return a copy of this object without any changes.
+              copy()
+          }
+  }
 }
 
 abstract class Algorithm
@@ -46,79 +51,27 @@ abstract class Algorithm
 /**
 *Stochastic gradient descent algorithm
 **/
-case class SGD(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, sc: SparkContext) extends Algorithm with hasMomentum with hasBagging with hasGradientDescent with hasTestEvaluator{
+case class SGD(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, sc: SparkContext) extends Algorithm with hasBagging with hasTestEvaluator{
 
 	val matOps : DistributedMatrixOps = new DistributedMatrixOps(sc)
 
 	def iterate() : SGD = {
 
 		//Decrease the step size, i.e. learning rate:
-		val ump = mp.updateDelta(ap.learningRateDecline)
-
-		//Calculate the conjugate gradient
-		val updatedAlphas = updateConjugateGradient(alphas)			
+		val ump = mp.updateDelta(ap)
 
 		//Create a random sample of alphas and store it in a distributed matrix Alpha:
-		val Alpha = getDistributedAlphas(ap, updatedAlphas, kmf, sc)
+		val Alpha = getDistributedAlphas(ap, alphas, kmf, sc)
 
 		//Update the alphas using gradient descent
-  		val algo = gradientDescent(Alpha, updatedAlphas, ap, ump, kmf, matOps)
+  		val algo = gradientDescent(Alpha, alphas, ap, ump, kmf, matOps)
 		
 		//Compute correct minus incorrect classifications on test set
-		val predictionQuality = evaluateOnTestSet(updatedAlphas, ap, kmf, matOps)
-		
-		val delta_alpha = updatedAlphas.getDelta()
-  		println("Prediction quality test: "+ predictionQuality + " delta alpha: " + delta_alpha)
-	        
+		val predictionQuality = evaluateOnTestSet(alphas, ap, kmf, matOps)
+  		println("Prediction quality test: "+ predictionQuality + " delta alpha: " + alphas.getDelta())
                 algo
         }
-}
 
-class Norma(alphas: Alphas, ap:AlgoParams, mp:ModelParams, kmf:KernelMatrixFactory, sc: SparkContext) 
-	extends SGD(alphas, ap, mp, kmf, sc) 
-
-class Silk(alphas: Alphas, ap:AlgoParams, mp:ModelParams, kmf:KernelMatrixFactory, sc: SparkContext)
-	extends SGD(alphas, ap, mp, kmf, sc) 
-
-trait hasTestEvaluator extends Algorithm{
-	/**
-	* Returns the number of correct predictions minus the nr of misclassifications for a test set.
-	*
-	* alphas: The alpha parameters.
-	* ap:     AlgoParams object storing parameters of the algorithm
-	* kmf:    KernelMatrixFactory that contains the distributed matrices for the data set
-	* matOps: A matrix operations object 
-	***/
-	def evaluateOnTestSet(alphas: Alphas, ap: AlgoParams, kmf: KernelMatrixFactory, matOps: DistributedMatrixOps) : Int = {
-
-		//Get the distributed kernel matrix for the test set:
-		val S = kmf.S
-		val Z = kmf.Z_test
-		val epsilon = max(ap.epsilon, min(alphas.alpha))
-		val A = matOps.distributeRowVector(alphas.alpha, epsilon)
-
- 		assert(Z!=null && A!=null && S!=null, "One of the input matrices is undefined!")
-  		assert(A.numCols()>0, "The number of columns of A is zero.")
-  		assert(A.numRows()>0, "The number of rows of A is zero.")
-  		assert(S.numCols()>0, "The number of columns of S is zero.")
-  		assert(S.numRows()>0, "The number of rows of S is zero.")
-  		assert(A.numCols()==S.numRows(),"The number of columns of A does not equal the number of rows of S!")
-  		assert(S.numCols()==Z.numRows(),"The number of columns of S does not equal the number of rows of Z!")  
-
-		val P = matOps.coordinateMatrixMultiply(A, S)
-		val E = matOps.coordinateMatrixSignumAndMultiply(P, Z)
-
-		//This a matrix with only one entry which we retrieve with first():
-		return E.entries.map({ case MatrixEntry(i, j, v) => v }).first().toInt
-	}
-}
-
-trait hasGradientDescent extends Algorithm{
-
-	def printVector(vector: DenseVector[Double], max_index: Int, label: String) : Unit = {
-		println(label + " (1 to "+max_index+" ):"+ vector(0 until max_index))
-	}
- 	
 	def gradientDescent(Alpha: CoordinateMatrix, alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, matOps: DistributedMatrixOps) : SGD = {
 		
 		//Get the distributed kernel matrix for the training set:
@@ -187,15 +140,47 @@ trait hasGradientDescent extends Algorithm{
                                                    if(y * alpha_hat > threshold) y * threshold else alpha_hat}.toArray
 		val tuples = (isInBatch.toArray.toList zip shrinkedValues.toArray.toList zip updated.toList) map { case ((a,b),c) => (a,b,c)}
 		val new_alphas = new DenseVector(tuples.map{ case (isInBatch, shrinkedValues, updated) => if (isInBatch == 1) updated else shrinkedValues}.toArray)
-                val new_Alpha = Alphas.copy(alpha=new_alphas).updateAlphaAsConjugateGradient()
-                SGD()
+                val new_Alpha = alphas.copy(alpha=new_alphas).updateAlphaAsConjugateGradient()
+                copy(alphas= new_Alpha)
 	}
 }
 
-trait hasMomentum extends Algorithm{
-    	//Updates the momentum according to the method of Polak-Ribiere
-	def updateConjugateGradient(alphas: Alphas) : Alphas = {
-		alphas.updateAlphaAsConjugateGradient()
+class Norma(alphas: Alphas, ap:AlgoParams, mp:ModelParams, kmf:KernelMatrixFactory, sc: SparkContext) 
+	extends SGD(alphas, ap, mp, kmf, sc) 
+
+class Silk(alphas: Alphas, ap:AlgoParams, mp:ModelParams, kmf:KernelMatrixFactory, sc: SparkContext)
+	extends SGD(alphas, ap, mp, kmf, sc) 
+
+trait hasTestEvaluator extends Algorithm{
+	/**
+	* Returns the number of correct predictions minus the nr of misclassifications for a test set.
+	*
+	* alphas: The alpha parameters.
+	* ap:     AlgoParams object storing parameters of the algorithm
+	* kmf:    KernelMatrixFactory that contains the distributed matrices for the data set
+	* matOps: A matrix operations object 
+	***/
+	def evaluateOnTestSet(alphas: Alphas, ap: AlgoParams, kmf: KernelMatrixFactory, matOps: DistributedMatrixOps) : Int = {
+
+		//Get the distributed kernel matrix for the test set:
+		val S = kmf.S
+		val Z = kmf.Z_test
+		val epsilon = max(ap.epsilon, min(alphas.alpha))
+		val A = matOps.distributeRowVector(alphas.alpha, epsilon)
+
+ 		assert(Z!=null && A!=null && S!=null, "One of the input matrices is undefined!")
+  		assert(A.numCols()>0, "The number of columns of A is zero.")
+  		assert(A.numRows()>0, "The number of rows of A is zero.")
+  		assert(S.numCols()>0, "The number of columns of S is zero.")
+  		assert(S.numRows()>0, "The number of rows of S is zero.")
+  		assert(A.numCols()==S.numRows(),"The number of columns of A does not equal the number of rows of S!")
+  		assert(S.numCols()==Z.numRows(),"The number of columns of S does not equal the number of rows of Z!")  
+
+		val P = matOps.coordinateMatrixMultiply(A, S)
+		val E = matOps.coordinateMatrixSignumAndMultiply(P, Z)
+
+		//This a matrix with only one entry which we retrieve with first():
+		return E.entries.map({ case MatrixEntry(i, j, v) => v }).first().toInt
 	}
 }
 
@@ -219,7 +204,7 @@ trait hasBagging extends Algorithm{
 	private def createStochasticGradientMatrix(alphas: Alphas, m: DenseMatrix[Double], epsilon: Double, sc: SparkContext) : CoordinateMatrix = {
     		
 		val a = alphas.alpha
-		val a_old = alphas.alpha_old
+		val a_old = alphas.alphaOld
 		assert(epsilon > 0, "The value of epsilon must be positive!")
     		assert(a.length > 0, "The input vector with the alphas is empty!!!")
     		assert(m.rows > 0, "The dense matrix m must have at least 1 row!!!")
