@@ -15,24 +15,29 @@ case class EmptyRowException(smth:String) extends Exception(smth)
 /**
 * N: The number of observations in the training set
 **/
-case class Alphas(val N: Int){
-	var alpha: DenseVector[Double] = DenseVector.ones[Double](N) - DenseVector.rand(N) 
-	var alpha_old: DenseVector[Double] = DenseVector.zeros[Double](N)
-	var momentum: Double = 0
-	def getDelta():Double = sum(abs(alpha - alpha_old))
-	def updateAlphaAsConjugateGradient() : Unit = {
-                val diff = alpha - alpha_old
-                val dot_product = alpha.t * diff
-                momentum = 0.0
-                val alpha_old_norm = sqrt(alpha_old.map(x => pow(x,2)).reduce(_ + _))
-                if(alpha_old_norm > 0.000001){
-                        momentum = dot_product / alpha_old_norm
+case class Alphas(N: Int, 
+  alpha: DenseVector[Double] = DenseVector.ones[Double](N) - DenseVector.rand(N),
+  alphaOld: DenseVector[Double] = DenseVector.zeros[Double](N)
+  ){
+	def getDelta() : Double = sum(abs(alpha - alphaOld))
+	
+        def updateAlphaAsConjugateGradient() : Alphas = {
+                val diff = alpha - alphaOld
+                val dotProduct = alpha.t * diff
+                val alphaOldNorm = sqrt(alphaOld.map(x => pow(x,2)).reduce(_ + _))
+                if(alphaOldNorm > 0.000001){
+                    val momentum = dotProduct / alphaOldNorm
+                    val alphaUpdated = alpha + momentum * alphaOld
+                    val alphaUpdatedNorm = sqrt(alphaUpdated.map(x => pow(x,2)).reduce(_ + _))
+                    //Return a copy of this object with alpha updated according to the
+                    //Polak-Ribiere conjugate gradient formula.
+                    //Compare: https://en.wikipedia.org/wiki/Conjugate_gradient_method
+		    copy(alpha = alphaUpdated / alphaUpdatedNorm, alphaOld = alpha)
+                }else{
+                    //If the norm of alpha in the previous step is below a threshold,
+                    //return a copy of this object without any changes.
+                    copy()
                 }
-                println("momentum: "+momentum)
-                alpha = alpha + momentum * alpha_old
-                val alpha_norm = sqrt(alpha.map(x => pow(x,2)).reduce(_ + _))
-		alpha = alpha / alpha_norm
-		alpha_old = alpha
         }
 }
 
@@ -41,30 +46,32 @@ abstract class Algorithm
 /**
 *Stochastic gradient descent algorithm
 **/
-class SGD(var alphas: Alphas, val ap: AlgoParams, val mp: ModelParams, val kmf: KernelMatrixFactory, sc: SparkContext) extends Algorithm with hasMomentum with hasBagging with hasGradientDescent with hasTestEvaluator{
+case class SGD(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, sc: SparkContext) extends Algorithm with hasMomentum with hasBagging with hasGradientDescent with hasTestEvaluator{
 
 	val matOps : DistributedMatrixOps = new DistributedMatrixOps(sc)
 
-	def iterate() : Unit = {
+	def iterate() : SGD = {
 
 		//Decrease the step size, i.e. learning rate:
-		mp.updateDelta(ap.learningRateDecline)
+		val ump = mp.updateDelta(ap.learningRateDecline)
 
 		//Calculate the conjugate gradient
-		updateConjugateGradient(alphas)			
+		val updatedAlphas = updateConjugateGradient(alphas)			
 
 		//Create a random sample of alphas and store it in a distributed matrix Alpha:
-		val Alpha = getDistributedAlphas(ap, alphas, kmf, sc)
+		val Alpha = getDistributedAlphas(ap, updatedAlphas, kmf, sc)
 
 		//Update the alphas using gradient descent
-  		gradientDescent(Alpha, alphas, ap, mp, kmf, matOps)
+  		val algo = gradientDescent(Alpha, updatedAlphas, ap, ump, kmf, matOps)
 		
 		//Compute correct minus incorrect classifications on test set
-		val predictionQuality = evaluateOnTestSet(alphas, ap, kmf, matOps)
+		val predictionQuality = evaluateOnTestSet(updatedAlphas, ap, kmf, matOps)
 		
-		val delta_alpha = alphas.getDelta()
+		val delta_alpha = updatedAlphas.getDelta()
   		println("Prediction quality test: "+ predictionQuality + " delta alpha: " + delta_alpha)
-	}
+	        
+                algo
+        }
 }
 
 class Norma(alphas: Alphas, ap:AlgoParams, mp:ModelParams, kmf:KernelMatrixFactory, sc: SparkContext) 
@@ -112,7 +119,7 @@ trait hasGradientDescent extends Algorithm{
 		println(label + " (1 to "+max_index+" ):"+ vector(0 until max_index))
 	}
  	
-	def gradientDescent(Alpha: CoordinateMatrix, alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, matOps: DistributedMatrixOps) : Unit = {
+	def gradientDescent(Alpha: CoordinateMatrix, alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, matOps: DistributedMatrixOps) : SGD = {
 		
 		//Get the distributed kernel matrix for the training set:
 		val K = kmf.K
@@ -128,7 +135,7 @@ trait hasGradientDescent extends Algorithm{
     			throw new allAlphasZeroException("All values of alpha are zero!")
   		}  
 
-                predictionsMatrix.entries.collect().map({ case MatrixEntry(row, column, value) => (row,value)}).groupBy(_._1).mapValues(_.unzip._2.sum).map(println)
+                //predictionsMatrix.entries.collect().map({ case MatrixEntry(row, column, value) => (row,value)}).groupBy(_._1).mapValues(_.unzip._2.sum).map(println)
 		
                 //Calculate the vector of length batch replicates whose elements represent the nr of misclassifications: 
   		val Z = kmf.Z
@@ -166,7 +173,7 @@ trait hasGradientDescent extends Algorithm{
 		
 		val shrinking = 1 - lambda * delta  
 		val tau = (lambda * delta)/(1 + lambda * delta)
-		val shrinkedValues = shrinking * alphas.alpha_old
+		val shrinkedValues = shrinking * alphas.alphaOld
 		val deviance =  prediction :* z
   
 		//Compare the different update formulas for soft margin and hinge-loss in "Online Learning with Kernels", Kivinen, Smola, Williamson (2004)
@@ -179,13 +186,15 @@ trait hasGradientDescent extends Algorithm{
 		val updated = tuples_alpha_y.map{ case (alpha_hat, y) => if (y * alpha_hat < 0.0 ) 0.0 else 
                                                    if(y * alpha_hat > threshold) y * threshold else alpha_hat}.toArray
 		val tuples = (isInBatch.toArray.toList zip shrinkedValues.toArray.toList zip updated.toList) map { case ((a,b),c) => (a,b,c)}
-		alphas.alpha = new DenseVector(tuples.map{ case (isInBatch, shrinkedValues, updated) => if (isInBatch == 1) updated else shrinkedValues}.toArray)
+		val new_alphas = new DenseVector(tuples.map{ case (isInBatch, shrinkedValues, updated) => if (isInBatch == 1) updated else shrinkedValues}.toArray)
+                val new_Alpha = Alphas.copy(alpha=new_alphas).updateAlphaAsConjugateGradient()
+                SGD()
 	}
 }
 
 trait hasMomentum extends Algorithm{
     	//Updates the momentum according to the method of Polak-Ribiere
-	def updateConjugateGradient(alphas: Alphas) : Unit = {
+	def updateConjugateGradient(alphas: Alphas) : Alphas = {
 		alphas.updateAlphaAsConjugateGradient()
 	}
 }

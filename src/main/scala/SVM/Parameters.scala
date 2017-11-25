@@ -11,7 +11,7 @@ abstract class Parameters
 * epsilon: Threshold for similarity between data instances (If k(x,y) < epsilon then we approximate with 0!)
 * isDebug: Should the algorithm be verbose? 
 **/
-case class AlgoParams(val maxIter: Int = 30, val minDeltaAlpha: Double = 0.001, val learningRateDecline: Double = 0.95, val numBaggingReplicates: Int = 100, val batchProb: Double = 0.1, val epsilon : Double = 0.0001, val isDebug: Boolean = false) extends Parameters{
+case class AlgoParams(maxIter: Int = 30, minDeltaAlpha: Double = 0.001, learningRateDecline: Double = 0.95, numBaggingReplicates: Int = 100, batchProb: Double = 0.1, epsilon : Double = 0.0001, isDebug: Boolean = false) extends Parameters{
   assert(batchProb>0.0 && batchProb<1.0)
   assert(learningRateDecline <= 1.0 && learningRateDecline > 0.0)
   assert(epsilon >= 0)
@@ -22,7 +22,7 @@ case class AlgoParams(val maxIter: Int = 30, val minDeltaAlpha: Double = 0.001, 
  * C: The parameter C of the C-SVM model.
  * lambda: The regularization parameter.
  */
-case class ModelParams(val C: Double = 1.0, val lambda: Double = 0.1, var delta: Double = 0.5) extends Parameters {
+case class ModelParams(C: Double = 1.0, lambda: Double = 0.1, delta: Double = 0.5) extends Parameters {
  
   assert(C>0)
   assert(lambda>=0.0)
@@ -31,10 +31,10 @@ case class ModelParams(val C: Double = 1.0, val lambda: Double = 0.1, var delta:
    * Define a VARIABLE learning rate delta. 
    * Note that delta has to be smaller than 1/lambda for the algorithm to work!
    */
-  if(delta >= 1/lambda) delta = 0.99 * (1/lambda) 
+  assert(delta >= 1/lambda) 
 
-  def updateDelta(learningRateDecline: Double):Unit={
-	delta = delta * learningRateDecline
+  def updateDelta(learningRateDecline: Double): ModelParams = {
+	copy(delta = delta * learningRateDecline)
   }
 
   override def toString : String = {
@@ -51,7 +51,7 @@ case class ModelParams(val C: Double = 1.0, val lambda: Double = 0.1, var delta:
  * d: The number of features (i.e. inputs, variables).
  * ratioTrain: The ratio of data used for the training set.
   */
-case class DataParams(val N: Int = 1000, val d : Int = 5, val ratioTrain: Double = 0.5) extends Parameters{
+case class DataParams(N: Int = 1000, d: Int = 5, ratioTrain: Double = 0.5) extends Parameters{
 
   assert(N>2)
   assert(d>1)
