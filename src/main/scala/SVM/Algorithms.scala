@@ -94,7 +94,10 @@ case class SGD(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatri
     			throw new allAlphasZeroException("All values of alpha are zero!")
   		}  
 
-                //predictionsMatrix.entries.collect().map({ case MatrixEntry(row, column, value) => (row,value)}).groupBy(_._1).mapValues(_.unzip._2.sum).map(println)
+                if(ap.isDebug){
+                        println("predictions:")
+                        predictionsMatrix.entries.collect().map({ case MatrixEntry(row, column, value) => (row,value)}).groupBy(_._1).mapValues(_.unzip._2.sum).map(println)
+                }
 		
                 //Calculate the vector of length batch replicates whose elements represent the nr of misclassifications: 
   		val Z = kmf.Z
@@ -107,7 +110,11 @@ case class SGD(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatri
 		val precision_index_map = errorMatrix.entries.map({ case MatrixEntry(row, column, value) => (value,row) })
 		assert(precision_index_map.count()>0,"No elements in precision_index_map!")
 		
-		//Sort the map according to the accuracy of the given coefficients alpha and get the first precision index pair:
+                if(ap.isDebug){
+		        errorMatrix.entries.map({ case MatrixEntry(row, column, value) => println("correct classifications: "+value+" row "+row) })
+                }
+                  
+                //Sort the map according to the accuracy of the given coefficients alpha and get the first precision index pair:
   		//Compare: http://spark.apache.org/docs/latest/rdd-programming-guide.html#rdd-operations
 		val sortedPrecisionMap = precision_index_map.sortByKey(ascending=false)
 		assert(sortedPrecisionMap.count()>0,"No elements in sortedPrecisionMap!")
