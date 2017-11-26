@@ -32,6 +32,7 @@ case class Alphas(N: Int,
           val alphaOldNorm = sqrt(alphaOld.map(x => pow(x,2)).reduce(_ + _))
           if(alphaOldNorm > 0.000001){
               val momentum = dotProduct / alphaOldNorm
+              print("momentum: "+momentum)
               val alphaUpdated = alpha + momentum * alphaOld
               val alphaUpdatedNorm = sqrt(alphaUpdated.map(x => pow(x,2)).reduce(_ + _))
               //Return a copy of this object with alpha updated according to the
@@ -57,7 +58,11 @@ case class SGD(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatri
 
 	def iterate() : SGD = {
 
-		//Decrease the step size, i.e. learning rate:
+		//Compute correct minus incorrect classifications on test set
+		val predictionQuality = evaluateOnTestSet(alphas, ap, kmf, matOps)
+  		println("Prediction quality test: "+ predictionQuality + " delta alpha: " + alphas.getDelta())
+		
+                //Decrease the step size, i.e. learning rate:
 		val ump = mp.updateDelta(ap)
 
 		//Create a random sample of alphas and store it in a distributed matrix Alpha:
@@ -66,9 +71,6 @@ case class SGD(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatri
 		//Update the alphas using gradient descent
   		val algo = gradientDescent(Alpha, alphas, ap, ump, kmf, matOps)
 		
-		//Compute correct minus incorrect classifications on test set
-		val predictionQuality = evaluateOnTestSet(alphas, ap, kmf, matOps)
-  		println("Prediction quality test: "+ predictionQuality + " delta alpha: " + alphas.getDelta())
                 algo
         }
 
