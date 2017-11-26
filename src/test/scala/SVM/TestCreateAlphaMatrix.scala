@@ -11,7 +11,6 @@ import SVM.KernelMatrixFactory
 import SVM.DistributedMatrixOps
 import SVM.GaussianKernelParameter
 import SVM.GaussianKernel
-import SVM.hasMomentum
 import SVM.hasBagging
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkConf
@@ -22,17 +21,14 @@ import breeze.numerics._
 *Stochastic gradient descent algorithm
 **/
 class TestClassSGD(var alphas: Alphas, val ap: AlgoParams, val mp: ModelParams, val kmf: KernelMatrixFactory, sc: SparkContext) 
-        extends Algorithm with hasMomentum with hasBagging{
+        extends Algorithm with hasBagging{
 
         val matOps : DistributedMatrixOps = new DistributedMatrixOps(sc)
 
         def iterate() : Unit = {
 
                 //Decrease the step size, i.e. learning rate:
-                mp.updateDelta(ap.learningRateDecline)
-
-                //Calculate the conjugate gradient
-                updateConjugateGradient(alphas)
+                mp.updateDelta(ap)
 
 		println("alphas:" + alphas.alpha)
 
@@ -61,7 +57,7 @@ object testCreateAlphaMatrix extends App {
 	//Compare: https://docs.databricks.com/spark/latest/gentle-introduction/sparksession.html
 	//val sc = spark.sparkContext
 	val kmf = new KernelMatrixFactory(d, gaussianKernel, epsilon, sc)
-	val alphas = Alphas(N=(0.5*N).toInt)
+	val alphas = new Alphas(N=(0.5*N).toInt)
 	val ap = AlgoParams(maxIter = 30, minDeltaAlpha = 0.001, learningRateDecline = 0.5,
 	numBaggingReplicates = 100, batchProb = 0.1, epsilon = 0.0001, isDebug = false)
 	val mp = ModelParams(C = 1.0, lambda = 0.1)
