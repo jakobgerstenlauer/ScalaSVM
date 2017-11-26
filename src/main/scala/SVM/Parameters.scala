@@ -1,5 +1,4 @@
 package SVM
-
 abstract class Parameters
 
 /**
@@ -24,17 +23,17 @@ case class AlgoParams(maxIter: Int = 30, minDeltaAlpha: Double = 0.001, learning
  */
 case class ModelParams(C: Double = 1.0, lambda: Double = 0.1, delta: Double = 0.5) extends Parameters {
  
-  assert(C>0)
-  assert(lambda>=0.0)
+  assert(C>0, "C must be positive!")
+  assert(lambda>=0.0, "lambda must not be negative!")
   
   /**
    * Define a VARIABLE learning rate delta. 
    * Note that delta has to be smaller than 1/lambda for the algorithm to work!
    */
-  assert(delta >= 1/lambda) 
+  assert(delta >= 1/lambda, "Delta must be >= 1/lambda!") 
 
   def updateDelta(ap: AlgoParams): ModelParams = {
-	copy(delta = delta * ap.learningRateDecline)
+	copy(delta = scala.math.max(delta * ap.learningRateDecline, 1/lambda))
   }
 
   override def toString : String = {
