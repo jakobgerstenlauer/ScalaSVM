@@ -32,7 +32,7 @@ case class Alphas(N: Int,
           val alphaOldNorm = sqrt(alphaOld.map(x => pow(x,2)).reduce(_ + _))
           if(alphaOldNorm > 0.000001){
               val momentum = dotProduct / alphaOldNorm
-              print("momentum: "+momentum)
+              printf("Momentum %.3f ", momentum)
               val alphaUpdated = alpha + momentum * alphaOld
               val alphaUpdatedNorm = sqrt(alphaUpdated.map(x => pow(x,2)).reduce(_ + _))
               //Return a copy of this object with alpha updated according to the
@@ -40,9 +40,13 @@ case class Alphas(N: Int,
               //Compare: https://en.wikipedia.org/wiki/Conjugate_gradient_method
               copy(alpha = alphaUpdated / alphaUpdatedNorm, alphaOld = alpha)
           }else{
+              val momentum = 0.01
+              printf("Momentum %.3f ", momentum)
+              val alphaUpdated = alpha + momentum * alphaOld
+              val alphaUpdatedNorm = sqrt(alphaUpdated.map(x => pow(x,2)).reduce(_ + _))
               //If the norm of alpha in the previous step is below a threshold,
               //return a copy of this object without any changes.
-              copy()
+              copy(alpha = alphaUpdated / alphaUpdatedNorm, alphaOld = alpha)
           }
   }
 }
@@ -142,7 +146,7 @@ case class SGD(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatri
                                                    if(y * alpha_hat > threshold) y * threshold else alpha_hat}.toArray
 		val tuples = (isInBatch.toArray.toList zip shrinkedValues.toArray.toList zip updated.toList) map { case ((a,b),c) => (a,b,c)}
 		val new_alphas = new DenseVector(tuples.map{ case (isInBatch, shrinkedValues, updated) => if (isInBatch == 1) updated else shrinkedValues}.toArray)
-                val new_Alpha = alphas.copy(alpha=new_alphas).updateAlphaAsConjugateGradient()
+                val new_Alpha = if(ap.hasMomentum) alphas.copy(alpha=new_alphas).updateAlphaAsConjugateGradient() else alphas.copy(alpha=new_alphas)
                 copy(alphas= new_Alpha)
 	}
 }
