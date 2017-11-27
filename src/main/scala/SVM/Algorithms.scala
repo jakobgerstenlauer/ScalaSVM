@@ -54,6 +54,48 @@ case class Alphas(N: Int,
 abstract class Algorithm
 
 /**
+*Sequential gradient descent algorithm
+**/
+case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, sc: SparkContext) extends Algorithm with hasBagging with hasTestEvaluator{
+
+	val matOps : DistributedMatrixOps = new DistributedMatrixOps(sc)
+
+	def iterate() : SG = {
+
+		//Compute correct minus incorrect classifications on test set
+		val predictionQuality = evaluateOnTestSet(alphas, ap, kmf, matOps)
+  		println("Prediction quality test: "+ predictionQuality + " delta alpha: " + alphas.getDelta())
+		
+                //Decrease the step size, i.e. learning rate:
+		val ump = mp.updateDelta(ap)
+
+		//Update the alphas using gradient descent
+  		val algo = sequentialGradient(alphas, ap, ump, kmf, matOps)
+		
+                algo
+        }
+
+	def sequentialGradient(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, matOps: DistributedMatrixOps) : SG = {
+		//Get the distributed kernel matrix for the training set:
+		val Q = kmf.Q
+        	assert(Q.numCols() == kmf.d.par.N_train,"The number of columns of Q does not equal the number of rows of K!")  
+		val gradient = kmf.calculateGradient(alphas.alpha)
+		//Extract model parameters
+		val delta = mp.delta
+		val C = mp.C
+		//Extract the labels for the training set
+		val d = kmf.getData().z_train
+                //Our first, tentative, estimate of the updated parameters is:
+		val alpha1 = alphas.alpha - delta *:* gradient
+                //Then, we have to project the alphas onto the feasible region defined by the first constraint:
+                val alpha2 = alpha1 - (d *:* (d dot alpha1)) / (d dot d)
+                //The value of alpha has to be between 0 and C.
+                val alpha3 = alpha2.map(alpha => if(alpha > C) C else alpha).map(alpha => if(alpha > 0) alpha else 0)
+                copy(alphas= alphas.copy(alpha=alpha3))
+	}
+}
+
+/**
 *Stochastic gradient descent algorithm
 **/
 case class SGD(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, sc: SparkContext) extends Algorithm with hasBagging with hasTestEvaluator{
