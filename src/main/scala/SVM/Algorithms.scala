@@ -56,32 +56,79 @@ abstract class Algorithm
 /**
 *Sequential gradient descent algorithm
 **/
-case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, sc: SparkContext) extends Algorithm with hasBagging with hasTestEvaluator{
+case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, sc: SparkContext) extends Algorithm with hasBagging with hasTestEvaluator with hasTrainingSetEvaluator{
 
 	val matOps : DistributedMatrixOps = new DistributedMatrixOps(sc)
 
 	def iterate() : SG = {
-
-		//Compute correct minus incorrect classifications on test set
-		val predictionQuality = evaluateOnTestSet(alphas, ap, kmf, matOps)
-  		println("Prediction quality test: "+ predictionQuality + " delta alpha: " + alphas.getDelta())
+		//Compute correct minus incorrect classifications on training set
+                val predictionQualityTrain = evaluateOnTrainingSet(alphas, ap, kmf, matOps)
+  		println("Prediction quality train: "+ predictionQualityTrain + " delta alpha: " + alphas.getDelta())
+                
+                //Compute correct minus incorrect classifications on test set
+		val predictionQualityTest = evaluateOnTestSet(alphas, ap, kmf, matOps)
+  		println("Prediction quality test: "+ predictionQualityTest + " delta alpha: " + alphas.getDelta())
 		
                 //Decrease the step size, i.e. learning rate:
 		val ump = mp.updateDelta(ap)
 
 		//Update the alphas using gradient descent
-  		val algo = sequentialGradient(alphas, ap, ump, kmf, matOps)
+  		val algo = sequentialGradient(alphas, ap, ump, kmf)
 		
                 algo
         }
 
-	def sequentialGradient(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, matOps: DistributedMatrixOps) : SG = {
+	def sequentialGradient(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory) : SG = {
 		val gradient = kmf.calculateGradient(alphas.alpha)
 		//Extract model parameters
 		val delta = mp.delta
 		val C = mp.C
 		//Extract the labels for the training set
 		val d = kmf.getData().z_train
+                if(ap.isDebug){
+                    println("alphas before update:"+alphas.alpha(0 until 5))
+                }
+                //Our first, tentative, estimate of the updated parameters is:
+		val alpha1 = alphas.alpha - delta *:* gradient
+                if(ap.isDebug){
+                    println("alphas first tentative update:"+alpha1(0 until 5))
+                }
+                //Then, we have to project the alphas onto the feasible region defined by the first constraint:
+                val alpha2 = alpha1 - (d *:* (d dot alpha1)) / (d dot d)
+                //The value of alpha has to be between 0 and C.
+                if(ap.isDebug){
+                    println("alphas after projection:"+alpha2(0 until 5))
+                }
+                val alpha3 = alpha2.map(alpha => if(alpha > C) C else alpha).map(alpha => if(alpha > 0) alpha else 0)
+                if(ap.isDebug){
+                    println("alphas after 2nd projection:"+alpha3(0 until 5))
+                }
+                copy(alphas= alphas.copy(alpha=alpha3))
+	}
+}
+
+/**
+*Sequential gradient descent algorithm
+**/
+case class SGtest(alphas: Alphas, ap: AlgoParams, mp: ModelParams, lkmf: LocalKernelMatrixFactory) extends Algorithm with hasBagging with hasTestEvaluator {
+
+	def iterate() : SGtest = {
+                //Decrease the step size, i.e. learning rate:
+		val ump = mp.updateDelta(ap)
+
+		//Update the alphas using gradient descent
+  		val algo = sequentialGradient(alphas, ap, ump, lkmf)
+		
+                algo
+        }
+
+	def sequentialGradient(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LocalKernelMatrixFactory) : SGtest = {
+		val gradient = kmf.calculateGradient(alphas.alpha)
+		//Extract model parameters
+		val delta = mp.delta
+		val C = mp.C
+		//Extract the labels for the training set
+		val d = kmf.d.z_train
                 //Our first, tentative, estimate of the updated parameters is:
 		val alpha1 = alphas.alpha - delta *:* gradient
                 //Then, we have to project the alphas onto the feasible region defined by the first constraint:
@@ -203,6 +250,63 @@ class Norma(alphas: Alphas, ap:AlgoParams, mp:ModelParams, kmf:KernelMatrixFacto
 class Silk(alphas: Alphas, ap:AlgoParams, mp:ModelParams, kmf:KernelMatrixFactory, sc: SparkContext)
 	extends SGD(alphas, ap, mp, kmf, sc) 
 
+
+trait hasTrainingSetEvaluator extends Algorithm{
+	/**
+	* Returns the number of correct predictions minus the nr of misclassifications for a test set.
+	*
+	* alphas: The alpha parameters.
+	* ap:     AlgoParams object storing parameters of the algorithm
+	* kmf:    KernelMatrixFactory that contains the distributed matrices for the data set
+	* matOps: A matrix operations object 
+	***/
+	def evaluateOnTrainingSet(alphas: Alphas, ap: AlgoParams, kmf: KernelMatrixFactory, matOps: DistributedMatrixOps) : Int = {
+
+		//Get the distributed kernel matrix for the test set:
+		val K = kmf.K
+		val Z = kmf.Z
+		val epsilon = min(ap.epsilon, min(alphas.alpha))
+		val A = matOps.distributeRowVector(alphas.alpha, epsilon)
+
+ 		assert(Z!=null && A!=null && K!=null, "One of the input matrices is undefined!")
+  		assert(A.numCols()>0, "The number of columns of A is zero.")
+  		assert(A.numRows()>0, "The number of rows of A is zero.")
+  		assert(K.numCols()>0, "The number of columns of S is zero.")
+  		assert(K.numRows()>0, "The number of rows of S is zero.")
+  		assert(A.numCols()==K.numRows(),"The number of columns of A does not equal the number of rows of S!")
+  		assert(K.numCols()==Z.numRows(),"The number of columns of S does not equal the number of rows of Z!")  
+
+                if(ap.isDebug){
+                  println("K:")
+                  K.entries.collect().map({ case MatrixEntry(row, column, value) => println("i: "+row+"j: "+column+": "+value)})
+                  println()                
+                  println("Z:")
+                  Z.entries.collect().map({ case MatrixEntry(row, column, value) => println("i: "+row+"j: "+column+": "+value)})
+                  println()
+                  println("alphas:")
+                  println(alphas.alpha)
+                  println()
+                  println("A:")
+                  A.entries.collect().map({ case MatrixEntry(row, column, value) => println("i: "+row+"j: "+column+": "+value)})
+                }
+
+		val P = matOps.coordinateMatrixMultiply(A, K)
+                if(ap.isDebug){
+                        println("predictions:")
+                        P.entries.collect().map({ case MatrixEntry(row, column, value) => println("i: "+row+"j: "+column+": "+value)})
+                }
+		val E = matOps.coordinateMatrixSignumAndMultiply(P, Z)
+                
+                if(ap.isDebug){
+                        println("matrix E:")
+                        E.entries.collect().map({ case MatrixEntry(row, column, value) => println("i: "+row+"j: "+column+": "+value)})
+                }
+                
+		//This a matrix with only one entry which we retrieve with first():
+		return E.entries.map({ case MatrixEntry(i, j, v) => v }).first().toInt
+	}
+}
+
 trait hasTestEvaluator extends Algorithm{
 	/**
 	* Returns the number of correct predictions minus the nr of misclassifications for a test set.
@@ -217,7 +321,7 @@ trait hasTestEvaluator extends Algorithm{
 		//Get the distributed kernel matrix for the test set:
 		val S = kmf.S
 		val Z = kmf.Z_test
-		val epsilon = max(ap.epsilon, min(alphas.alpha))
+		val epsilon = min(ap.epsilon, min(alphas.alpha))
 		val A = matOps.distributeRowVector(alphas.alpha, epsilon)
 
  		assert(Z!=null && A!=null && S!=null, "One of the input matrices is undefined!")
