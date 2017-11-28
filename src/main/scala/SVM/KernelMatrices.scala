@@ -18,18 +18,18 @@ val Q = initQMatrixTraining()
 val S = initKernelMatrixTest()
 val Z = initTargetMatrixTraining()
 val Z_test = initTargetMatrixTest()
-//val rowColumnIndexMap = initRowColumnIndexMap()
+
 
 def getData() : Data = return d
 
 private def initTargetMatrixTraining() : CoordinateMatrix = {
-        assert( d.isValid() , "The input data is not defined!")
+  assert( d.isValid() , "The input data is not defined!")
 	return matOps.distributeTranspose(d.z_train)
 }
 
 private def initTargetMatrixTest() : CoordinateMatrix = {
-        assert( d.isValid() , "The input data is not defined!")
-        return matOps.distributeTranspose(d.z_test)
+  assert( d.isValid() , "The input data is not defined!")
+  return matOps.distributeTranspose(d.z_test)
 }
 
 private def initKernelMatrixTraining() : CoordinateMatrix  = {
@@ -40,14 +40,6 @@ private def initKernelMatrixTraining() : CoordinateMatrix  = {
 	return new CoordinateMatrix(entries, d.getN_train(), d.getN_train())
 }
 
-//private def initRowColumnIndexMap() : collection.mutable.MultiMap[Long, Set[Long]]  = {
-//	assert( d.isValid() , "The input data is not defined!")
-//        val indexMap = new HashMap[Long, Set[Long]] with MultiMap[Long, Long]
-//	for (i <- 0 until d.getN_train(); j <- 0 until d.getN_train(); value = kf.kernel(d.X_train(i,::).t, d.X_train(j,::).t); if (value > epsilon))
-//		mm.addBinding(i.toLong, j.toLong)
-//	return indexMap
-//}
-
 private def initQMatrixTraining() : CoordinateMatrix  = {
 	assert( d.isValid() , "The input data is not defined!")
 	val listOfMatrixEntries =  for (i <- 0 until d.getN_train(); j <- 0 until d.getN_train(); value = d.z_train(i) * d.z_train(j) * kf.kernel(d.X_train(i,::).t, d.X_train(j,::).t); if (value > epsilon)) yield (new MatrixEntry(i, j, value))
@@ -56,32 +48,21 @@ private def initQMatrixTraining() : CoordinateMatrix  = {
 	return new CoordinateMatrix(entries, d.getN_train(), d.getN_train())
 }
 
-//def calculateGradient(alphas : DenseVector[Double]) : DenseVector[Double]  = {
-//	assert( d.isValid() , "The input data is not defined!")
-//        for (pairs <- listOfIndexPairs; val i = pairs.i; val j = pairs.j; 
-//             value = alpha(j) * d.z_train(i) * d_z_train(j) * kf.kernel(d.X_train(i,::).t, d.X_train(j,::).t)) yield (new MatrixEntry(i, j, value))
-//}
-
-
-//TODO: Implement this pattern:
-//for( i <- 0 until N; j <- 0 until N)
-//  v(i)+= a(i)*d(i)*d(j)*K(i,j) 
-
 def calculateGradient(alphas : DenseVector[Double]) : DenseVector[Double]  = {
-        val N = d.getN_train()
-        var v = DenseVector.zeros[Double](N)
-        for (i <- 0 until N; j <- 0 until N){ 
-             v(i) += alphas(j) * d.z_train(i) * d.z_train(j) * kf.kernel(d.X_train(i,::).t, d.X_train(j,::).t)
-        }
-        v - DenseVector.ones[Double](N)
+  val N = d.getN_train()
+  var v = DenseVector.zeros[Double](N)
+  for (i <- 0 until N; j <- 0 until N){
+    v(i) += alphas(j) * d.z_train(i) * d.z_train(j) * kf.kernel(d.X_train(i,::).t, d.X_train(j,::).t)
+  }
+  v - DenseVector.ones[Double](N)
 }
 
 private def initKernelMatrixTest() : CoordinateMatrix = {
 	assert( d.isValid() , "The input data is not defined!")
-        val listOfMatrixEntries =  for (i <- 0 until d.getN_train(); j <- 0 until d.getN_test(); value = kf.kernel(d.X_train(i,::).t, d.X_test(j,::).t); if (value > epsilon)) yield (new MatrixEntry(i, j, value))
-        // Create an RDD of matrix entries ignoring all matrix entries which are smaller than epsilon.
-        val entries: RDD[MatrixEntry] = sc.parallelize(listOfMatrixEntries)
-        return new CoordinateMatrix(entries, d.getN_train(), d.getN_test())
+  val listOfMatrixEntries =  for (i <- 0 until d.getN_train(); j <- 0 until d.getN_test(); value = kf.kernel(d.X_train(i,::).t, d.X_test(j,::).t); if (value > epsilon)) yield (new MatrixEntry(i, j, value))
+  // Create an RDD of matrix entries ignoring all matrix entries which are smaller than epsilon.
+  val entries: RDD[MatrixEntry] = sc.parallelize(listOfMatrixEntries)
+  return new CoordinateMatrix(entries, d.getN_train(), d.getN_test())
 }
 
 }
