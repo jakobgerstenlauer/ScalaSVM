@@ -10,6 +10,19 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.SparkContext
 import collection.mutable.{HashMap, MultiMap, Set}
 
+case class LocalKernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double){
+
+def calculateGradient(alphas : DenseVector[Double]) : DenseVector[Double]  = {
+  val N = d.getN_train()
+  var v = DenseVector.zeros[Double](N)
+  for (i <- 0 until N; j <- 0 until N){
+    v(i) += alphas(j) * d.z_train(i) * d.z_train(j) * kf.kernel(d.X_train(i,::).t, d.X_train(j,::).t)
+  }
+  v - DenseVector.ones[Double](N)
+}
+
+}
+
 case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc: SparkContext){
 
 val matOps = new DistributedMatrixOps(sc)
@@ -54,6 +67,5 @@ private def initKernelMatrixTest() : CoordinateMatrix = {
   val entries: RDD[MatrixEntry] = sc.parallelize(listOfMatrixEntries)
   return new CoordinateMatrix(entries, d.getN_train(), d.getN_test())
 }
-
 }
 
