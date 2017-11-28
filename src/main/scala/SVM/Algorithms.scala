@@ -76,9 +76,6 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
         }
 
 	def sequentialGradient(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, matOps: DistributedMatrixOps) : SG = {
-		//Get the distributed kernel matrix for the training set:
-		val Q = kmf.Q
-        	assert(Q.numCols() == kmf.d.par.N_train,"The number of columns of Q does not equal the number of rows of K!")  
 		val gradient = kmf.calculateGradient(alphas.alpha)
 		//Extract model parameters
 		val delta = mp.delta
