@@ -89,7 +89,7 @@ def distributeRowVector(a: DenseVector[Double], epsilon: Double) : CoordinateMat
     }  
   
     // Create a distributed CoordinateMatrix from an RDD[MatrixEntry].
-  return new CoordinateMatrix(entries, 0, a.length.toLong)
+    return new CoordinateMatrix(entries, 0, a.length.toLong)
 }
 
 def distributeColumnVector(a: DenseVector[Double], epsilon: Double) : CoordinateMatrix={
@@ -110,7 +110,7 @@ def distributeColumnVector(a: DenseVector[Double], epsilon: Double) : Coordinate
       throw new allAlphasZeroException("All values of the distributed column vector are zero!")
     }  
   
-  return new CoordinateMatrix(entries, a.length.toLong, 0)
+    return new CoordinateMatrix(entries, a.length.toLong, 0)
 }
 
 //Transform a local dense vector into a distributed coordinate matrix.
