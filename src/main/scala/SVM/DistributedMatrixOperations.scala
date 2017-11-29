@@ -49,7 +49,7 @@ def collectRowVector(m: CoordinateMatrix): DenseVector[Double] = {
     assert(m.numRows() == 1, "Coordinate matrix is empty or has more than one row!")
     val columns = m.numCols().toInt
     var v = DenseVector.zeros[Double](columns) 
-    m.entries.collect.map({case MatrixEntry(i,j,v) => (i,v)}).map({case (index, value) => fill(v, index.toInt, value)})
+    m.entries.collect.map({case MatrixEntry(i,j,v) => (j,v)}).map({case (index, value) => fill(v, index.toInt, value)})
     v
 }
 
