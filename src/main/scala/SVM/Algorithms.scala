@@ -3,8 +3,6 @@ package SVM
 import breeze.linalg._
 import breeze.numerics._
 import breeze.math._
-import breeze.linalg.NumericOps
-import breeze.linalg.operators
 import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.SparkContext
@@ -62,20 +60,27 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
 
 	def iterate() : SG = {
 		//Compute correct minus incorrect classifications on training set
-                val predictionQualityTrain = evaluateOnTrainingSet(alphas, ap, kmf, matOps)
-  		println("Prediction quality train: "+ predictionQualityTrain + " delta alpha: " + alphas.getDelta())
+                val predictions = evaluateOnTrainingSet(alphas, ap, kmf, matOps)
+                assert(predictions.length == kmf.d.z_train.length)
+                val product = predictions *:* kmf.d.z_train
+                val correct = product.map(x=>if(x>0) 1 else 0).reduce(_+_)
+                val misclassified = product.map(x=>if(x<0) 1 else 0).reduce(_+_)
+  		println("Training set: "+ correct +"/"+ misclassified)
                 
                 //Compute correct minus incorrect classifications on test set
-		val predictionQualityTest = evaluateOnTestSet(alphas, ap, kmf, matOps)
-  		println("Prediction quality test: "+ predictionQualityTest + " delta alpha: " + alphas.getDelta())
-		
+		val predictionsTest = evaluateOnTestSet(alphas, ap, kmf, matOps)
+                assert(predictionsTest.length == kmf.d.z_test.length)
+                val productT = predictionsTest *:* kmf.d.z_test
+                val correctT = productT.map(x=>if(x>0) 1 else 0).reduce(_+_)
+                val misclassifiedT = productT.map(x=>if(x<0) 1 else 0).reduce(_+_)
+  		println("Test set: "+ correctT + "/" + misclassifiedT)
+                println("Delta alpha: " + alphas.getDelta())
+                
                 //Decrease the step size, i.e. learning rate:
 		val ump = mp.updateDelta(ap)
 
 		//Update the alphas using gradient descent
-  		val algo = sequentialGradient(alphas, ap, ump, kmf)
-		
-                algo
+  		sequentialGradient(alphas, ap, ump, kmf)
         }
 
 	def sequentialGradient(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory) : SG = {
@@ -142,15 +147,26 @@ case class SGtest(alphas: Alphas, ap: AlgoParams, mp: ModelParams, lkmf: LocalKe
 /**
 *Stochastic gradient descent algorithm
 **/
-case class SGD(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, sc: SparkContext) extends Algorithm with hasBagging with hasTestEvaluator{
+case class SGD(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, sc: SparkContext) extends Algorithm with hasBagging with hasTestEvaluator with hasTrainingSetEvaluator{
 
 	val matOps : DistributedMatrixOps = new DistributedMatrixOps(sc)
 
 	def iterate() : SGD = {
 
-		//Compute correct minus incorrect classifications on test set
-		val predictionQuality = evaluateOnTestSet(alphas, ap, kmf, matOps)
-  		println("Prediction quality test: "+ predictionQuality + " delta alpha: " + alphas.getDelta())
+		//Compute correct minus incorrect classifications on training set
+                val predictionsTrain = evaluateOnTrainingSet(alphas, ap, kmf, matOps)
+                val productTrain = predictionsTrain *:* kmf.d.z_train
+                val correctTrain = productTrain.map(x=>if(x>0) 1 else 0).reduce(_+_)
+                val misclassifiedTrain = productTrain.map(x=>if(x<0) 1 else 0).reduce(_+_)
+  		println("Training set: "+ correctTrain +"/"+ misclassifiedTrain)
+		
+                //Compute correct minus incorrect classifications on test set
+		val predictions = evaluateOnTestSet(alphas, ap, kmf, matOps)
+                val product = predictions *:* kmf.d.z_test
+                val correct = product.map(x=>if(x>0) 1 else 0).reduce(_+_)
+                val misclassified = product.map(x=>if(x<0) 1 else 0).reduce(_+_)
+  		println("Test set: "+ correct +"/"+ misclassified)
+                println("Delta alpha: " + alphas.getDelta())
 		
                 //Decrease the step size, i.e. learning rate:
 		val ump = mp.updateDelta(ap)
@@ -261,13 +277,13 @@ trait hasTrainingSetEvaluator extends Algorithm{
 	* kmf:    KernelMatrixFactory that contains the distributed matrices for the data set
 	* matOps: A matrix operations object 
 	***/
-	def evaluateOnTrainingSet(alphas: Alphas, ap: AlgoParams, kmf: KernelMatrixFactory, matOps: DistributedMatrixOps) : Int = {
+	def evaluateOnTrainingSet(alphas: Alphas, ap: AlgoParams, kmf: KernelMatrixFactory, matOps: DistributedMatrixOps):DenseVector[Double]= {
 
 		//Get the distributed kernel matrix for the test set:
 		val K = kmf.K
 		val z = kmf.z
-		val epsilon = min(ap.epsilon, min(alphas.alpha))
-		val A = matOps.distributeRowVector(alphas.alpha, epsilon)
+		val epsilon = max(min(ap.epsilon, min(alphas.alpha)), 0.000001)
+		val A = matOps.distributeRowVector(alphas.alpha *:* z, epsilon)
 
  		assert(z!=null && A!=null && K!=null, "One of the input matrices is undefined!")
   		assert(A.numCols()>0, "The number of columns of A is zero.")
@@ -298,15 +314,9 @@ trait hasTrainingSetEvaluator extends Algorithm{
                 }
 
                 //TODO Add bias!!!
-                //1. Collect the values of this coordinate matrix and store them in a vector y_1
-                //2. Multiply y_1 elementwise with the labels of the training set
-                //3. Calculate the misclassifications as below
-                // val p = signum(collectColumnVector(P) *:* z + bias)
-                val p = signum(matOps.collectColumnVector(P) *:* z)
-                
-                //return the prediction quality (number of correct classifications - nr of misclassifications)
-                val x = z.map(x => x.toDouble)
-                p *:* x
+                // return the predictions
+                println("P columns: "+P.numCols()+" rows: "+P.numRows())
+                signum(matOps.collectRowVector(P))
 	}
 }
 
@@ -319,13 +329,13 @@ trait hasTestEvaluator extends Algorithm{
 	* kmf:    KernelMatrixFactory that contains the distributed matrices for the data set
 	* matOps: A matrix operations object 
 	***/
-	def evaluateOnTestSet(alphas: Alphas, ap: AlgoParams, kmf: KernelMatrixFactory, matOps: DistributedMatrixOps) : Int = {
+	def evaluateOnTestSet(alphas: Alphas, ap: AlgoParams, kmf: KernelMatrixFactory, matOps: DistributedMatrixOps) : DenseVector[Double] = {
 
 		//Get the distributed kernel matrix for the test set:
 		val S = kmf.S
 		val z = kmf.z_test
-		val epsilon = min(ap.epsilon, min(alphas.alpha))
-		val A = matOps.distributeRowVector(alphas.alpha, epsilon)
+		val epsilon = max(min(ap.epsilon, min(alphas.alpha)), 0.000001)
+		val A = matOps.distributeRowVector(alphas.alpha *:* kmf.d.z_train, epsilon)
 
  		assert(z!=null && A!=null && S!=null, "One of the input matrices is undefined!")
   		assert(A.numCols()>0, "The number of columns of A is zero.")
@@ -335,11 +345,27 @@ trait hasTestEvaluator extends Algorithm{
   		assert(A.numCols()==S.numRows(),"The number of columns of A does not equal the number of rows of S!")
   		assert(S.numCols()==z.length,"The number of columns of S does not equal the number of rows of Z!")  
 
+                if(ap.isDebug){
+                  println("S:")
+                  println("rows:"+S.numRows()+" columns: "+S.numCols())
+                  S.entries.collect().map({ case MatrixEntry(row, column, value) => println("i: "+row+"j: "+column+": "+value)})
+                  println()                
+                  println("z:")
+                  println(z)
+                  println()
+                  println("alphas:")
+                  println(alphas.alpha)
+                  println()
+                  println("A:")
+                  A.entries.collect().map({ case MatrixEntry(row, column, value) => println("i: "+row+"j: "+column+": "+value)})
+                }
 		val P = matOps.coordinateMatrixMultiply(A, S)
-                val p = signum(matOps.collectColumnVector(P) *:* z)
-                //return the prediction quality (number of correct classifications - nr of misclassifications)
-                val x = z.map(x => x.toDouble)
-                p *:* x
+                if(ap.isDebug){
+                        println("predictions:")
+                        println("rows:"+P.numRows()+" columns: "+P.numCols())
+                        P.entries.collect().map({ case MatrixEntry(row, column, value) => println("i: "+row+"j: "+column+": "+value)})
+                }
+                signum(matOps.collectRowVector(P))
 	}
 }
 
