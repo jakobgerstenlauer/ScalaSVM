@@ -364,7 +364,7 @@ trait hasTestEvaluator extends Algorithm{
                         println("predictions:")
                         println("rows:"+P.numRows()+" columns: "+P.numCols())
                         P.entries.collect().map({ case MatrixEntry(row, column, value) => println("i: "+row+"j: "+column+": "+value)})
-                        println("Length collected vector of predictions:" + println(matOps.collectRowVector(P).length))
+                        println("Length collected vector of predictions:" + matOps.collectRowVector(P).length)
                         println("Content:"+matOps.collectRowVector(P))
 
                 }
