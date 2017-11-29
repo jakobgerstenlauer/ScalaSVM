@@ -186,7 +186,8 @@ case class SGD(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatri
                 }
 		
                 //Calculate the vector of length batch replicates whose elements represent the nr of misclassifications: 
-  		val Z = kmf.Z
+  		//TODO Implement same logic as in evaluateOnTrainingSet() !!! 
+                val Z = kmf.Z
 		val errorMatrix = matOps.coordinateMatrixSignumAndMultiply(predictionsMatrix, Z)
 
   		//Find the index with the smallest error and use these alphas:
@@ -264,24 +265,24 @@ trait hasTrainingSetEvaluator extends Algorithm{
 
 		//Get the distributed kernel matrix for the test set:
 		val K = kmf.K
-		val Z = kmf.Z
+		val z = kmf.z
 		val epsilon = min(ap.epsilon, min(alphas.alpha))
 		val A = matOps.distributeRowVector(alphas.alpha, epsilon)
 
- 		assert(Z!=null && A!=null && K!=null, "One of the input matrices is undefined!")
+ 		assert(z!=null && A!=null && K!=null, "One of the input matrices is undefined!")
   		assert(A.numCols()>0, "The number of columns of A is zero.")
   		assert(A.numRows()>0, "The number of rows of A is zero.")
   		assert(K.numCols()>0, "The number of columns of S is zero.")
   		assert(K.numRows()>0, "The number of rows of S is zero.")
   		assert(A.numCols()==K.numRows(),"The number of columns of A does not equal the number of rows of S!")
-  		assert(K.numCols()==Z.numRows(),"The number of columns of S does not equal the number of rows of Z!")  
+  		assert(K.numCols()==z.length,"The number of columns of S does not equal the number of rows of Z!")  
 
                 if(ap.isDebug){
                   println("K:")
                   K.entries.collect().map({ case MatrixEntry(row, column, value) => println("i: "+row+"j: "+column+": "+value)})
                   println()                
                   println("Z:")
-                  Z.entries.collect().map({ case MatrixEntry(row, column, value) => println("i: "+row+"j: "+column+": "+value)})
+                  println(z)
                   println()
                   println("alphas:")
                   println(alphas.alpha)
@@ -295,15 +296,17 @@ trait hasTrainingSetEvaluator extends Algorithm{
                         println("predictions:")
                         P.entries.collect().map({ case MatrixEntry(row, column, value) => println("i: "+row+"j: "+column+": "+value)})
                 }
-		val E = matOps.coordinateMatrixSignumAndMultiply(P, Z)
+
+                //TODO Add bias!!!
+                //1. Collect the values of this coordinate matrix and store them in a vector y_1
+                //2. Multiply y_1 elementwise with the labels of the training set
+                //3. Calculate the misclassifications as below
+                // val p = signum(collectColumnVector(P) *:* z + bias)
+                val p = signum(matOps.collectColumnVector(P) *:* z)
                 
-                if(ap.isDebug){
-                        println("matrix E:")
-                        E.entries.collect().map({ case MatrixEntry(row, column, value) => println("i: "+row+"j: "+column+": "+value)})
-                }
-                
-		//This a matrix with only one entry which we retrieve with first():
-		return E.entries.map({ case MatrixEntry(i, j, v) => v }).first().toInt
+                //return the prediction quality (number of correct classifications - nr of misclassifications)
+                val x = z.map(x => x.toDouble)
+                p *:* x
 	}
 }
 
@@ -320,23 +323,23 @@ trait hasTestEvaluator extends Algorithm{
 
 		//Get the distributed kernel matrix for the test set:
 		val S = kmf.S
-		val Z = kmf.Z_test
+		val z = kmf.z_test
 		val epsilon = min(ap.epsilon, min(alphas.alpha))
 		val A = matOps.distributeRowVector(alphas.alpha, epsilon)
 
- 		assert(Z!=null && A!=null && S!=null, "One of the input matrices is undefined!")
+ 		assert(z!=null && A!=null && S!=null, "One of the input matrices is undefined!")
   		assert(A.numCols()>0, "The number of columns of A is zero.")
   		assert(A.numRows()>0, "The number of rows of A is zero.")
   		assert(S.numCols()>0, "The number of columns of S is zero.")
   		assert(S.numRows()>0, "The number of rows of S is zero.")
   		assert(A.numCols()==S.numRows(),"The number of columns of A does not equal the number of rows of S!")
-  		assert(S.numCols()==Z.numRows(),"The number of columns of S does not equal the number of rows of Z!")  
+  		assert(S.numCols()==z.length,"The number of columns of S does not equal the number of rows of Z!")  
 
 		val P = matOps.coordinateMatrixMultiply(A, S)
-		val E = matOps.coordinateMatrixSignumAndMultiply(P, Z)
-
-		//This a matrix with only one entry which we retrieve with first():
-		return E.entries.map({ case MatrixEntry(i, j, v) => v }).first().toInt
+                val p = signum(matOps.collectColumnVector(P) *:* z)
+                //return the prediction quality (number of correct classifications - nr of misclassifications)
+                val x = z.map(x => x.toDouble)
+                p *:* x
 	}
 }
 
