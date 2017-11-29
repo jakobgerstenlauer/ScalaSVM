@@ -27,6 +27,26 @@ def printFirstRow(m: CoordinateMatrix): Unit = {
 }
 
 /**
+* Transform a CoordinateMatrix with one column into a local column vector.
+**/
+def collectColumnVector(m: CoordinateMatrix): DenseVector[Double] = {
+    assert(m.numCols()==1, "Coordinate matrix is empty or has more than one column!")
+    DenseVector( 
+	m.entries.collect.map({case MatrixEntry(i,j,v) => (v)}).toArray
+      )
+}
+
+/**
+* Transform a CoordinateMatrix with one row into a local column vector.
+**/
+def collectRowVector(m: CoordinateMatrix): DenseVector[Double] = {
+      assert(m.numRows()==1, "Coordinate matrix is empty or has more than one row!")
+      DenseVector( 
+	m.entries.collect.map({case MatrixEntry(i,j,v) => (v)}).toArray
+      )
+}
+
+/**
 * Prints the nth row (starting with 0) of a CoordinateMatrix to the console.
 **/
 def printRow(m: CoordinateMatrix, row: Int): Unit = {
