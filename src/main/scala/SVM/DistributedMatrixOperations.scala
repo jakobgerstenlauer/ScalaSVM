@@ -26,31 +26,38 @@ def printFirstRow(m: CoordinateMatrix): Unit = {
 	m.entries.filter({case MatrixEntry(i,j,v) => if(i==0) true else false}).foreach(println)
 }
 
+
+def fill(v: DenseVector[Double], index: Int, value: Double) : Unit = {
+  v(index)=value
+}
+
 /**
 * Transform a CoordinateMatrix with one column into a local column vector.
 **/
 def collectColumnVector(m: CoordinateMatrix): DenseVector[Double] = {
-    assert(m.numCols()==1, "Coordinate matrix is empty or has more than one column!")
-    DenseVector( 
-	m.entries.collect.map({case MatrixEntry(i,j,v) => (v)}).toArray
-      )
+    assert(m.numCols() == 1, "Coordinate matrix is empty or has more than one column!")
+    val rows = m.numRows().toInt
+    var v = DenseVector.zeros[Double](rows) 
+    m.entries.collect.map({case MatrixEntry(i,j,v) => (i,v)}).map({case (index, value) => fill(v, index.toInt, value)})
+    v
 }
 
 /**
 * Transform a CoordinateMatrix with one row into a local column vector.
 **/
 def collectRowVector(m: CoordinateMatrix): DenseVector[Double] = {
-      assert(m.numRows()==1, "Coordinate matrix is empty or has more than one row!")
-      DenseVector( 
-	m.entries.collect.map({case MatrixEntry(i,j,v) => (v)}).toArray
-      )
+    assert(m.numRows() == 1, "Coordinate matrix is empty or has more than one row!")
+    val columns = m.numCols().toInt
+    var v = DenseVector.zeros[Double](columns) 
+    m.entries.collect.map({case MatrixEntry(i,j,v) => (i,v)}).map({case (index, value) => fill(v, index.toInt, value)})
+    v
 }
 
 /**
 * Prints the nth row (starting with 0) of a CoordinateMatrix to the console.
 **/
 def printRow(m: CoordinateMatrix, row: Int): Unit = {
-	m.entries.map({case MatrixEntry(i,j,v) => if(i==row) println("col:"+j+":"+v)})
+    m.entries.map({case MatrixEntry(i,j,v) => if(i==row) println("col:"+j+":"+v)})
 }
 
 //Source:
