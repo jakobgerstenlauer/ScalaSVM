@@ -29,10 +29,21 @@ val matOps = new DistributedMatrixOps(sc)
 val K = initKernelMatrixTraining()
 val S = initKernelMatrixTest()
 val Z = initTargetMatrixTraining()
+val Z_test = initTargetMatrixTest()
 val z = initTargetTraining()
 val z_test = initTargetTest()
 
 def getData() : Data = return d
+
+private def initTargetMatrixTraining() : CoordinateMatrix = {
+  assert( d.isValid() , "The input data is not defined!")
+  return matOps.distributeTranspose(d.z_train)
+}
+         
+private def initTargetMatrixTest() : CoordinateMatrix = {
+  assert( d.isValid() , "The input data is not defined!")
+  return matOps.distributeTranspose(d.z_test)
+}
 
 private def initTargetTraining() : DenseVector[Double] = {
   assert( d.isValid() , "The input data is not defined!")
