@@ -37,12 +37,12 @@ def getData() : Data = return d
 
 private def initTargetMatrixTraining() : CoordinateMatrix = {
   assert( d.isValid() , "The input data is not defined!")
-  return matOps.distributeTranspose(d.z_train)
+  matOps.distributeTranspose(d.z_train)
 }
          
 private def initTargetMatrixTest() : CoordinateMatrix = {
   assert( d.isValid() , "The input data is not defined!")
-  return matOps.distributeTranspose(d.z_test)
+  matOps.distributeTranspose(d.z_test)
 }
 
 private def initTargetTraining() : DenseVector[Double] = {
@@ -60,16 +60,22 @@ private def initKernelMatrixTraining() : CoordinateMatrix  = {
 	val listOfMatrixEntries =  for (i <- 0 until d.getN_train(); j <- 0 until d.getN_train(); value = kf.kernel(d.X_train(i,::).t, d.X_train(j,::).t); if (value > epsilon)) yield (new MatrixEntry(i, j, value))
 	// Create an RDD of matrix entries ignoring all matrix entries which are smaller than epsilon.
 	val entries: RDD[MatrixEntry] = sc.parallelize(listOfMatrixEntries)
-	return new CoordinateMatrix(entries, d.getN_train(), d.getN_train())
+	new CoordinateMatrix(entries, d.getN_train(), d.getN_train())
 }
 
+/**
+ * Calculate the gradient without storing the kernel matrix Q: 
+ * In matrix notation: Q * lambda - 1
+ * For an indivual entry i of the gradient vector, this is equivalent to:
+ * sum over j from 1 to N of lamba(j) * d(i) * k(i,j,) * d(j) - 1
+ * */
 def calculateGradient(alphas : DenseVector[Double]) : DenseVector[Double]  = {
   val N = d.getN_train()
-  var v = DenseVector.zeros[Double](N)
+  var v = DenseVector.fill(N){-1.0}
   for (i <- 0 until N; j <- 0 until N){
     v(i) += alphas(j) * d.z_train(i) * d.z_train(j) * kf.kernel(d.X_train(i,::).t, d.X_train(j,::).t)
   }
-  v - DenseVector.ones[Double](N)
+  v
 }
 
 private def initKernelMatrixTest() : CoordinateMatrix = {
