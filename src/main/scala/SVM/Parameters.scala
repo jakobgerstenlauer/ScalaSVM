@@ -10,7 +10,7 @@ abstract class Parameters
 * epsilon: Threshold for similarity between data instances (If k(x,y) < epsilon then we approximate with 0!)
 * isDebug: Should the algorithm be verbose? 
 **/
-case class AlgoParams(maxIter: Int = 30, minDeltaAlpha: Double = 0.001, learningRateDecline: Double = 0.95, numBaggingReplicates: Int = 100, batchProb: Double = 0.1, epsilon : Double = 0.0001, isDebug: Boolean = false, hasMomentum: Boolean = false) extends Parameters{
+case class AlgoParams(maxIter: Int = 30, minDeltaAlpha: Double = 0.001, learningRateDecline: Double = 0.95, numBaggingReplicates: Int = 100, batchProb: Double = 0.7, epsilon : Double = 0.0001, isDebug: Boolean = false, hasMomentum: Boolean = false) extends Parameters{
   assert(batchProb>0.0 && batchProb<1.0)
   assert(learningRateDecline <= 1.0 && learningRateDecline > 0.0)
   assert(epsilon >= 0)
