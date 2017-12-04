@@ -80,7 +80,7 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
 		val ump = mp.updateDelta(ap)
 
 		//Update the alphas using gradient descent
-  		sequentialGradient(alphas, ap, ump, kmf)
+  		stochasticSequentialGradient(alphas, ap, ump, kmf)
         }
 
 	def sequentialGradient(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory) : SG = {
@@ -109,6 +109,29 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
                     println("alphas after 2nd projection:"+alpha3(0 until 5))
                 }
                 copy(alphas= alphas.copy(alpha=alpha3))
+	}
+	
+        def stochasticSequentialGradient(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory) : SG = {
+		val gradient = kmf.calculateGradient(alphas.alpha)
+		//Extract model parameters
+		val N = alphas.alpha.length
+		val C = mp.C
+		val d = kmf.d.z_train
+		val lambda = mp.lambda 
+		val delta = mp.delta
+                val shrinking = 1 - lambda * delta
+                val shrinkedValues = shrinking * alphas.alpha
+                //Our first, tentative, estimate of the updated parameters is:
+		val alpha1 = alphas.alpha - delta *:* gradient
+                //Then, we have to project the alphas onto the feasible region defined by the first constraint:
+                val alpha2 = alpha1 - (d *:* (d dot alpha1)) / (d dot d)
+                //The value of alpha has to be between 0 and C.
+                val updated = alpha2.map(alpha => if(alpha > C) C else alpha).map(alpha => if(alpha > 0) alpha else 0)
+                //random boolean vector: is a given observation part of the batch? (0:no, 1:yes)
+                val isInBatch = DenseVector.rand(N).map(x=>if(x < ap.batchProb) 1.0 else 0.0)
+                val tuples = (isInBatch.toArray.toList zip shrinkedValues.toArray.toList zip updated.toArray.toList) map { case ((a,b),c) => (a,b,c)}
+                val stochasticUpdate = new DenseVector(tuples.map{ case (isInBatch, shrinkedValues, updated) => if (isInBatch == 1) updated else shrinkedValues}.toArray)
+                copy(alphas= alphas.copy(alpha=stochasticUpdate))
 	}
 }
 
