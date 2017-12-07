@@ -368,7 +368,7 @@ trait hasTrainingSetEvaluator extends Algorithm{
                 }
 
                 //Return the predictions after adding the squared bias:
-                val squaredBias = kmf.tau * mkf.tau
+                val squaredBias = kmf.tau * kmf.tau
                 signum(matOps.collectRowVector(P) + DenseVector.fill(z.length){squaredBias})
 	}
 }
@@ -422,7 +422,7 @@ trait hasTestEvaluator extends Algorithm{
 
                 }
                 //Return the predictions after adding the squared bias:
-                val squaredBias = kmf.tau * mkf.tau
+                val squaredBias = kmf.tau * kmf.tau
                 signum(matOps.collectRowVector(P) + DenseVector.fill(z.length){squaredBias})
 	}
 }
