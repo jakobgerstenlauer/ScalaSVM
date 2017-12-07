@@ -106,12 +106,12 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
                     println("alphas first tentative update:"+alpha1(0 until maxPrintIndex))
                 }
                 //Then, we have to project the alphas onto the feasible region defined by the first constraint:
-                val alpha2 = alpha1 - (d *:* (d dot alpha1)) / (d dot d)
+                //val alpha2 = alpha1 - (d *:* (d dot alpha1)) / (d dot d)
                 //The value of alpha has to be between 0 and C.
-                if(ap.isDebug){
-                    println("alphas after projection:"+alpha2(0 until maxPrintIndex))
-                }
-                val alpha3 = alpha2.map(alpha => if(alpha > C) C else alpha).map(alpha => if(alpha > 0) alpha else 0)
+                //if(ap.isDebug){
+                //    println("alphas after projection:"+alpha2(0 until maxPrintIndex))
+                //}
+                val alpha3 = alpha1.map(alpha => if(alpha > C) C else alpha).map(alpha => if(alpha > 0) alpha else 0)
                 if(ap.isDebug){
                     println("alphas after 2nd projection:"+alpha3(0 until maxPrintIndex))
                 }
