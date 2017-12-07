@@ -12,6 +12,8 @@ class Data(val par: DataParams){
 	//empty data matrices for training and test set
         var X_train = DenseMatrix.zeros[Double](par.N_train, par.d)
         var X_test = DenseMatrix.zeros[Double](par.N_test, par.d)
+        //stores the maximum of the square of the euclidean norm
+        var tau = 0.0
 
 	//empty vectors for the labels of training and test set
 	var z_train = DenseVector.zeros[Double](par.N_train)
@@ -56,9 +58,12 @@ class Data(val par: DataParams){
   			}else{
     				x = mvn2.sample()
   			}
-  
 			//Matrix assignment to row
 			if( i < par.N_train ){
+                                //calculate the euclidean norm for vector x:
+                                val norm = sqrt(x.map(e => e*e).reduce(_+_))
+                                //update tau
+                                tau = max(tau, norm)                        
 				X_train(i, ::) := DenseVector(x.toArray).t
 			}else{
 				X_test(i - par.N_train, ::) := DenseVector(x.toArray).t
