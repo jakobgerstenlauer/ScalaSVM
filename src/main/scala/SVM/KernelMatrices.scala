@@ -32,8 +32,12 @@ val Z = initTargetMatrixTraining()
 val Z_test = initTargetMatrixTest()
 val z = initTargetTraining()
 val z_test = initTargetTest()
-
+val tau = initTau()
 def getData() : Data = return d
+
+private def initTau() : Double = {
+  d.tau 
+}
 
 private def initTargetMatrixTraining() : CoordinateMatrix = {
   assert( d.isValid() , "The input data is not defined!")
@@ -83,7 +87,7 @@ private def initKernelMatrixTraining() : CoordinateMatrix  = {
  * alphas: the current dual variables
  * tau: the a priori chosen bias term in feature space 
  * */
-def calculateGradient(alphas : DenseVector[Double], tau : Double) : DenseVector[Double]  = {
+def calculateGradient(alphas : DenseVector[Double]) : DenseVector[Double]  = {
   val tauSquare = tau * tau
   val N = d.getN_train()
   var v = DenseVector.fill(N){-1.0}
