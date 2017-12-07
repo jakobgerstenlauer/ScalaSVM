@@ -59,13 +59,14 @@ class Data(val par: DataParams){
     				x = mvn2.sample()
   			}
                         
-                        //calculate the euclidean norm for vector x:
-                        val norm = x.map(e => e*e).reduce(_+_)
-                        //update tau
-                        tau = max(tau, norm)                        
+
 
 			//Matrix assignment to row
 			if( i < par.N_train ){
+                                //calculate the euclidean norm for vector x:
+                                val norm = x.map(e => e*e).reduce(_+_)
+                                //update tau
+                                tau = max(tau, norm)                        
 				X_train(i, ::) := DenseVector(x.toArray).t
 			}else{
 				X_test(i - par.N_train, ::) := DenseVector(x.toArray).t
