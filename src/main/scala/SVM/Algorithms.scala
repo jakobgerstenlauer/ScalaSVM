@@ -367,10 +367,9 @@ trait hasTrainingSetEvaluator extends Algorithm{
                         P.entries.collect().map({ case MatrixEntry(row, column, value) => println("i: "+row+"j: "+column+": "+value)})
                 }
 
-                //TODO Add bias!!!
-                // return the predictions
-                println("P columns: "+P.numCols()+" rows: "+P.numRows())
-                signum(matOps.collectRowVector(P))
+                //Return the predictions after adding the squared bias:
+                val squaredBias = kmf.tau * mkf.tau
+                signum(matOps.collectRowVector(P) + DenseVector.fill(z.length){squaredBias})
 	}
 }
 
@@ -422,7 +421,9 @@ trait hasTestEvaluator extends Algorithm{
                         println("Content:"+matOps.collectRowVector(P))
 
                 }
-                signum(matOps.collectRowVector(P))
+                //Return the predictions after adding the squared bias:
+                val squaredBias = kmf.tau * mkf.tau
+                signum(matOps.collectRowVector(P) + DenseVector.fill(z.length){squaredBias})
 	}
 }
 
