@@ -84,53 +84,84 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
         }
 
 	def sequentialGradient(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory) : SG = {
+                //Extract model parameters
+		val N = alphas.alpha.length
+		val maxPrintIndex = min(10, N)
 		val gradient = kmf.calculateGradient(alphas.alpha)
+                if(ap.isDebug){
+                    println("gradient: " + gradient(0 until maxPrintIndex))
+                }
+
 		//Extract model parameters
 		val delta = mp.delta
 		val C = mp.C
 		//Extract the labels for the training set
 		val d = kmf.getData().z_train
                 if(ap.isDebug){
-                    println("alphas before update:"+alphas.alpha(0 until 5))
+                    println("alphas before update:"+alphas.alpha(0 until maxPrintIndex))
                 }
                 //Our first, tentative, estimate of the updated parameters is:
 		val alpha1 = alphas.alpha - delta *:* gradient
                 if(ap.isDebug){
-                    println("alphas first tentative update:"+alpha1(0 until 5))
+                    println("alphas first tentative update:"+alpha1(0 until maxPrintIndex))
                 }
                 //Then, we have to project the alphas onto the feasible region defined by the first constraint:
                 val alpha2 = alpha1 - (d *:* (d dot alpha1)) / (d dot d)
                 //The value of alpha has to be between 0 and C.
                 if(ap.isDebug){
-                    println("alphas after projection:"+alpha2(0 until 5))
+                    println("alphas after projection:"+alpha2(0 until maxPrintIndex))
                 }
                 val alpha3 = alpha2.map(alpha => if(alpha > C) C else alpha).map(alpha => if(alpha > 0) alpha else 0)
                 if(ap.isDebug){
-                    println("alphas after 2nd projection:"+alpha3(0 until 5))
+                    println("alphas after 2nd projection:"+alpha3(0 until maxPrintIndex))
                 }
                 copy(alphas= alphas.copy(alpha=alpha3))
 	}
 	
         def stochasticSequentialGradient(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory) : SG = {
-		val gradient = kmf.calculateGradient(alphas.alpha)
-		//Extract model parameters
+		
+                //Extract model parameters
 		val N = alphas.alpha.length
-		val C = mp.C
+		val maxPrintIndex = min(10, N)
+                val C = mp.C
 		val d = kmf.d.z_train
 		val lambda = mp.lambda 
 		val delta = mp.delta
-                val shrinking = 1 - lambda * delta
+                val shrinking = ap.learningRateDecline
+                
                 val shrinkedValues = shrinking * alphas.alpha
+                val gradient = kmf.calculateGradient(alphas.alpha)
+
+                if(ap.isDebug){
+                    println("gradient: " + gradient(0 until maxPrintIndex))
+                    println("alphas before update:"+alphas.alpha(0 until maxPrintIndex))
+                }
+
                 //Our first, tentative, estimate of the updated parameters is:
 		val alpha1 = alphas.alpha - delta *:* gradient
+                if(ap.isDebug){
+                    println("alphas first tentative update:"+alpha1(0 until maxPrintIndex))
+                }
                 //Then, we have to project the alphas onto the feasible region defined by the first constraint:
                 val alpha2 = alpha1 - (d *:* (d dot alpha1)) / (d dot d)
+                if(ap.isDebug){
+                    println("alphas after projection:"+alpha2(0 until maxPrintIndex))
+                }
                 //The value of alpha has to be between 0 and C.
                 val updated = alpha2.map(alpha => if(alpha > C) C else alpha).map(alpha => if(alpha > 0) alpha else 0)
+                if(ap.isDebug){
+                    println("alphas after 2nd projection:"+updated(0 until maxPrintIndex))
+                }
                 //random boolean vector: is a given observation part of the batch? (0:no, 1:yes)
                 val isInBatch = DenseVector.rand(N).map(x=>if(x < ap.batchProb) 1.0 else 0.0)
+                if(ap.isDebug){
+                    println("batch vector: "+isInBatch(0 until maxPrintIndex))
+                }
                 val tuples = (isInBatch.toArray.toList zip shrinkedValues.toArray.toList zip updated.toArray.toList) map { case ((a,b),c) => (a,b,c)}
                 val stochasticUpdate = new DenseVector(tuples.map{ case (isInBatch, shrinkedValues, updated) => if (isInBatch == 1) updated else shrinkedValues}.toArray)
+                if(ap.isDebug){
+                    println("tochastic update:"+stochasticUpdate(0 until maxPrintIndex))
+                }
                 copy(alphas= alphas.copy(alpha=stochasticUpdate))
 	}
 }
