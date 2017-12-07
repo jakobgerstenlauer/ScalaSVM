@@ -61,7 +61,8 @@ private def initTargetTest() : DenseVector[Double] = {
 
 private def initKernelMatrixTraining() : CoordinateMatrix  = {
 	assert( d.isValid() , "The input data is not defined!")
-	val listOfMatrixEntries =  for (i <- 0 until d.getN_train(); j <- 0 until d.getN_train(); value = kf.kernel(d.X_train(i,::).t, d.X_train(j,::).t); if (value > epsilon)) yield (new MatrixEntry(i, j, value))
+        val tau2 = tau * tau
+	val listOfMatrixEntries =  for (i <- 0 until d.getN_train(); j <- 0 until d.getN_train(); value = kf.kernel(d.X_train(i,::).t, d.X_train(j,::).t) + tau2; if (value > epsilon)) yield (new MatrixEntry(i, j, value))
 	// Create an RDD of matrix entries ignoring all matrix entries which are smaller than epsilon.
 	val entries: RDD[MatrixEntry] = sc.parallelize(listOfMatrixEntries)
 	new CoordinateMatrix(entries, d.getN_train(), d.getN_train())
@@ -98,8 +99,9 @@ def calculateGradient(alphas : DenseVector[Double]) : DenseVector[Double]  = {
 }
 
 private def initKernelMatrixTest() : CoordinateMatrix = {
-	assert( d.isValid() , "The input data is not defined!")
-  val listOfMatrixEntries =  for (i <- 0 until d.getN_train(); j <- 0 until d.getN_test(); value = kf.kernel(d.X_train(i,::).t, d.X_test(j,::).t); if (value > epsilon)) yield (new MatrixEntry(i, j, value))
+  assert( d.isValid() , "The input data is not defined!")
+  val tau2 = tau * tau
+  val listOfMatrixEntries =  for (i <- 0 until d.getN_train(); j <- 0 until d.getN_test(); value = kf.kernel(d.X_train(i,::).t, d.X_test(j,::).t) + tau2; if (value > epsilon)) yield (new MatrixEntry(i, j, value))
   // Create an RDD of matrix entries ignoring all matrix entries which are smaller than epsilon.
   val entries: RDD[MatrixEntry] = sc.parallelize(listOfMatrixEntries)
   return new CoordinateMatrix(entries, d.getN_train(), d.getN_test())
