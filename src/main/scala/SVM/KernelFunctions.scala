@@ -11,7 +11,7 @@ abstract class KernelParameter{
 
 case class GaussianKernelParameter(sigma: Double) extends KernelParameter{
 	override def toString() : String = {
-        	return "Gaussian kernel parameter sigma "+sigma+". \n"
+        	"Gaussian kernel parameter sigma "+sigma+". \n"
   	}  
 
 }
@@ -29,13 +29,13 @@ case class GaussianKernel(kernelParam : GaussianKernelParameter) extends KernelF
   		 val diff = x - y
 		 val squares = diff :* diff
   		 val squared_euclidean_distance = sum(squares)
-  		 return exp( -kernelParam.sigma * squared_euclidean_distance)
+  		 exp( -kernelParam.sigma * squared_euclidean_distance)
 	}
 	override def toString() : String = {
         	val sb = new StringBuilder
         	sb.append("Gaussian kernel: \n")
 	        sb.append("sigma: "+kernelParam.sigma+"\n")
-	        return sb.toString()
+	        sb.toString()
   	}  
 }
 
