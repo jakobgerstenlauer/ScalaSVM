@@ -160,7 +160,7 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
                 val tuples = (isInBatch.toArray.toList zip shrinkedValues.toArray.toList zip updated.toArray.toList) map { case ((a,b),c) => (a,b,c)}
                 val stochasticUpdate = new DenseVector(tuples.map{ case (isInBatch, shrinkedValues, updated) => if (isInBatch == 1) updated else shrinkedValues}.toArray)
                 if(ap.isDebug){
-                    println("tochastic update:"+stochasticUpdate(0 until maxPrintIndex))
+                    println("stochastic update:"+stochasticUpdate(0 until maxPrintIndex))
                 }
                 copy(alphas= alphas.copy(alpha=stochasticUpdate))
 	}
