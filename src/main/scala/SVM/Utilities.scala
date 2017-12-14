@@ -53,7 +53,7 @@ class Data(val par: DataParams){
 		var x = DenseVector.zeros[Double](par.d) 
 
 		for(i <- 0 to (par.N - 1)){
-  			if ( z(i) == 0 ) {
+  			if ( z(i) == -1 ) {
     				x = mvn1.sample()
   			}else{
     				x = mvn2.sample()
