@@ -34,6 +34,16 @@ class Data(val par: DataParams){
 		return sb.toString()
 	} 
 
+	def assignDataSets(trainingSet: DenseMatrix[Double], testSet: DenseMatrix[Double]) : Unit = {
+		assert(trainingSet.cols==testSet.cols,"Unequal number of columns of training("+trainingSet.cols+")and test set("+testSet.cols+")!")
+                assert(trainingSet.rows==par.N_train,"Invalid number of rows of training set!")
+                assert(testSet.rows==par.N_test,"Invalid number of rows of test set!")
+
+                X_train = trainingSet
+		X_test  = testSet
+		isFilled = true
+	}
+
 	def simulate() : Unit = {
 
 		// Set locations of two modes, theta1 and theta2
