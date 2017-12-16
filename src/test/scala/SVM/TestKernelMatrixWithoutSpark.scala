@@ -1,15 +1,5 @@
 package test
-import SVM.KernelParameter
-import SVM.GaussianKernelParameter
-import SVM.KernelFunction
-import SVM.GaussianKernel
-import SVM.KernelMatrixFactory
-import SVM.DataParams
-import SVM.SimData
-import breeze.linalg._
-import breeze.numerics._
-import org.apache.spark.SparkContext
-import org.apache.spark.SparkConf
+import SVM.{DataParams, GaussianKernel, GaussianKernelParameter, SimData}
 
 object testKernelMatrixWithoutSpark extends App {
 	val kernelPar = GaussianKernelParameter(1.5)

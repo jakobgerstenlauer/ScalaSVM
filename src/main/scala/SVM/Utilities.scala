@@ -129,3 +129,77 @@ class SimData (val params: DataParams) extends Data(params) {
   }
 
 
+  class RealData (val params: DataParams) extends Data(params) {
+
+    //Get column with column index (starting with 0) from test set.
+    override def getRowTest(columnIndex: Int): DenseVector[Double] = {
+      X_test(columnIndex,::).t
+    }
+
+    //Get column with column index (starting with 0) from training set.
+    override def getRowTrain(columnIndex: Int): DenseVector[Double] = {
+      X_train(columnIndex,::).t
+    }
+
+    //Get label with row index (starting with 0) from test set.
+    override def getLabelTest(rowIndex: Int): Double = {
+      z_test(rowIndex)
+    }
+
+    //Get label with row index (starting with 0) from training set.
+    override def getLabelTrain(rowIndex: Int): Double = {
+      z_train(rowIndex)
+    }
+
+    //Get vector of labels from test set.
+    override def getLabelsTest: DenseVector[Int] = {
+      z_test
+    }
+
+    //Get vector of labels from training set.
+    override def getLabelsTrain: DenseVector[Int] = {
+      z_train
+    }
+
+    //Was the data set correctly initialized?
+    override def isDefined : Boolean = isFilled
+
+    var isFilled = false
+    var testSetIsFilled = false
+    var trainingSetIsFilled = false
+
+    //empty data matrices for training and test set
+    var X_train : DenseMatrix[Double] = DenseMatrix.zeros[Double](params.N_train, params.d)
+    var X_test : DenseMatrix[Double]  = DenseMatrix.zeros[Double](params.N_test, params.d)
+
+    //empty vectors for the labels of training and test set
+    var z_train : DenseVector[Int] = DenseVector.zeros[Int](params.N_train)
+    var z_test : DenseVector[Int] =  DenseVector.zeros[Int](params.N_test)
+
+    override def toString : String = {
+      val sb = new StringBuilder
+      sb.append("Synthetic dataset with "+params.d+" variables.\n")
+      sb.append("Observations: "+ params.N_train +" (training), " + params.N_test+ "(test)\n")
+      if(isFilled)sb.append("Data was already generated.\n")
+      else sb.append("Data was not yet generated.\n")
+      sb.toString()
+    }
+
+    def readTrainingDataSet (path: String, separator: Char, columnIndexClass: Int, rowsToCheck: Int = 10) : Unit = {
+      val csvReader : CSVReader = new CSVReader(path, separator, columnIndexClass, rowsToCheck)
+      val (inputs, labels) = csvReader.read()
+      X_train = inputs
+      z_train = labels
+      trainingSetIsFilled = true
+      isFilled = testSetIsFilled && trainingSetIsFilled
+    }
+
+    def readTestDataSet (path: String, separator: Char, columnIndexClass: Int, rowsToCheck: Int = 10) : Unit = {
+      val csvReader : CSVReader = new CSVReader(path, separator, columnIndexClass, rowsToCheck)
+      val (inputs, labels) = csvReader.read()
+      X_test = inputs
+      z_test = labels
+      testSetIsFilled = true
+      isFilled = testSetIsFilled && trainingSetIsFilled
+    }
+  }

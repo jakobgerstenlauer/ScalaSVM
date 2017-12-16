@@ -1,16 +1,6 @@
 package test
-import SVM.KernelParameter
-import SVM.GaussianKernelParameter
-import SVM.KernelFunction
-import SVM.GaussianKernel
-import SVM.KernelMatrixFactory
-import SVM.DataParams
-import SVM.Data
-import SVM.SimData
-import breeze.linalg._
-import breeze.numerics._
-import org.apache.spark.SparkContext
-import org.apache.spark.SparkConf
+import SVM._
+import org.apache.spark.{SparkConf, SparkContext}
 
 object testKernelMatrix extends App {
 	val kernelPar = GaussianKernelParameter(1.5)
@@ -19,9 +9,9 @@ object testKernelMatrix extends App {
 	println(gaussianKernel)
  	val dataProperties = DataParams(N=100, d=10, ratioTrain=0.5)
 	println(dataProperties)
-        val d = new SimData(dataProperties)
+	val d = new SimData(dataProperties)
 	println(d)
-        d.simulate()
+	d.simulate()
 	println(d)
 	val appName = "TestKernelMatrix"
 	val conf = new SparkConf().setAppName(appName).setMaster("spark://jakob-Lenovo-G50-80:7077")
