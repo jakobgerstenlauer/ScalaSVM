@@ -30,7 +30,7 @@ abstract class Data(params: DataParams){
   def getd : Int = params.d
 }
 
-class simData(val params: DataParams) extends Data(params) {
+class SimData (val params: DataParams) extends Data(params) {
 
   //Get column with column index (starting with 0) from test set.
   override def getRowTest(columnIndex: Int): DenseVector[Double] = {
@@ -94,7 +94,7 @@ class simData(val params: DataParams) extends Data(params) {
       val theta2 : DenseVector[Double] = DenseVector.rand(params.d)
 
       //Randomly allocate observations to each class (0 or 1)
-      val z = DenseVector.rand(params.N).map(x=>2*x).map(x=>floor(x)).map(x=>(2*x)-1)
+      val z : DenseVector[Int] = DenseVector.rand(params.N).map(x=>2*x).map(x=>floor(x)).map(x=>(2*x)-1).map(x=>x.toInt)
       z_train = z(0 until params.N_train)
       z_test = z(params.N_train until params.N)
 
@@ -106,11 +106,11 @@ class simData(val params: DataParams) extends Data(params) {
       var x = DenseVector.zeros[Double](params.d)
 
       for(i <- 0 until params.N){
-          if ( z(i) == -1 ) {
-              x = mvn1.sample()
-          }else{
-              x = mvn2.sample()
-          }
+        if ( z(i) == -1 ) {
+            x = mvn1.sample()
+        }else{
+            x = mvn2.sample()
+        }
         //Matrix assignment to row
         //For training set:
         if( i < params.N_train ){

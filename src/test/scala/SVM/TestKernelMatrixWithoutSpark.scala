@@ -5,7 +5,7 @@ import SVM.KernelFunction
 import SVM.GaussianKernel
 import SVM.KernelMatrixFactory
 import SVM.DataParams
-import SVM.Data
+import SVM.SimData
 import breeze.linalg._
 import breeze.numerics._
 import org.apache.spark.SparkContext
@@ -18,7 +18,7 @@ object testKernelMatrixWithoutSpark extends App {
 	println(gaussianKernel)
  	val dataProperties = DataParams(N=100, d=10, ratioTrain=0.5)
 	println(dataProperties)
-        val d = new Data(dataProperties)
+        val d = new SimData(dataProperties)
 	println(d)
         d.simulate()
 	println(d)

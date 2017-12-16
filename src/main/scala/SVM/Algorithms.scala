@@ -61,7 +61,7 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
 		//Compute correct minus incorrect classifications on training set
 		val predictions : DenseVector[Double] = evaluateOnTrainingSet(alphas, ap, kmf, matOps)
 		assert(predictions.length == kmf.d.getLabelsTrain.length)
-		val product : DenseVector[Double] = predictions *:* kmf.d.getLabelsTrain
+		val product : DenseVector[Double] = predictions *:* kmf.d.getLabelsTrain.map(x => x.toDouble)
 		val correct = product.map(x=>if(x>0) 1 else 0).reduce(_+_)
 		val misclassified : Int = product.map(x=>if(x<0) 1 else 0).reduce(_+_)
 		println("Training set: "+ correct +"/"+ misclassified)
@@ -69,7 +69,7 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
 		//Compute correct minus incorrect classifications on test set
 		val predictionsTest : DenseVector[Double] = evaluateOnTestSet(alphas, ap, kmf, matOps)
 		assert(predictionsTest.length == kmf.d.getLabelsTest.length)
-		val productT : DenseVector[Double] = predictionsTest *:* kmf.d.getLabelsTest
+		val productT : DenseVector[Double] = predictionsTest *:* kmf.d.getLabelsTest.map(x => x.toDouble)
 		val correctT = productT.map(x=>if(x>0) 1 else 0).reduce(_+_)
 		val misclassifiedT : Int = productT.map(x=>if(x<0) 1 else 0).reduce(_+_)
 		println("Test set: "+ correctT + "/" + misclassifiedT)
@@ -94,7 +94,7 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
 		val C = mp.C
 
 		//Extract the labels for the training set
-		val d = kmf.d.getLabelsTrain
+		val d = kmf.d.getLabelsTrain.map(x => x.toDouble)
     if(ap.isDebug){
         println("alphas before update:"+alphas.alpha(0 until maxPrintIndex))
     }
@@ -124,7 +124,7 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
 		val N = alphas.alpha.length
 		val maxPrintIndex = min(10, N)
     val C = mp.C
-		val d = kmf.d.getLabelsTrain
+		val d = kmf.d.getLabelsTrain.map(x=>x.toDouble)
     val delta = mp.delta
     val shrinking = ap.learningRateDecline
     val shrinkedValues: DenseVector[Double] = shrinking * alphas.alpha
@@ -185,7 +185,7 @@ case class SGtest(alphas: Alphas, ap: AlgoParams, mp: ModelParams, lkmf: LocalKe
 		val delta = mp.delta
 		val C = mp.C
 		//Extract the labels for the training set
-		val d = kmf.d.getLabelsTrain
+		val d = kmf.d.getLabelsTrain.map(x=>x.toDouble)
     //Our first, tentative, estimate of the updated parameters is:
 		val alpha1 : DenseVector[Double] = alphas.alpha - delta *:* gradient
     //Then, we have to project the alphas onto the feasible region defined by the first constraint:
@@ -207,14 +207,14 @@ case class SGD(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatri
 
 		//Compute correct minus incorrect classifications on training set
     val predictionsTrain = evaluateOnTrainingSet(alphas, ap, kmf, matOps)
-    val productTrain : DenseVector[Double] = predictionsTrain *:* kmf.d.getLabelsTrain
+    val productTrain : DenseVector[Double] = predictionsTrain *:* kmf.d.getLabelsTrain.map(x => x.toDouble)
     val correctTrain : Int = productTrain.map(x=>if(x>0) 1 else 0).reduce(_+_)
     val misclassifiedTrain : Int = productTrain.map(x=>if(x<0) 1 else 0).reduce(_+_)
     println("Training set: "+ correctTrain +"/"+ misclassifiedTrain)
 		
     //Compute correct minus incorrect classifications on test set
     val predictions = evaluateOnTestSet(alphas, ap, kmf, matOps)
-    val product : DenseVector[Double] = predictions *:* kmf.d.getLabelsTest
+    val product : DenseVector[Double] = predictions *:* kmf.d.getLabelsTest.map(x => x.toDouble)
     val correct : Int = product.map(x => if(x>0) 1 else 0).reduce(_+_)
     val misclassified : Int = product.map(x => if(x<0) 1 else 0).reduce(_+_)
     println("Test set: "+ correct +"/"+ misclassified)
@@ -292,8 +292,7 @@ case class SGD(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatri
 		val delta = mp.delta
 		val C = mp.C
 		//Extract the labels for the training set
-		val z = kmf.d.getLabelsTrain
-		
+		val z = kmf.d.getLabelsTrain.map(x=>x.toDouble)
 		val shrinking = 1 - lambda * delta  
 		val tau = (lambda * delta)/(1 + lambda * delta)
 		val shrinkedValues = shrinking * alphas.alphaOld
@@ -336,7 +335,7 @@ trait hasTrainingSetEvaluator extends Algorithm{
 
 		//Get the distributed kernel matrix for the test set:
 		val K = kmf.K
-		val z = kmf.z
+		val z = kmf.z.map(x=>x.toDouble)
 		val epsilon = max(min(ap.epsilon, min(alphas.alpha)), 0.000001)
 		val A = matOps.distributeRowVector(alphas.alpha *:* z, epsilon)
 
@@ -388,7 +387,7 @@ trait hasTestEvaluator extends Algorithm{
 		val S = kmf.S
 		val z = kmf.z_test
 		val epsilon = max(min(ap.epsilon, min(alphas.alpha)), 0.000001)
-		val A = matOps.distributeRowVector(alphas.alpha *:* kmf.d.getLabelsTrain, epsilon)
+		val A = matOps.distributeRowVector(alphas.alpha *:* kmf.d.getLabelsTrain.map(x=>x.toDouble), epsilon)
 
  		assert(z!=null && A!=null && S!=null, "One of the input matrices is undefined!")
     assert(A.numCols()>0, "The number of columns of A is zero.")

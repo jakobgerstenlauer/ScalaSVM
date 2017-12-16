@@ -1,21 +1,7 @@
 package test
 
-import SVM.Alphas
-import SVM.Algorithm
-import SVM.Parameters
-import SVM.AlgoParams
-import SVM.ModelParams
-import SVM.DataParams
-import SVM.Data
-import SVM.KernelMatrixFactory
-import SVM.DistributedMatrixOps
-import SVM.GaussianKernelParameter
-import SVM.GaussianKernel
-import SVM.hasBagging
-import org.apache.spark.SparkContext
-import org.apache.spark.SparkConf
-import breeze.linalg._
-import breeze.numerics._
+import SVM._
+import org.apache.spark.{SparkConf, SparkContext}
 
 /**
 *Stochastic gradient descent algorithm
@@ -46,7 +32,7 @@ object testCreateAlphaMatrix extends App {
 	val kernelPar = GaussianKernelParameter(1.5)
 	val gaussianKernel = GaussianKernel(kernelPar)
 	val dataProperties = DataParams(N=N, d=5, ratioTrain=0.5)
-	val d = new Data(dataProperties)
+	val d = new SimData(dataProperties)
 	d.simulate()
 	val epsilon = 0.001
 	val appName = "TestCreateAlphaMatrix"
