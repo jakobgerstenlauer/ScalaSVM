@@ -41,7 +41,7 @@ case class ModelParams(C: Double = 1.0, lambda: Double = 0.1, delta: Double = 0.
         sb.append("Model parameters: \n")
         sb.append("C: "+C+"\n")
         sb.append("lambda: "+lambda+"\n")
-        return sb.toString()
+        sb.toString()
   }  
 }
 
