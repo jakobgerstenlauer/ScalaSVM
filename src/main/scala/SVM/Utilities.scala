@@ -2,7 +2,7 @@ package SVM
 import breeze.linalg._
 import breeze.numerics._
 
-abstract class Data(params: DataParams){
+trait Data{
 
   //Get row with row index (starting with 0) from test set.
   def getRowTest(rowIndex: Int):DenseVector[Double]
@@ -25,16 +25,20 @@ abstract class Data(params: DataParams){
   //Was the data set correctly initialized?
   def isDefined : Boolean
 
-  def getN_train : Int = params.N_train
-  def getN_test : Int = params.N_test
-  def getd : Int = params.d
+  def getN_train : Int
+  def getN_test : Int
+  def getd : Int
 }
 
 /**
   * Simulated data with given data parameters.
   * @param params
   */
-class SimData (val params: DataParams) extends Data(params) {
+class SimData (val params: DataParams) extends Data {
+
+  def getN_train : Int = params.N_train
+  def getN_test : Int = params.N_test
+  def getd : Int = params.d
 
   //Get column with column index (starting with 0) from test set.
   override def getRowTest(columnIndex: Int): DenseVector[Double] = {
@@ -134,9 +138,8 @@ class SimData (val params: DataParams) extends Data(params) {
 
 /**
   * Data that is stored in the local file system as csv files.
-  * @param params
   */
-class LocalData (val params: DataParams) extends Data(params) {
+class LocalData extends Data{
 
     //Get column with column index (starting with 0) from test set.
     override def getRowTest(columnIndex: Int): DenseVector[Double] = {
@@ -171,22 +174,25 @@ class LocalData (val params: DataParams) extends Data(params) {
     //Was the data set correctly initialized?
     override def isDefined : Boolean = isFilled
 
+    var N : Int = 0
+    var N_train : Int = 0
+    var N_test : Int = 0
+    var d : Int = 0
+
     var isFilled = false
     var testSetIsFilled = false
     var trainingSetIsFilled = false
 
     //empty data matrices for training and test set
-    var X_train : DenseMatrix[Double] = DenseMatrix.zeros[Double](params.N_train, params.d)
-    var X_test : DenseMatrix[Double]  = DenseMatrix.zeros[Double](params.N_test, params.d)
+    var X_train, X_test : DenseMatrix[Double] = DenseMatrix.zeros[Double](1, 1)
 
     //empty vectors for the labels of training and test set
-    var z_train : DenseVector[Int] = DenseVector.zeros[Int](params.N_train)
-    var z_test : DenseVector[Int] =  DenseVector.zeros[Int](params.N_test)
+    var z_train, z_test : DenseVector[Int] = DenseVector.zeros[Int](1)
 
     override def toString : String = {
       val sb = new StringBuilder
-      sb.append("Empirical dataset from local file system with "+params.d+" variables.\n")
-      sb.append("Observations: "+ params.N_train +" (training), " + params.N_test+ "(test)\n")
+      sb.append("Empirical dataset from local file system with "+ d+" variables.\n")
+      sb.append("Observations: "+ N_train +" (training), " + N_test+ "(test)\n")
       if(isFilled) sb.append("Data was already generated.\n")
       else sb.append("Data was not yet generated.\n")
       sb.toString()
@@ -197,6 +203,8 @@ class LocalData (val params: DataParams) extends Data(params) {
       val (inputs, labels) = csvReader.read()
       X_train = inputs
       z_train = labels
+      d = X_train.cols
+      N_train = X_train.rows
       trainingSetIsFilled = true
       isFilled = testSetIsFilled && trainingSetIsFilled
     }
@@ -206,7 +214,15 @@ class LocalData (val params: DataParams) extends Data(params) {
       val (inputs, labels) = csvReader.read()
       X_test = inputs
       z_test = labels
+      d = X_test.cols
+      N_test = X_test.rows
       testSetIsFilled = true
       isFilled = testSetIsFilled && trainingSetIsFilled
     }
-  }
+
+  override def getN_train: Int = N_train
+
+  override def getN_test: Int = N_test
+
+  override def getd: Int = d
+}

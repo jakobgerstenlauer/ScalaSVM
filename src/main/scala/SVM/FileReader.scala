@@ -5,8 +5,11 @@ import scala.io.{BufferedSource, Source}
 abstract class FileReader(path: String)
 
 class CSVReader(path: String, separator: Char, columnIndexClass: Int) extends FileReader(path) {
-
-  def read():(DenseMatrix[Double],DenseVector[Int])={
+  /**
+    * Reads a csv data set with the given separator and returns the data matrix and the reponse vector.
+    * @return (X,Y) A tuple with the input matrix and the response vector.
+    */
+  def read(): (DenseMatrix[Double], DenseVector[Int]) ={
 
     var maxColumns = 0
     var numLines = 0
