@@ -30,6 +30,10 @@ abstract class Data(params: DataParams){
   def getd : Int = params.d
 }
 
+/**
+  * Simulated data with given data parameters.
+  * @param params
+  */
 class SimData (val params: DataParams) extends Data(params) {
 
   //Get column with column index (starting with 0) from test set.
@@ -128,8 +132,11 @@ class SimData (val params: DataParams) extends Data(params) {
     }
   }
 
-
-  class RealData (val params: DataParams) extends Data(params) {
+/**
+  * Data that is stored in the local file system as csv files.
+  * @param params
+  */
+class LocalData (val params: DataParams) extends Data(params) {
 
     //Get column with column index (starting with 0) from test set.
     override def getRowTest(columnIndex: Int): DenseVector[Double] = {
@@ -178,15 +185,15 @@ class SimData (val params: DataParams) extends Data(params) {
 
     override def toString : String = {
       val sb = new StringBuilder
-      sb.append("Synthetic dataset with "+params.d+" variables.\n")
+      sb.append("Empirical dataset from local file system with "+params.d+" variables.\n")
       sb.append("Observations: "+ params.N_train +" (training), " + params.N_test+ "(test)\n")
-      if(isFilled)sb.append("Data was already generated.\n")
+      if(isFilled) sb.append("Data was already generated.\n")
       else sb.append("Data was not yet generated.\n")
       sb.toString()
     }
 
-    def readTrainingDataSet (path: String, separator: Char, columnIndexClass: Int, rowsToCheck: Int = 10) : Unit = {
-      val csvReader : CSVReader = new CSVReader(path, separator, columnIndexClass, rowsToCheck)
+    def readTrainingDataSet (path: String, separator: Char, columnIndexClass: Int) : Unit = {
+      val csvReader : CSVReader = new CSVReader(path, separator, columnIndexClass)
       val (inputs, labels) = csvReader.read()
       X_train = inputs
       z_train = labels
@@ -194,8 +201,8 @@ class SimData (val params: DataParams) extends Data(params) {
       isFilled = testSetIsFilled && trainingSetIsFilled
     }
 
-    def readTestDataSet (path: String, separator: Char, columnIndexClass: Int, rowsToCheck: Int = 10) : Unit = {
-      val csvReader : CSVReader = new CSVReader(path, separator, columnIndexClass, rowsToCheck)
+    def readTestDataSet (path: String, separator: Char, columnIndexClass: Int) : Unit = {
+      val csvReader : CSVReader = new CSVReader(path, separator, columnIndexClass)
       val (inputs, labels) = csvReader.read()
       X_test = inputs
       z_test = labels
