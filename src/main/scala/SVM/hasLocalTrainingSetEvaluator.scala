@@ -1,0 +1,63 @@
+package SVM
+
+import breeze.linalg.{DenseVector, _}
+import breeze.numerics._
+
+trait hasLocalTrainingSetEvaluator extends Algorithm{
+
+	/**
+	* Returns the predicted class (-1 or +1) for a test set.
+	*
+	* alphas: The alpha parameters.
+	* ap:     AlgoParams object storing parameters of the algorithm
+	* kmf:    LocalKernelMatrixFactory that contains the local matrices for the data set
+	***/
+	def evaluateOnTrainingSet(alphas: Alphas, ap: AlgoParams, kmf: LocalKernelMatrixFactory):DenseVector[Double]= {
+		//Get the kernel matrix for the training set:
+		val K = kmf.K
+    val z = kmf.z.map(x=>x.toDouble)
+    assert(K.cols>0, "The number of columns of K is zero.")
+    assert(K.rows>0, "The number of rows of K is zero.")
+
+		val A : DenseVector[Double] = alphas.alpha *:* z
+    assert(A!=null && K!=null, "One of the input matrices is undefined!")
+    assert(A.length>0, "The number of elements of A is zero.")
+    assert(A.length==K.rows,"The number of elements of A does not equal the number of rows of S!")
+
+		val P = A.t * K
+    //Return the predictions
+    signum(P).t
+	}
+}
+
+
+trait hasLocalTestSetEvaluator extends Algorithm{
+
+  /**
+    * Returns the predicted class (-1 or +1) for a test set.
+    *
+    * alphas: The alpha parameters.
+    * ap:     AlgoParams object storing parameters of the algorithm
+    * kmf:    LocalKernelMatrixFactory that contains the local matrices for the data set
+    ***/
+  def evaluateOnTestSet(alphas: Alphas, ap: AlgoParams, kmf: LocalKernelMatrixFactory):DenseVector[Double]= {
+
+    //Get the distributed kernel matrix for the test set:
+    val S = kmf.S
+    assert(S.cols>0, "The number of columns of S is zero.")
+    assert(S.rows>0, "The number of rows of S is zero.")
+
+    val A : DenseVector[Double] = alphas.alpha *:* kmf.getData().getLabelsTrain.map(x=>x.toDouble)
+    assert(A!=null && S!=null, "One of the input matrices is undefined!")
+    assert(A.length>0, "The number of elements of A is zero.")
+    assert(A.length==S.rows,"The number of elements of A does not equal the number of rows of S!")
+
+    val P = A.t * S
+    //Return the predictions
+    signum(P).t
+  }
+}
+
+
+
+

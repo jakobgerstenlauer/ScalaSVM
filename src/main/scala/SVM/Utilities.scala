@@ -24,7 +24,6 @@ trait Data{
 
   //Was the data set correctly initialized?
   def isDefined : Boolean
-
   def getN_train : Int
   def getN_test : Int
   def getd : Int
