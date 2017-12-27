@@ -1,11 +1,47 @@
 package SVM
 import breeze.linalg._
 import breeze.numerics._
+import org.apache.spark.sql.Dataset
 
 trait Data{
 
   //Get row with row index (starting with 0) from test set.
   def getRowTest(rowIndex: Int):DenseVector[Double]
+
+  //Get row with row index (starting with 0) from training set.
+  def getRowTrain(rowIndex: Int):DenseVector[Double]
+
+  //Get label with row index (starting with 0) from test set.
+  def getLabelTest(rowIndex: Int): Double
+
+  //Get label with row index (starting with 0) from training set.
+  def getLabelTrain(rowIndex: Int): Double
+
+  //Get vector of labels from test set.
+  def getLabelsTest : DenseVector[Int]
+
+  //Get vector of labels from training set.
+  def getLabelsTrain : DenseVector[Int]
+
+  //Was the data set correctly initialized?
+  def isDefined : Boolean
+  def getN_train : Int
+  def getN_test : Int
+  def getd : Int
+}
+
+class SparkDataSet(dataset: Dataset[Double]) extends Data{
+
+  // Creates a temporary view using the DataFrame
+  dataset.createOrReplaceTempView("tempView")
+
+  // SQL can be run over a temporary view created using DataFrames
+  val results = spark.sql("SELECT name FROM people")
+
+  //Get row with row index (starting with 0) from test set.
+  def getRowTest(rowIndex: Int):DenseVector[Double] = {
+
+  }
 
   //Get row with row index (starting with 0) from training set.
   def getRowTrain(rowIndex: Int):DenseVector[Double]
