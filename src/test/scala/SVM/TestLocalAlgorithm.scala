@@ -16,16 +16,16 @@ object TestLocalAlgorithm extends App {
   d.readTestDataSet (pathTest, ',', 10)
   println(d)
   val epsilon = 0.0001
-  val kernelPar = GaussianKernelParameter(4.0)
+  val kernelPar = GaussianKernelParameter(10.0)
   val gaussianKernel = GaussianKernel(kernelPar)
-  val kmf = new LocalKernelMatrixFactory(d, gaussianKernel, epsilon)
+  val kmf = LocalKernelMatrixFactory(d, gaussianKernel, epsilon)
   val alphas = new Alphas(N=d.N_train)
   val ap = AlgoParams(maxIter = 5, batchProb = 0.8, minDeltaAlpha = 0.001, learningRateDecline = 0.9,
     numBaggingReplicates = 50, epsilon = epsilon, isDebug = true, hasMomentum = false)
-  val mp = ModelParams(C = 1.0, lambda = 10.0, delta = 0.3)
-  var algo1 = new SGLocal(alphas, ap, mp, kmf)
+  val mp = ModelParams(C = 0.1, lambda = 10.0, delta = 0.3)
+  var algo1 = SGLocal(alphas, ap, mp, kmf)
   var numInt = 0
-  while(numInt < 4){
+  while(numInt < 2){
     algo1 = algo1.iterate()
     numInt += 1
     println(numInt)

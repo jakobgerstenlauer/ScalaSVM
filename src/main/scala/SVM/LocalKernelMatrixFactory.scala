@@ -5,7 +5,6 @@ import breeze.linalg._
 trait MatrixFactory{
   def calculateGradient(alpha: DenseVector[Double]):DenseVector[Double]
   def getData():Data
-
 }
 
 case class LocalKernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) extends MatrixFactory{

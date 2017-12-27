@@ -47,13 +47,15 @@ case class Alphas(N: Int,
   }
 }
 
-abstract class Algorithm
-abstract class SGAlgorithm extends Algorithm
+abstract class Algorithm{
+  def iterate : Algorithm
+}
+
 /**
   *Sequential gradient descent algorithm with local matrices
   **/
-case class SGLocal(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LocalKernelMatrixFactory) extends SGAlgorithm
-  with hasBagging with hasLocalTrainingSetEvaluator with hasLocalTestSetEvaluator {
+case class SGLocal(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LocalKernelMatrixFactory) extends Algorithm
+  with hasLocalTrainingSetEvaluator with hasLocalTestSetEvaluator {
 
   def iterate() : SGLocal = {
     //Compute correct minus incorrect classifications on training set
@@ -76,10 +78,10 @@ case class SGLocal(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LocalKe
     val ump = mp.updateDelta(ap)
 
     //Update the alphas using gradient descent
-    stochasticSequentialGradient(alphas, ap, ump, kmf)
+    gradientDescent(alphas, ap, ump, kmf)
   }
 
-  def stochasticSequentialGradient (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: MatrixFactory): SGLocal = {
+  def gradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: MatrixFactory): SGLocal = {
     //Extract model parameters
     val N = alphas.alpha.length
     val maxPrintIndex = min(10, N)
@@ -127,9 +129,8 @@ case class SGLocal(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LocalKe
 /**
 *Sequential gradient descent algorithm with distributed matrices
 **/
-case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, sc: SparkContext) extends SGAlgorithm
-  with hasBagging with hasDistributedTestSetEvaluator with hasDistributedTrainingSetEvaluator
-  with hasLocalTrainingSetEvaluator with hasLocalTestSetEvaluator {
+case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, sc: SparkContext) extends Algorithm
+  with hasDistributedTestSetEvaluator with hasDistributedTrainingSetEvaluator {
 
 	val matOps : DistributedMatrixOps = new DistributedMatrixOps(sc)
 
@@ -154,10 +155,10 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
 		val ump = mp.updateDelta(ap)
 
 		//Update the alphas using gradient descent
-		stochasticSequentialGradient(alphas, ap, ump, kmf)
+		gradientDescent(alphas, ap, ump, kmf)
 	}
 
-  def stochasticSequentialGradient (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: MatrixFactory): SG = {
+  def gradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: MatrixFactory): SG = {
     //Extract model parameters
     val N = alphas.alpha.length
     val maxPrintIndex = min(10, N)
@@ -233,9 +234,7 @@ case class SGD(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatri
     val Alpha = getDistributedAlphas(ap, alphas, kmf, sc)
 
     //Update the alphas using gradient descent
-    val algo = gradientDescent(Alpha, alphas, ap, ump, kmf, matOps)
-
-    algo
+    gradientDescent(Alpha, alphas, ap, ump, kmf, matOps)
   }
 
 	def gradientDescent(Alpha: CoordinateMatrix, alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, matOps: DistributedMatrixOps) : SGD = {

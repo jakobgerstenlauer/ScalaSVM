@@ -1,5 +1,4 @@
 package SVM
-
 import breeze.linalg.{DenseVector, _}
 import breeze.numerics._
 
@@ -24,12 +23,20 @@ trait hasLocalTrainingSetEvaluator extends Algorithm{
     assert(A.length>0, "The number of elements of A is zero.")
     assert(A.length==K.rows,"The number of elements of A does not equal the number of rows of S!")
 
-		val P = A.t * K
+    val maxPrintIndex = min(alphas.alpha.length, 10)
+    if (ap.isDebug) {
+      println("alphas:" + alphas.alpha(0 until maxPrintIndex))
+      println("z:" + z(0 until maxPrintIndex))
+      println("A:" + A(0 until maxPrintIndex))
+    }
+		val P: Transpose[DenseVector[Double]] = A.t * K
+    if (ap.isDebug) {
+      println("P:" + P.t(0 until maxPrintIndex))
+    }
     //Return the predictions
     signum(P).t
 	}
 }
-
 
 trait hasLocalTestSetEvaluator extends Algorithm{
 
@@ -52,12 +59,17 @@ trait hasLocalTestSetEvaluator extends Algorithm{
     assert(A.length>0, "The number of elements of A is zero.")
     assert(A.length==S.rows,"The number of elements of A does not equal the number of rows of S!")
 
+    val maxPrintIndex = min(alphas.alpha.length, 10)
+    if (ap.isDebug) {
+      println("alphas:" + alphas.alpha(0 until maxPrintIndex))
+      println("z_train:" + kmf.getData().getLabelsTrain(0 until maxPrintIndex))
+      println("A:" + A(0 until maxPrintIndex))
+    }
     val P = A.t * S
+    if (ap.isDebug) {
+      println("P:" + P.t(0 until maxPrintIndex))
+    }
     //Return the predictions
     signum(P).t
   }
 }
-
-
-
-
