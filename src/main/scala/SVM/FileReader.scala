@@ -4,6 +4,12 @@ import breeze.linalg._
 import scala.io.{BufferedSource, Source}
 abstract class FileReader(path: String)
 
+/**
+  *
+  * @param path The path to the input file.
+  * @param separator The column separator in the csv file.
+  * @param columnIndexClass The index of the column (starting with 0) containing the labels.
+  */
 class CSVReader(path: String, separator: Char, columnIndexClass: Int) extends FileReader(path) {
   /**
     * Reads a csv data set with the given separator and returns the data matrix and the reponse vector.
