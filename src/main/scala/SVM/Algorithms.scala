@@ -8,6 +8,14 @@ case class EmptyRowException(message:String) extends Exception(message)
 
 abstract class Algorithm{
   def iterate : Algorithm
+
+  def calculateAccuracy(predictions: DenseVector[Double], labels: DenseVector[Int]):(Int,Int) = {
+    assert(predictions.length == labels.length)
+    val product : DenseVector[Double] = predictions *:* labels.map(x => x.toDouble)
+    val correct = product.map(x=>if(x>0) 1 else 0).reduce(_+_)
+    val misclassified : Int = product.map(x=>if(x<0) 1 else 0).reduce(_+_)
+    (correct, misclassified)
+  }
 }
 
 /**
@@ -17,20 +25,11 @@ case class SGLocal(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LocalKe
   with hasLocalTrainingSetEvaluator with hasLocalTestSetEvaluator with hasGradientDescent {
 
   def iterate() : SGLocal = {
-    //Compute correct minus incorrect classifications on training set
-    val predictions : DenseVector[Double] = evaluateOnTrainingSet(alphas, ap, kmf)
-    assert(predictions.length == kmf.getData().getLabelsTrain.length)
-    val product : DenseVector[Double] = predictions *:* kmf.getData().getLabelsTrain.map(x => x.toDouble)
-    val correct = product.map(x=>if(x>0) 1 else 0).reduce(_+_)
-    val misclassified : Int = product.map(x=>if(x<0) 1 else 0).reduce(_+_)
+
+    val (correct, misclassified) = calculateAccuracy(evaluateOnTrainingSet(alphas, ap, kmf), kmf.getData().getLabelsTrain)
     println("Training set: "+ correct +"/"+ misclassified)
 
-    //Compute correct minus incorrect classifications on test set
-    val predictionsTest : DenseVector[Double] = evaluateOnTestSet(alphas, ap, kmf)
-    assert(predictionsTest.length == kmf.getData().getLabelsTest.length)
-    val productT : DenseVector[Double] = predictionsTest *:* kmf.getData().getLabelsTest.map(x => x.toDouble)
-    val correctT = productT.map(x=>if(x>0) 1 else 0).reduce(_+_)
-    val misclassifiedT : Int = productT.map(x=>if(x<0) 1 else 0).reduce(_+_)
+    val (correctT, misclassifiedT) = calculateAccuracy(evaluateOnTestSet(alphas, ap, kmf), kmf.getData().getLabelsTest)
     println("Test set: "+ correctT + "/" + misclassifiedT)
 
     //Decrease the step size, i.e. learning rate:
@@ -46,8 +45,6 @@ case class SGLocal(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LocalKe
   }
 }
 
-
-
 /**
 *Sequential gradient descent algorithm with distributed matrices
 **/
@@ -57,21 +54,12 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
 	val matOps : DistributedMatrixOps = new DistributedMatrixOps(sc)
 
 	def iterate() : SG = {
-		//Compute correct minus incorrect classifications on training set
-		val predictions : DenseVector[Double] = evaluateOnTrainingSet(alphas, ap, kmf, matOps)
-		assert(predictions.length == kmf.getData().getLabelsTrain.length)
-		val product : DenseVector[Double] = predictions *:* kmf.getData().getLabelsTrain.map(x => x.toDouble)
-		val correct = product.map(x=>if(x>0) 1 else 0).reduce(_+_)
-		val misclassified : Int = product.map(x=>if(x<0) 1 else 0).reduce(_+_)
-		println("Training set: "+ correct +"/"+ misclassified)
 
-		//Compute correct minus incorrect classifications on test set
-		val predictionsTest : DenseVector[Double] = evaluateOnTestSet(alphas, ap, kmf, matOps)
-		assert(predictionsTest.length == kmf.getData().getLabelsTest.length)
-		val productT : DenseVector[Double] = predictionsTest *:* kmf.getData().getLabelsTest.map(x => x.toDouble)
-		val correctT = productT.map(x=>if(x>0) 1 else 0).reduce(_+_)
-		val misclassifiedT : Int = productT.map(x=>if(x<0) 1 else 0).reduce(_+_)
-		println("Test set: "+ correctT + "/" + misclassifiedT)
+    val (correct, misclassified) = calculateAccuracy(evaluateOnTrainingSet(alphas, ap, kmf, matOps), kmf.getData().getLabelsTrain)
+    println("Training set: "+ correct +"/"+ misclassified)
+
+    val (correctT, misclassifiedT) = calculateAccuracy(evaluateOnTestSet(alphas, ap, kmf, matOps), kmf.getData().getLabelsTest)
+    println("Test set: "+ correctT + "/" + misclassifiedT)
 
 		//Decrease the step size, i.e. learning rate:
 		val ump = mp.updateDelta(ap)
@@ -95,20 +83,11 @@ case class SGD(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatri
 
 	def iterate() : SGD = {
 
-		//Compute correct minus incorrect classifications on training set
-    val predictionsTrain = evaluateOnTrainingSet(alphas, ap, kmf, matOps)
-    val productTrain : DenseVector[Double] = predictionsTrain *:* kmf.getData().getLabelsTrain.map(x => x.toDouble)
-    val correctTrain : Int = productTrain.map(x=>if(x>0) 1 else 0).reduce(_+_)
-    val misclassifiedTrain : Int = productTrain.map(x=>if(x<0) 1 else 0).reduce(_+_)
-    println("Training set: "+ correctTrain +"/"+ misclassifiedTrain)
+    val (correct, misclassified) = calculateAccuracy(evaluateOnTrainingSet(alphas, ap, kmf, matOps), kmf.getData().getLabelsTrain)
+    println("Training set: "+ correct +"/"+ misclassified)
 
-    //Compute correct minus incorrect classifications on test set
-    val predictions = evaluateOnTestSet(alphas, ap, kmf, matOps)
-    val product : DenseVector[Double] = predictions *:* kmf.getData().getLabelsTest.map(x => x.toDouble)
-    val correct : Int = product.map(x => if(x>0) 1 else 0).reduce(_+_)
-    val misclassified : Int = product.map(x => if(x<0) 1 else 0).reduce(_+_)
-    println("Test set: "+ correct +"/"+ misclassified)
-    println("Delta alpha: " + alphas.getDelta )
+    val (correctT, misclassifiedT) = calculateAccuracy(evaluateOnTestSet(alphas, ap, kmf, matOps), kmf.getData().getLabelsTest)
+    println("Test set: "+ correctT + "/" + misclassifiedT)
 
     //Decrease the step size, i.e. learning rate:
     val ump = mp.updateDelta(ap)
