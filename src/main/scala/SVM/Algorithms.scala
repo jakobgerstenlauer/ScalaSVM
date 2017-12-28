@@ -28,7 +28,7 @@ case class SGLocal(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LocalKe
 
     val (correct, misclassified) = calculateAccuracy(evaluateOnTrainingSet(alphas, ap, kmf), kmf.getData().getLabelsTrain)
     val (correctT, misclassifiedT) = calculateAccuracy(evaluateOnTestSet(alphas, ap, kmf), kmf.getData().getLabelsTest)
-    val sparsity = alphas.alpha.map(x=>if (x>0) 1 else 0).reduce(_+_).toDouble / alphas.alpha.length.toDouble
+    val sparsity = 1.0 - alphas.alpha.map(x=>if (x>0) 1 else 0).reduce(_+_).toDouble / alphas.alpha.length.toDouble
     println("Train: "+ correct +"/"+ misclassified + " ,Test: "+ correctT + "/" + misclassifiedT+ ",Sparsity: "+ sparsity)
 
     //Decrease the step size, i.e. learning rate:
@@ -56,7 +56,7 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
 
     val (correct, misclassified) = calculateAccuracy(evaluateOnTrainingSet(alphas, ap, kmf, matOps), kmf.getData().getLabelsTrain)
     val (correctT, misclassifiedT) = calculateAccuracy(evaluateOnTestSet(alphas, ap, kmf, matOps), kmf.getData().getLabelsTest)
-    val sparsity = alphas.alpha.map(x=>if (x>0) 1 else 0).reduce(_+_).toDouble / alphas.alpha.length.toDouble
+    val sparsity = 1.0 - alphas.alpha.map(x=>if (x>0) 1 else 0).reduce(_+_).toDouble / alphas.alpha.length.toDouble
     println("Train: "+ correct +"/"+ misclassified + " ,Test: "+ correctT + "/" + misclassifiedT+ ",Sparsity: "+ sparsity)
 
 		//Decrease the step size, i.e. learning rate:
@@ -83,7 +83,7 @@ case class SGD(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatri
 
     val (correct, misclassified) = calculateAccuracy(evaluateOnTrainingSet(alphas, ap, kmf, matOps), kmf.getData().getLabelsTrain)
     val (correctT, misclassifiedT) = calculateAccuracy(evaluateOnTestSet(alphas, ap, kmf, matOps), kmf.getData().getLabelsTest)
-    val sparsity = alphas.alpha.map(x=>if (x>0) 1 else 0).reduce(_+_).toDouble / alphas.alpha.length.toDouble
+    val sparsity = 1.0 - alphas.alpha.map(x=>if (x>0) 1 else 0).reduce(_+_).toDouble / alphas.alpha.length.toDouble
     println("Train: "+ correct +"/"+ misclassified + " ,Test: "+ correctT + "/" + misclassifiedT+ ",Sparsity: "+ sparsity)
 
     //Decrease the step size, i.e. learning rate:
