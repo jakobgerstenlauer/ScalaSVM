@@ -1,7 +1,8 @@
 package SVM
 import breeze.linalg._
 import breeze.numerics._
-import org.apache.spark.sql.Dataset
+import org.apache.spark.sql.{Dataset, DataFrame, SparkSession}
+import org.apache.spark.sql.functions._
 
 trait Data{
 
@@ -30,39 +31,69 @@ trait Data{
   def getd : Int
 }
 
-class SparkDataSet(dataset: Dataset[Double]) extends Data{
+abstract class basicDataSetEntry{
+  val rowNr : Int
+  val label : Int
+  val predictor1 : Double
+  val predictor2 : Double
+  //return an ordered vector of all the predictors for a given row
+  abstract def getPredictors() :DenseVector[Double]
+  def getLabel() : Int = label
+  abstract def getD() : Int
+}
 
-  // Creates a temporary view using the DataFrame
-  dataset.createOrReplaceTempView("tempView")
-
-  // SQL can be run over a temporary view created using DataFrames
-  val results = spark.sql("SELECT name FROM people")
+class SparkDataSet[T <: basicDataSetEntry](dataSetTrain: org.apache.spark.sql.Dataset[T], dataSetTest: org.apache.spark.sql.Dataset[T]) extends Data{
 
   //Get row with row index (starting with 0) from test set.
   def getRowTest(rowIndex: Int):DenseVector[Double] = {
-
+    val row = dataSetTest.filter(x => x.rowNr == rowIndex).first()
+    row.getPredictors()
   }
 
   //Get row with row index (starting with 0) from training set.
-  def getRowTrain(rowIndex: Int):DenseVector[Double]
+  def getRowTrain(rowIndex: Int):DenseVector[Double] = {
+    val row = dataSetTrain.filter(x => x.rowNr == rowIndex).first()
+    row.getPredictors()
+  }
 
   //Get label with row index (starting with 0) from test set.
-  def getLabelTest(rowIndex: Int): Double
+  def getLabelTest(rowIndex: Int): Double = {
+    val row = dataSetTest.filter(x => x.rowNr == rowIndex).first()
+    row.getLabel()
+  }
 
   //Get label with row index (starting with 0) from training set.
-  def getLabelTrain(rowIndex: Int): Double
+  def getLabelTrain(rowIndex: Int): Double = {
+    val row = dataSetTrain.filter(x => x.rowNr == rowIndex).first()
+    row.getLabel()
+  }
 
   //Get vector of labels from test set.
-  def getLabelsTest : DenseVector[Int]
+  def getLabelsTest : DenseVector[Int] = {
+    val labels = dataSetTest.map(x => x.label).collect()
+    new DenseVector(labels)
+  }
 
   //Get vector of labels from training set.
-  def getLabelsTrain : DenseVector[Int]
+  def getLabelsTrain : DenseVector[Int] = {
+    val labels = dataSetTrain.map(x => x.label).collect()
+    new DenseVector(labels)
+  }
 
   //Was the data set correctly initialized?
-  def isDefined : Boolean
-  def getN_train : Int
-  def getN_test : Int
-  def getd : Int
+  def isDefined : Boolean = true
+
+  def getN_train : Int = {
+    dataSetTrain.count().toInt
+  }
+
+  def getN_test : Int = {
+    dataSetTest.count().toInt
+  }
+  
+  def getd : Int = {
+    dataSetTest.first().getD()
+  }
 }
 
 /**
