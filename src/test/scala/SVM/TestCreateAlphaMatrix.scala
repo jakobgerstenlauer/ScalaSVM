@@ -11,17 +11,14 @@ class TestClassSGD(var alphas: Alphas, val ap: AlgoParams, val mp: ModelParams, 
 
         val matOps : DistributedMatrixOps = new DistributedMatrixOps(sc)
 
-        def iterate() : Unit = {
-
-                //Decrease the step size, i.e. learning rate:
-                mp.updateDelta(ap)
-
-		println("alphas:" + alphas.alpha)
-
-                //Create a random sample of alphas and store it in a distributed matrix Alpha:
-                val Alpha = getDistributedAlphas(ap, alphas, kmf, sc)
-
-		matOps.printFirstRow(Alpha)
+        def iterate() : TestClassSGD = {
+          //Decrease the step size, i.e. learning rate:
+	        mp.updateDelta(ap)
+					println("alphas:" + alphas.alpha)
+          //Create a random sample of alphas and store it in a distributed matrix Alpha:
+          val Alpha = getDistributedAlphas(ap, alphas, kmf, sc)
+					matOps.printFirstRow(Alpha)
+					this
         }
 }
 
