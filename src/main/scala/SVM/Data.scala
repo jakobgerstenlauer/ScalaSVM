@@ -1,8 +1,7 @@
 package SVM
 import breeze.linalg._
 import breeze.numerics._
-import org.apache.spark.sql.{Dataset, DataFrame, SparkSession}
-import org.apache.spark.sql.functions._
+import org.apache.spark.sql.{Dataset,SparkSession}
 
 trait Data{
 
@@ -37,12 +36,12 @@ abstract class basicDataSetEntry{
   val predictor1 : Double
   val predictor2 : Double
   //return an ordered vector of all the predictors for a given row
-  abstract def getPredictors() :DenseVector[Double]
+  def getPredictors() :DenseVector[Double]
   def getLabel() : Int = label
-  abstract def getD() : Int
+  def getD() : Int
 }
 
-class SparkDataSet[T <: basicDataSetEntry](dataSetTrain: org.apache.spark.sql.Dataset[T], dataSetTest: org.apache.spark.sql.Dataset[T]) extends Data{
+class SparkDataSet[T <: basicDataSetEntry](dataSetTrain: Dataset[T], dataSetTest: Dataset[T]) extends Data{
 
   //Get row with row index (starting with 0) from test set.
   def getRowTest(rowIndex: Int):DenseVector[Double] = {
@@ -70,12 +69,20 @@ class SparkDataSet[T <: basicDataSetEntry](dataSetTrain: org.apache.spark.sql.Da
 
   //Get vector of labels from test set.
   def getLabelsTest : DenseVector[Int] = {
+    //I have to import implicits here to be able to extract the label from the data set.
+    //https://stackoverflow.com/questions/39151189/importing-spark-implicits-in-scala#39173501
+    val sparkSession = SparkSession.builder.getOrCreate()
+    import sparkSession.implicits._
     val labels = dataSetTest.map(x => x.label).collect()
     new DenseVector(labels)
   }
 
   //Get vector of labels from training set.
   def getLabelsTrain : DenseVector[Int] = {
+    //I have to import implicits here to be able to extract the label from the data set.
+    //https://stackoverflow.com/questions/39151189/importing-spark-implicits-in-scala#39173501
+    val sparkSession = SparkSession.builder.getOrCreate()
+    import sparkSession.implicits._
     val labels = dataSetTrain.map(x => x.label).collect()
     new DenseVector(labels)
   }
@@ -90,7 +97,7 @@ class SparkDataSet[T <: basicDataSetEntry](dataSetTrain: org.apache.spark.sql.Da
   def getN_test : Int = {
     dataSetTest.count().toInt
   }
-  
+
   def getd : Int = {
     dataSetTest.first().getD()
   }
