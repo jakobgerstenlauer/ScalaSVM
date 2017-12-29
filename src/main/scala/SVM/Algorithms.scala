@@ -1,7 +1,6 @@
 package SVM
 
 import breeze.linalg.{DenseVector, _}
-import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
 import org.apache.spark.SparkContext
 case class AllMatrixElementsZeroException(message:String) extends Exception(message)
 case class EmptyRowException(message:String) extends Exception(message)
@@ -19,8 +18,12 @@ abstract class Algorithm{
 }
 
 /**
-  *Sequential gradient descent algorithm with local matrices
-  **/
+  * Sequential gradient descent algorithm with local matrices
+  * @param alphas The current and old values of the alphas.
+  * @param ap Properties of the algorithm
+  * @param mp Properties of the model
+  * @param kmf A KernelMatrixFactory for local matrices.
+  */
 case class SGLocal(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LocalKernelMatrixFactory) extends Algorithm
   with hasLocalTrainingSetEvaluator with hasLocalTestSetEvaluator with hasGradientDescent {
 
@@ -45,8 +48,13 @@ case class SGLocal(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LocalKe
 }
 
 /**
-*Sequential gradient descent algorithm with distributed matrices
-**/
+  * Sequential gradient descent algorithm with distributed matrices
+  * @param alphas The current and old values of the alphas.
+  * @param ap Properties of the algorithm
+  * @param mp Properties of the model
+  * @param kmf A KernelMatrixFactory for distributed matrices.
+  * @param sc The Spark context of the cluster.
+  */
 case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, sc: SparkContext) extends Algorithm
   with hasDistributedTestSetEvaluator with hasDistributedTrainingSetEvaluator with hasGradientDescent {
 

@@ -19,7 +19,7 @@ case class AlgoParams(maxIter: Int = 30, minDeltaAlpha: Double = 0.001, learning
 }
 
 /**
-  *
+  * Model parameters
   * @param C The parameter C of the C-SVM model.
   * @param delta The learning rate or step size.
   */
@@ -71,7 +71,6 @@ case class DataParams(N: Int = 1000, d: Int = 5, ratioTrain: Double = 0.5) exten
         sb.append("Observations test set: " + N_test + "\n")
         sb.append("Number of features: " + d + "\n")
         return sb.toString()
-  }  
-
+  }
 }
 
