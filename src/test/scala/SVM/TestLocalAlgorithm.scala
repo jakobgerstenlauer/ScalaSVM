@@ -21,7 +21,7 @@ object TestLocalAlgorithm extends App {
   val kmf = LocalKernelMatrixFactory(d, gaussianKernel, epsilon)
   val alphas = new Alphas(N=d.N_train)
   val ap = AlgoParams(maxIter = 5, batchProb = 0.8, minDeltaAlpha = 0.001, learningRateDecline = 0.9,
-    numBaggingReplicates = 50, epsilon = epsilon, isDebug = true, hasMomentum = false)
+    epsilon = epsilon, isDebug = true, hasMomentum = false)
   val mp = ModelParams(C = 0.1, lambda = 10.0, delta = 0.3)
   var algo1 = SGLocal(alphas, ap, mp, kmf)
   var numInt = 0

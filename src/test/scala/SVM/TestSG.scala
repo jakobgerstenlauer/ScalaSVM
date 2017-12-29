@@ -13,8 +13,7 @@ object TestAlgoWithoutSpark extends App {
   val epsilon = 0.00001
   val lkmf = LocalKernelMatrixFactory(d, gaussianKernel, epsilon)
   val alphas = new Alphas(N=(0.5*N).toInt)
-  val ap = AlgoParams(maxIter = 30, minDeltaAlpha = 0.001, learningRateDecline = 0.9,
-    numBaggingReplicates = 30, batchProb = 0.5, epsilon = epsilon, isDebug = true, hasMomentum = false)
+  val ap = AlgoParams(maxIter = 30, minDeltaAlpha = 0.001, learningRateDecline = 0.9, batchProb = 0.5, epsilon = epsilon, isDebug = true, hasMomentum = false)
   val mp = ModelParams(C = 10.0, lambda = 100.0, delta = 0.1)
   var algo1 = new SGLocal(alphas, ap, mp, lkmf)
   var numInt = 0

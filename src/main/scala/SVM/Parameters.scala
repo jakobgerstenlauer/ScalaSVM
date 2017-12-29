@@ -2,19 +2,20 @@ package SVM
 abstract class Parameters
 
 /**
-* maxIter: The maximum number of iterations of the algorithm.
-* minDeltaAlpha: The threshold of changes in absolute sum over all elements of alpha below which the algorithm stops.
-* learningRateDecline: The rate of decline of the learning rate from iteration to iteration.
-* numBaggingReplicates: The number of bagging replicates (number of different randomly selected observations used for estimating the new alpha).
-* batchProb: Probability for being part of the active set (determines batch size).
-* epsilon: Threshold for similarity between data instances (If k(x,y) < epsilon then we approximate with 0!)
-* isDebug: Should the algorithm be verbose? 
-**/
-case class AlgoParams(maxIter: Int = 30, minDeltaAlpha: Double = 0.001, learningRateDecline: Double = 0.95, numBaggingReplicates: Int = 100, batchProb: Double = 0.7, epsilon : Double = 0.0001, isDebug: Boolean = false, hasMomentum: Boolean = false, sparsity: Double = 0.0) extends Parameters{
+  * Properties of algorithms
+  * @param maxIter The maximum number of iterations of the algorithm.
+  * @param minDeltaAlpha The threshold of changes in absolute sum over all elements of alpha below which the algorithm stops.
+  * @param learningRateDecline The rate of decline of the learning rate from iteration to iteration.
+  * @param batchProb Probability for being part of the active set (determines batch size).
+  * @param epsilon Threshold for similarity between data instances (If k(x,y) < epsilon then we approximate with 0!)
+  * @param isDebug Should the algorithm be verbose?
+  * @param hasMomentum Should the stochastic gradient descent be replace by conjugate gradient descent?
+  * @param sparsity Setting sparsity lower quantile of alphas to zero in each iteration. Can be tuned to enforce stronger sparsity.
+  */
+case class AlgoParams(maxIter: Int = 30, minDeltaAlpha: Double = 0.001, learningRateDecline: Double = 0.95, batchProb: Double = 0.7, epsilon : Double = 0.0001, isDebug: Boolean = false, hasMomentum: Boolean = false, sparsity: Double = 0.0) extends Parameters{
   assert(batchProb>0.0 && batchProb<1.0)
   assert(learningRateDecline <= 1.0 && learningRateDecline > 0.0)
   assert(epsilon >= 0)
-  assert(numBaggingReplicates > 0)
 }
 
 /**
