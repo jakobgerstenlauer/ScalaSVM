@@ -1,7 +1,6 @@
 package SVM
 import breeze.linalg.{DenseVector, _}
 import breeze.stats.distributions._
-import breeze.stats.DescriptiveStats._
 import breeze.numerics._
 
 
@@ -22,8 +21,10 @@ trait hasClipAlphas {
     * @return The new vector with cutOff % of elements zet to zero.
     */
   def clipAlphas (alphas: DenseVector[Double], cutOff: Double) : DenseVector[Double] = {
-    val meanAndVar = breeze.stats.meanAndVariance (alphas.map(x => log (x) ) )
-    if(!hasClipAlphas.isDefined) {
+    //add a small epsilon to x to avoid -Infinity of log(x):
+    val eps : Double = 0.001
+    val meanAndVar = breeze.stats.meanAndVariance (alphas.map(x => log (x + eps) ) )
+    if(!hasClipAlphas.isDefined && !isInvalid(meanAndVar.mean) && !isInvalid(meanAndVar.mean) ) {
       hasClipAlphas.mean = meanAndVar.mean
       hasClipAlphas.variance = meanAndVar.variance
       hasClipAlphas.isDefined = true
