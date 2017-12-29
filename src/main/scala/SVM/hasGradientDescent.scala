@@ -4,8 +4,17 @@ import breeze.stats.distributions._
 import breeze.stats.DescriptiveStats._
 import breeze.numerics._
 
-trait hasGradientDescent extends Algorithm{
 
+/**
+  * Stores moment information which can be used if no mean or variance can be calculated for a given sample of alphas.
+  */
+object hasClipAlphas{
+  var mean : Double = 0.0
+  var variance : Double = 0.0
+  var isDefined : Boolean = false
+}
+
+trait hasClipAlphas {
   /**
     *
     * @param alphas The input vector of alphas.
@@ -14,10 +23,38 @@ trait hasGradientDescent extends Algorithm{
     */
   def clipAlphas (alphas: DenseVector[Double], cutOff: Double) : DenseVector[Double] = {
     val meanAndVar = breeze.stats.meanAndVariance (alphas.map(x => log (x) ) )
-    val logNormalDist = new LogNormal (meanAndVar.mean, meanAndVar.variance)
-    //set the lower cutoff% quantile of alphas to zero:
-    alphas.map (x => if (logNormalDist.cdf (x) < 0.1) 0 else x)
+    if(!hasClipAlphas.isDefined) {
+      hasClipAlphas.mean = meanAndVar.mean
+      hasClipAlphas.variance = meanAndVar.variance
+      hasClipAlphas.isDefined = true
+    }
+    if(isInvalid(meanAndVar.mean) || isInvalid(meanAndVar.mean)){
+      clipAlphasDefault(alphas, cutOff)
+    }else {
+      val logNormalDist = new LogNormal(meanAndVar.mean, meanAndVar.variance)
+      //set the lower cutoff% quantile of alphas to zero:
+      alphas.map (x => if (logNormalDist.cdf (x) < cutOff) 0 else x)
+    }
   }
+
+  def isInvalid(moment: Double):Boolean={
+    if(moment.isInfinite || moment.isNaN || (moment <= 0.0)) return true
+    return false
+  }
+
+  def clipAlphasDefault (alphas: DenseVector[Double], cutOff: Double) : DenseVector[Double] = {
+      if(hasClipAlphas.isDefined) {
+        val logNormalDist = new LogNormal(hasClipAlphas.mean, hasClipAlphas.variance)
+        //set the lower cutoff% quantile of alphas to zero:
+        return alphas.map(x => if (logNormalDist.cdf(x) < cutOff) 0 else x)
+      }else{//do not clip if there is no information about the distribution of alphas but print a warning!
+        println("Warning: Can not clip alpha because moments are unknown!")
+        return alphas
+      }
+  }
+}
+
+trait hasGradientDescent extends Algorithm with hasClipAlphas {
 
   def calculateGradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: MatrixFactory): DenseVector[Double] = {
     //Extract model parameters
