@@ -1,9 +1,25 @@
 package SVM
 import breeze.linalg.{DenseVector, _}
+import breeze.stats.distributions._
+import breeze.stats.DescriptiveStats._
+import breeze.numerics._
 
-trait hasGradientDescent {
+trait hasGradientDescent extends Algorithm{
 
-  def calculateGradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: MatrixFactory): DenseVector[Double] = {
+  /**
+    *
+    * @param alphas The input vector of alphas.
+    * @param cutOff The quantile of the log-normal distribution where the alphas are cut-off and set to zero.
+    * @return The new vector with cutOff % of elements zet to zero.
+    */
+  def clipAlphas (alphas: DenseVector[Double], cutOff: Double) : DenseVector[Double] = {
+    val meanAndVar = breeze.stats.meanAndVariance (alphas.map(x => log (x) ) )
+    val logNormalDist = new LogNormal (meanAndVar.mean, meanAndVar.variance)
+    //set the lower cutoff% quantile of alphas to zero:
+    alphas.map (x => if (logNormalDist.cdf (x) < 0.1) 0 else x)
+  }
+  
+  def calculateGradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: MatrixFactory, cutOff: Double = 0.1): DenseVector[Double] = {
     //Extract model parameters
     val N = alphas.alpha.length
     val maxPrintIndex = min(10, N)
@@ -44,6 +60,7 @@ trait hasGradientDescent {
     val tuples = (isInBatch.toArray.toList zip shrinkedValues.toArray.toList zip updated.toArray.toList) map { case ((a, b), c) => (a, b, c) }
     val stochasticUpdate = new DenseVector(tuples.map { case (inBatch, alphas_shrinked, alphas_updated) => if (inBatch == 1) alphas_updated else alphas_shrinked }.toArray)
     if (ap.isDebug) println("stochastic update:" + stochasticUpdate(0 until maxPrintIndex))
-    stochasticUpdate
+
+    clipAlphas(stochasticUpdate, cutOff)
   }
 }
