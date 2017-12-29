@@ -22,7 +22,7 @@ object TestLocalAlgorithm extends App {
   val alphas = new Alphas(N=d.N_train)
   val ap = AlgoParams(maxIter = 5, batchProb = 0.8, minDeltaAlpha = 0.001, learningRateDecline = 0.9,
     epsilon = epsilon, isDebug = true, hasMomentum = false)
-  val mp = ModelParams(C = 0.1, lambda = 10.0, delta = 0.3)
+  val mp = ModelParams(C = 0.1, delta = 0.3)
   var algo1 = SGLocal(alphas, ap, mp, kmf)
   var numInt = 0
   while(numInt < 2){

@@ -19,30 +19,24 @@ case class AlgoParams(maxIter: Int = 30, minDeltaAlpha: Double = 0.001, learning
 }
 
 /**
- * C: The parameter C of the C-SVM model.
- * lambda: The regularization parameter.
- */
-case class ModelParams(C: Double = 1.0, lambda: Double = 0.1, delta: Double = 0.5) extends Parameters {
+  *
+  * @param C The parameter C of the C-SVM model.
+  * @param delta The learning rate or step size.
+  */
+case class ModelParams(C: Double = 1.0, delta: Double = 0.5) extends Parameters {
  
   assert(C>0, "C must be positive!")
-  assert(lambda>=0.0, "lambda must not be negative!")
-  
-  /**
-   * Define a VARIABLE learning rate delta. 
-   * Note that delta has to be smaller than 1/lambda for the algorithm to work!
-   */
-  assert(delta >= 1/lambda, "Delta must be >= 1/lambda!") 
 
   def updateDelta(ap: AlgoParams): ModelParams = {
-	copy(delta = scala.math.max(delta * ap.learningRateDecline, 1/lambda))
+	  copy(delta = delta * ap.learningRateDecline)
   }
 
   override def toString : String = {
-        val sb = new StringBuilder
-        sb.append("Model parameters: \n")
-        sb.append("C: "+C+"\n")
-        sb.append("lambda: "+lambda+"\n")
-        sb.toString()
+    val sb = new StringBuilder
+    sb.append("Model parameters: \n")
+    sb.append("C: "+C+"\n")
+    sb.append("delta: "+delta+"\n")
+    sb.toString()
   }  
 }
 
