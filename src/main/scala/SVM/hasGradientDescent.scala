@@ -8,8 +8,8 @@ import breeze.numerics._
   * Stores moment information which can be used if no mean or variance can be calculated for a given sample of alphas.
   */
 object hasClipAlphas{
-  var mean : Double = 0.0
-  var variance : Double = 0.0
+  var mean : Double = -1.0
+  var variance : Double = 0.4
   var isDefined : Boolean = false
 }
 
@@ -22,14 +22,21 @@ trait hasClipAlphas {
     */
   def clipAlphas (alphas: DenseVector[Double], cutOff: Double) : DenseVector[Double] = {
     //add a small epsilon to x to avoid -Infinity of log(x):
-    val eps : Double = 0.001
+    val eps : Double = 0.1
     val meanAndVar = breeze.stats.meanAndVariance (alphas.map(x => log (x + eps) ) )
-    if(!hasClipAlphas.isDefined && !isInvalid(meanAndVar.mean) && !isInvalid(meanAndVar.mean) ) {
-      hasClipAlphas.mean = meanAndVar.mean
-      hasClipAlphas.variance = meanAndVar.variance
-      hasClipAlphas.isDefined = true
+    if(!hasClipAlphas.isDefined && !isInvalid(meanAndVar.mean)) {
+      if(!isInvalid(meanAndVar.variance)) {
+        hasClipAlphas.mean = meanAndVar.mean
+        hasClipAlphas.variance = meanAndVar.variance
+        hasClipAlphas.isDefined = true
+      }else{//if the empirical log variance can not be estimated use default
+        hasClipAlphas.mean = meanAndVar.mean
+        //set a default variance of 0.4 (value observed in one simulation run)
+        hasClipAlphas.variance = 0.4
+        hasClipAlphas.isDefined = true
+      }
     }
-    if(isInvalid(meanAndVar.mean) || isInvalid(meanAndVar.mean)){
+    if(isInvalid(meanAndVar.mean) || isInvalid(meanAndVar.variance)){
       clipAlphasDefault(alphas, cutOff)
     }else {
       val logNormalDist = new LogNormal(meanAndVar.mean, meanAndVar.variance)
@@ -39,7 +46,7 @@ trait hasClipAlphas {
   }
 
   def isInvalid(moment: Double):Boolean={
-    if(moment.isInfinite || moment.isNaN || (moment <= 0.0)) return true
+    if(moment.isInfinite || moment.isNaN ) return true
     return false
   }
 
