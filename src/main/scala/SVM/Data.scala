@@ -33,8 +33,8 @@ trait Data{
 abstract class basicDataSetEntry{
   val rowNr : Int
   val label : Int
-  val predictor1 : Double
-  val predictor2 : Double
+  val x1 : Double
+  val x2 : Double
   //return an ordered vector of all the predictors for a given row
   def getPredictors() :DenseVector[Double]
   def getLabel() : Int = label
