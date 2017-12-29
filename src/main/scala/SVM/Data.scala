@@ -1,7 +1,8 @@
 package SVM
+import SVM.DataSetType.{Test, Train}
 import breeze.linalg._
 import breeze.numerics._
-import org.apache.spark.sql.{Dataset,SparkSession}
+import org.apache.spark.sql.{Dataset, SparkSession}
 
 trait Data{
 
@@ -43,30 +44,23 @@ abstract class basicDataSetEntry{
 
 class SparkDataSet[T <: basicDataSetEntry](dataSetTrain: Dataset[T], dataSetTest: Dataset[T]) extends Data{
 
-  //Get row with row index (starting with 0) from test set.
-  def getRowTest(rowIndex: Int):DenseVector[Double] = {
-    val row = dataSetTest.filter(x => x.rowNr == rowIndex).first()
-    row.getPredictors()
+  def getRow(rowIndex: Int, dataSetType: DataSetType.Value): T = {
+    if(dataSetType == Test) dataSetTest.filter(x => x.rowNr == rowIndex).first()
+    if(dataSetType == Train) dataSetTrain.filter(x => x.rowNr == rowIndex).first()
   }
+
+  //Get row with row index (starting with 0) from test set.
+  def getRowTest(rowIndex: Int):DenseVector[Double] = getRow(rowIndex, Test).getPredictors()
 
   //Get row with row index (starting with 0) from training set.
-  def getRowTrain(rowIndex: Int):DenseVector[Double] = {
-    val row = dataSetTrain.filter(x => x.rowNr == rowIndex).first()
-    row.getPredictors()
-  }
+  def getRowTrain(rowIndex: Int):DenseVector[Double] = getRow(rowIndex, Train).getPredictors()
 
   //Get label with row index (starting with 0) from test set.
-  def getLabelTest(rowIndex: Int): Double = {
-    val row = dataSetTest.filter(x => x.rowNr == rowIndex).first()
-    row.getLabel()
-  }
+  def getLabelTest(rowIndex: Int): Double = getRow(rowIndex, Test).getLabel()
 
   //Get label with row index (starting with 0) from training set.
-  def getLabelTrain(rowIndex: Int): Double = {
-    val row = dataSetTrain.filter(x => x.rowNr == rowIndex).first()
-    row.getLabel()
-  }
-
+  def getLabelTrain(rowIndex: Int): Double = getRow(rowIndex, Train).getLabel()
+  
   //Get vector of labels from test set.
   def getLabelsTest : DenseVector[Int] = {
     //I have to import implicits here to be able to extract the label from the data set.
