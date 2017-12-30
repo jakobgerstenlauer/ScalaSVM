@@ -11,20 +11,8 @@ case class LocalKernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double
 
   val K : DenseMatrix[Double] = initKernelMatrixTraining()
   val S : DenseMatrix[Double] = initKernelMatrixTest()
-  val Z : DenseVector[Int] = initTargetMatrixTraining()
-  val Z_test : DenseVector[Int] = initTargetMatrixTest()
   val z : DenseVector[Int] = initTargetTraining()
   val z_test : DenseVector[Int] = initTargetTest()
-
-  private def initTargetMatrixTraining() : DenseVector[Int] = {
-    assert(d.isDefined, "The input data is not defined!")
-    d.getLabelsTrain
-  }
-
-  private def initTargetMatrixTest() : DenseVector[Int] = {
-    assert(d.isDefined, "The input data is not defined!")
-    d.getLabelsTest
-  }
 
   private def initTargetTraining() : DenseVector[Int] = {
     assert(d.isDefined, "The input data is not defined!")

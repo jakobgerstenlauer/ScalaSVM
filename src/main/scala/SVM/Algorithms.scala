@@ -12,7 +12,7 @@ abstract class Algorithm{
     assert(predictions.length == labels.length)
     val product : DenseVector[Double] = predictions *:* labels.map(x => x.toDouble)
     val correct = product.map(x=>if(x>0) 1 else 0).reduce(_+_)
-    val misclassified : Int = product.map(x=>if(x<0) 1 else 0).reduce(_+_)
+    val misclassified : Int = predictions.length - correct
     (correct, misclassified)
   }
 }

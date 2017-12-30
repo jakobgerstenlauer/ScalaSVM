@@ -45,8 +45,9 @@ abstract class basicDataSetEntry{
 class SparkDataSet[T <: basicDataSetEntry](dataSetTrain: Dataset[T], dataSetTest: Dataset[T]) extends Data{
 
   def getRow(rowIndex: Int, dataSetType: DataSetType.Value): T = {
-    if(dataSetType == Test) dataSetTest.filter(x => x.rowNr == rowIndex).first()
-    if(dataSetType == Train) dataSetTrain.filter(x => x.rowNr == rowIndex).first()
+    if(dataSetType == Test) return dataSetTest.filter(x => x.rowNr == rowIndex).first()
+    if(dataSetType == Train) return dataSetTrain.filter(x => x.rowNr == rowIndex).first()
+    else throw new Exception("Unsupported data set type!")
   }
 
   //Get row with row index (starting with 0) from test set.
@@ -60,7 +61,7 @@ class SparkDataSet[T <: basicDataSetEntry](dataSetTrain: Dataset[T], dataSetTest
 
   //Get label with row index (starting with 0) from training set.
   def getLabelTrain(rowIndex: Int): Double = getRow(rowIndex, Train).getLabel()
-  
+
   //Get vector of labels from test set.
   def getLabelsTest : DenseVector[Int] = {
     //I have to import implicits here to be able to extract the label from the data set.
