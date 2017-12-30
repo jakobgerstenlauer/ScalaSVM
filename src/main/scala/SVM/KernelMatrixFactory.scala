@@ -10,20 +10,8 @@ case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc:
   val matOps = new DistributedMatrixOps(sc)
   val K : CoordinateMatrix = initKernelMatrixTraining()
   val S : CoordinateMatrix = initKernelMatrixTest()
-  val Z : CoordinateMatrix = initTargetMatrixTraining()
-  val Z_test : CoordinateMatrix = initTargetMatrixTest()
   val z : DenseVector[Int] = initTargetTraining()
   val z_test : DenseVector[Int] = initTargetTest()
-
-  private def initTargetMatrixTraining() : CoordinateMatrix = {
-    assert(d.isDefined, "The input data is not defined!")
-    matOps.distributeTranspose(d.getLabelsTrain)
-  }
-
-  private def initTargetMatrixTest() : CoordinateMatrix = {
-    assert(d.isDefined, "The input data is not defined!")
-    matOps.distributeTranspose(d.getLabelsTest)
-  }
 
   private def initTargetTraining() : DenseVector[Int] = {
     assert(d.isDefined, "The input data is not defined!")
