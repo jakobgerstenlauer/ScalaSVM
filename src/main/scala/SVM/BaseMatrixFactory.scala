@@ -2,11 +2,64 @@ package SVM
 
 import breeze.linalg._
 import breeze.numerics.signum
-import org.apache.spark.SparkContext
-import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
-import org.apache.spark.rdd.RDD
+
+import scala.collection.mutable.{Set=>MSet, HashMap, MultiMap}
 
 abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) extends MatrixFactory {
+
+  /**
+    * key: row index of matrix K
+    * value: set of non-sparse column indices of matrix K
+    */
+  val rowColumnPairs : MultiMap[Int, Int] = initializeRowColumnPairs();
+
+  /**
+    * Check if the similarity between instance i and j is significant.
+    * @param i row index of K
+    * @param j column index of K
+    * @return
+    */
+  def entryExists(i: Int, j: Int):Boolean = {
+    rowColumnPairs.entryExists(i, _ == j)
+  }
+
+  /**
+    * Check if the similarity between test instance i and training instance j is significant.
+    * @param i row index of S
+    * @param j column index of S
+    * @return
+    */
+  def entryExistsTest(i: Int, j: Int):Boolean = {
+    rowColumnPairsTest.entryExists(i, _ == j)
+  }
+
+  /**
+    * key: row index of matrix S (index of test instance)
+    * value: set of non-sparse column indices of matrix S
+    */
+  val rowColumnPairsTest : MultiMap[Int, Int] = initializeRowColumnPairsTest();
+
+  def initializeRowColumnPairs(): MultiMap[Int, Int] = {
+    val map: MultiMap[Int, Int] = new HashMap[Int, MSet[Int]] with MultiMap[Int, Int]
+    val N = d.getN_train
+    for (i <- 0 until N; j <- 0 until N;
+         if(kf.kernel(d.getRowTrain(i), d.getRowTrain(j)) > epsilon)){
+       map.addBinding(i,j)
+    }
+    map
+  }
+
+  def initializeRowColumnPairsTest(): MultiMap[Int, Int] = {
+    val map: MultiMap[Int, Int] = new HashMap[Int, MSet[Int]] with MultiMap[Int, Int]
+    val N_train = d.getN_train
+    val N_test = d.getN_test
+    for (i <- 0 until N_test; j <- 0 until N_train;
+         if(kf.kernel(d.getRowTest(i), d.getRowTrain(j)) > epsilon)){
+      map.addBinding(i,j)
+    }
+    map
+  }
+
 
   /**
   * Calculates the gradient vector without storing the kernel matrix Q
@@ -32,7 +85,7 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
     val N = d.getN_train
     val v = DenseVector.fill(N){0.0}
     val z : DenseVector[Double] = alphas *:* d.getLabelsTrain.map(x=>x.toDouble)
-    for (i <- 0 until N; j <- 0 until N){
+    for (i <- 0 until N; j <- 0 until N; if(entryExists(i,j))){
       v(i) += z(j) * d.getLabelTrain(i) * kf.kernel(d.getRowTrain(i), d.getRowTrain(j))
     }
     v
@@ -42,7 +95,7 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
     val N = d.getN_train
     val v = DenseVector.fill(N){0.0}
     val z : DenseVector[Double] = alphas *:* d.getLabelsTrain.map(x=>x.toDouble)
-    for (i <- 0 until N; j <- 0 until N){
+    for (i <- 0 until N; j <- 0 until N; if(entryExists(i,j))){
       v(i) += z(j) * kf.kernel(d.getRowTrain(i), d.getRowTrain(j))
     }
     signum(v)
@@ -53,8 +106,8 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
     val N_test = d.getN_test
     val v = DenseVector.fill(N_test){0.0}
     val z : DenseVector[Double] = alphas *:* d.getLabelsTrain.map(x=>x.toDouble)
-    for (i <- 0 until N_test; j <- 0 until N_train){
-      v(i) += z(j) * kf.kernel(d.getRowTrain(j), d.getRowTest(i))
+    for (i <- 0 until N_test; j <- 0 until N_train; if(entryExistsTest(i,j))){
+      v(i) += z(j) * kf.kernel( d.getRowTest(i), d.getRowTrain(j))
     }
     signum(v)
   }
