@@ -40,8 +40,9 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
   def predictOnTrainingSet(alphas : DenseVector[Double]) : DenseVector[Double]  = {
     val N = d.getN_train
     val v = DenseVector.fill(N){-1.0}
+    val z : DenseVector[Double] = alphas *:* d.getLabelsTrain
     for (i <- 0 until N; j <- 0 until N){
-      v(i) += alphas(j) * d.getLabelTrain(j) * kf.kernel(d.getRowTrain(i), d.getRowTrain(j))
+      v(i) += z(j) * kf.kernel(d.getRowTrain(i), d.getRowTrain(j))
     }
     signum(v)
   }
@@ -50,8 +51,9 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
     val N_train = d.getN_train
     val N_test = d.getN_test
     val v = DenseVector.fill(N_test){-1.0}
+    val z : DenseVector[Double] = alphas *:* d.getLabelsTrain
     for (i <- 0 until N_test; j <- 0 until N_train){
-      v(i) += alphas(j) * d.getLabelTrain(j) * kf.kernel(d.getRowTrain(j), d.getRowTest(i))
+      v(i) += z(j) * kf.kernel(d.getRowTrain(j), d.getRowTest(i))
     }
     signum(v)
   }
