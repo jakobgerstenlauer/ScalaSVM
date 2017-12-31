@@ -44,15 +44,16 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
     var size2 : Int = 0
     val N = d.getN_train
     //only iterate over the upper diagonal matrix
-    for (i <- 0 until N; j <- i until N;
+    for (i <- 0 until N; j <- (i+1) until N;
          if(kf.kernel(d.getRowTrain(i), d.getRowTrain(j)) > epsilon)){
-      map.addBinding(i,j)
-      if(i!=j) {
-        size2 = size2 + 2
+        map.addBinding(i,j)
         map.addBinding(j, i)
-      }else{
-        size2 = size2+1
-      }
+        size2 = size2 + 2
+    }
+    //add the diagonal
+    for (i <- 0 until N){
+      map.addBinding(i,i)
+      size2 = size2 + 1
     }
     println("The matrix has " + map.size + " rows and "+ size2 + "non-sparse elements.")
     val sparsity = 1.0 - (map.size / (N*N).toDouble)
@@ -66,15 +67,16 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
     val N_train = d.getN_train
     val N_test = d.getN_test
     //only iterate over the upper diagonal matrix
-    for (i <- 0 until N_test; j <- i until N_train;
+    for (i <- 0 until N_test; j <- (i+1) until N_train;
          if(kf.kernel(d.getRowTest(i), d.getRowTrain(j)) > epsilon)){
       map.addBinding(i,j)
-      if(i!=j) {
-        size2 = size2 + 2
-        map.addBinding(j, i)
-      }else{
-        size2 = size2+1
-      }
+      map.addBinding(j, i)
+      size2 = size2 + 2
+    }
+    //add the diagonal
+    for (i <- 0 until max(N_test,N_train)){
+      map.addBinding(i,i)
+      size2 = size2 + 1
     }
     println("The matrix has " + map.size + " rows and "+ size2 + "non-sparse elements.")
     val sparsity = 1.0 - (map.size / (N_train * N_test).toDouble)
