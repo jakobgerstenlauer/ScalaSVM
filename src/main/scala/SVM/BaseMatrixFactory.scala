@@ -46,6 +46,8 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
          if(kf.kernel(d.getRowTrain(i), d.getRowTrain(j)) > epsilon)){
        map.addBinding(i,j)
     }
+    val sparsity = 1.0 - map.size / N*N
+    println("The sparsity of the Kernel matrix K is: " + sparsity)
     map
   }
 
@@ -57,6 +59,8 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
          if(kf.kernel(d.getRowTest(i), d.getRowTrain(j)) > epsilon)){
       map.addBinding(i,j)
     }
+    val sparsity = 1.0 - map.size / N_train * N_test
+    println("The sparsity of the Kernel matrix S is: " + sparsity)
     map
   }
 
