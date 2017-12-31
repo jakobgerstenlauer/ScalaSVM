@@ -41,25 +41,31 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
 
   def initializeRowColumnPairs(): MultiMap[Int, Int] = {
     val map: MultiMap[Int, Int] = new HashMap[Int, MSet[Int]] with MultiMap[Int, Int]
+    var size2 : Int = 0
     val N = d.getN_train
     for (i <- 0 until N; j <- 0 until N;
          if(kf.kernel(d.getRowTrain(i), d.getRowTrain(j)) > epsilon)){
-       map.addBinding(i,j)
+      map.addBinding(i,j)
+      size2 = size2+1
     }
-    val sparsity = 1.0 - map.size / N*N
+    println("The map size is: " + map.size + "or: "+ size2)
+    val sparsity = 1.0 - (map.size / (N*N).toDouble)
     println("The sparsity of the Kernel matrix K is: " + sparsity)
     map
   }
 
   def initializeRowColumnPairsTest(): MultiMap[Int, Int] = {
     val map: MultiMap[Int, Int] = new HashMap[Int, MSet[Int]] with MultiMap[Int, Int]
+    var size2 : Int = 0
     val N_train = d.getN_train
     val N_test = d.getN_test
     for (i <- 0 until N_test; j <- 0 until N_train;
          if(kf.kernel(d.getRowTest(i), d.getRowTrain(j)) > epsilon)){
       map.addBinding(i,j)
+      size2 = size2+1
     }
-    val sparsity = 1.0 - map.size / N_train * N_test
+    println("The map size is: " + map.size + "or: "+ size2)
+    val sparsity = 1.0 - (map.size / (N_train * N_test).toDouble)
     println("The sparsity of the Kernel matrix S is: " + sparsity)
     map
   }
