@@ -6,8 +6,19 @@ case class AllMatrixElementsZeroException(message:String) extends Exception(mess
 case class EmptyRowException(message:String) extends Exception(message)
 
 abstract class Algorithm{
+  /**
+    * Performs one iteration of the algorithm and returns the updated algorithm.
+    * @return updated algorithm object.
+    */
   def iterate : Algorithm
 
+  /**
+    * Calculates the number of correctly and incorrectly classified instances as tuple.
+    * @param predictions The vector of class predictions.
+    * @param labels The vector of empirical classes.
+    * @return A tuple consisting of first the number of correct predictions (classifications)
+    *         and second the number of misclassifications.
+    */
   def calculateAccuracy(predictions: DenseVector[Double], labels: DenseVector[Int]):(Int,Int) = {
     assert(predictions.length == labels.length)
     val product : DenseVector[Double] = predictions *:* labels.map(x => x.toDouble)
@@ -41,6 +52,15 @@ case class SGLocal(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LocalKe
     gradientDescent(alphas, ap, ump, kmf)
   }
 
+  /**
+    * Performs a stochastic gradient update with clipping of the alphas.
+    * Note the difference in the return type.
+    * @param alphas The primal variables.
+    * @param ap The properties of the algorithm.
+    * @param mp The properties of the model.
+    * @param kmf A MatrixFactory object.
+    * @return An updated instance of the algorithm.
+    */
   def gradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: MatrixFactory): SGLocal = {
     val stochasticUpdate = calculateGradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: MatrixFactory)
     copy(alphas = alphas.copy(alpha = stochasticUpdate))
@@ -74,6 +94,15 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
 		gradientDescent(alphas, ap, ump, kmf)
 	}
 
+  /**
+    * Performs a stochastic gradient update with clipping of the alphas.
+    * Note the difference in the return type.
+    * @param alphas The primal variables.
+    * @param ap The properties of the algorithm.
+    * @param mp The properties of the model.
+    * @param kmf A MatrixFactory object.
+    * @return An updated instance of the algorithm.
+    */
   def gradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: MatrixFactory): SG = {
     val stochasticUpdate = calculateGradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: MatrixFactory)
     copy(alphas = alphas.copy(alpha = stochasticUpdate))
