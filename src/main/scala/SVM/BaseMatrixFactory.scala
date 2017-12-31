@@ -85,7 +85,7 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
     val N = d.getN_train
     val v = DenseVector.fill(N){0.0}
     val z : DenseVector[Double] = alphas *:* d.getLabelsTrain.map(x=>x.toDouble)
-    for (i <- 0 until N; j <- 0 until N; if(entryExists(i,j))){
+    for ((i,set) <- rowColumnPairs; j <- set){
       v(i) += z(j) * d.getLabelTrain(i) * kf.kernel(d.getRowTrain(i), d.getRowTrain(j))
     }
     v
@@ -95,18 +95,17 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
     val N = d.getN_train
     val v = DenseVector.fill(N){0.0}
     val z : DenseVector[Double] = alphas *:* d.getLabelsTrain.map(x=>x.toDouble)
-    for (i <- 0 until N; j <- 0 until N; if(entryExists(i,j))){
+    for ((i,set) <- rowColumnPairs; j <- set){
       v(i) += z(j) * kf.kernel(d.getRowTrain(i), d.getRowTrain(j))
     }
     signum(v)
   }
 
   def predictOnTestSet(alphas : DenseVector[Double]) : DenseVector[Double]  = {
-    val N_train = d.getN_train
     val N_test = d.getN_test
     val v = DenseVector.fill(N_test){0.0}
     val z : DenseVector[Double] = alphas *:* d.getLabelsTrain.map(x=>x.toDouble)
-    for (i <- 0 until N_test; j <- 0 until N_train; if(entryExistsTest(i,j))){
+    for ((i,set) <- rowColumnPairsTest; j <- set){
       v(i) += z(j) * kf.kernel( d.getRowTest(i), d.getRowTrain(j))
     }
     signum(v)
