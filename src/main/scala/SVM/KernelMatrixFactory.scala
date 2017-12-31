@@ -1,7 +1,6 @@
 package SVM
 
 import breeze.linalg._
-import breeze.numerics.signum
 import org.apache.spark.SparkContext
 import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
 import org.apache.spark.rdd.RDD
