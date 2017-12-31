@@ -3,9 +3,19 @@ package SVM
 import breeze.linalg._
 import breeze.numerics.signum
 
-import scala.collection.mutable.{Set=>MSet, HashMap, MultiMap}
+import scala.collection.mutable.{HashMap, MultiMap, Set => MSet}
+import scala.collection.concurrent.TrieMap
+case class Indices(i: Int, j: Int)
 
 abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) extends MatrixFactory {
+
+  def streamMatrixIndices(m: Indices, N2: Int): Stream[Indices] = {
+    if(m.j<(N2-1)){
+      m #:: streamMatrixIndices(Indices(m.i,m.j+1),N2)
+    }else{
+      m #:: streamMatrixIndices(Indices(m.i+1,m.i+2),N2)
+    }
+  }
 
   /**
     * key: row index of matrix K
@@ -39,6 +49,43 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
     */
   val rowColumnPairsTest : MultiMap[Int, Int] = initializeRowColumnPairsTest();
 
+
+
+
+  /**
+    * TODO Parallelize this operation because it is very time consuming!
+    * @return
+    */
+  def initializeRowColumnPairs2(): MultiMap[Int, Int] = {
+    //FIXME: This MultiMap implementation is build on top of HashMap which is probably not threadsafe!
+    val mmap: MultiMap[Int, Int] = new HashMap[Int, MSet[Int]] with MultiMap[Int, Int]
+    val N = d.getN_train
+    val NumElements = N*N
+    //add the number of diagonal elements
+    var size2 = N
+    def addBindings(ind: Indices) : Unit= {
+      mmap.addBinding(ind.i, ind.j)
+      mmap.addBinding(ind.j, ind.i)
+      //FIXME: There is a synchronization issue here!
+      size2 = size2 + 2
+    }
+    //add the diagonal by default without calculating the kernel function
+    for (i <- 0 until N){
+      mmap.addBinding(i,i)
+    }
+    streamMatrixIndices(Indices(0,1), NumElements).take(NumElements)
+      .filter(x => kf.kernel(d.getRowTrain(x.i), d.getRowTrain(x.j)) > epsilon)
+      .foreach(x=>addBindings(x))
+    println("The matrix has " + mmap.size + " rows and "+ size2 + "non-sparse elements.")
+    val sparsity = 1.0 - (mmap.size / NumElements.toDouble)
+    println("The sparsity of the Kernel matrix K is: " + sparsity)
+    mmap
+  }
+
+  /**
+    * TODO Parallelize this operation because it is very time consuming!
+    * @return
+    */
   def initializeRowColumnPairs(): MultiMap[Int, Int] = {
     val map: MultiMap[Int, Int] = new HashMap[Int, MSet[Int]] with MultiMap[Int, Int]
     var size2 : Int = 0
@@ -61,6 +108,10 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
     map
   }
 
+  /**
+    * TODO Parallelize this operation because it is very time consuming!
+    * @return
+    */
   def initializeRowColumnPairsTest(): MultiMap[Int, Int] = {
     val map: MultiMap[Int, Int] = new HashMap[Int, MSet[Int]] with MultiMap[Int, Int]
     var size2 : Int = 0
