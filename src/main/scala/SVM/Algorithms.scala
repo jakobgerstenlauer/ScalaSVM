@@ -29,6 +29,44 @@ abstract class Algorithm{
 }
 
 /**
+  * Lean implementation of the sequential gradient descent algorithm without matrices.
+  * @param alphas The current and old values of the alphas.
+  * @param ap Properties of the algorithm
+  * @param mp Properties of the model
+  * @param kmf A KernelMatrixFactory for local matrices.N
+  */
+case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LeanMatrixFactory) extends Algorithm with hasGradientDescent {
+
+  def iterate() : NoMatrices = {
+
+    val (correct, misclassified) = calculateAccuracy(kmf.predictOnTrainingSet(alphas.alpha), kmf.getData().getLabelsTrain)
+    val (correctT, misclassifiedT) = calculateAccuracy(kmf.predictOnTestSet(alphas.alpha), kmf.getData().getLabelsTest)
+    val sparsity = 1.0 - alphas.alpha.map(x=>if (x>0) 1 else 0).reduce(_+_).toDouble / alphas.alpha.length.toDouble
+    println("Train: "+ correct +"/"+ misclassified + ", Test: "+ correctT + "/" + misclassifiedT+ ", Sparsity: "+ sparsity)
+
+    //Decrease the step size, i.e. learning rate:
+    val ump = mp.updateDelta(ap)
+
+    //Update the alphas using gradient descent
+    gradientDescent(alphas, ap, ump, kmf)
+  }
+
+  /**
+    * Performs a stochastic gradient update with clipping of the alphas.
+    * Note the difference in the return type.
+    * @param alphas The primal variables.
+    * @param ap The properties of the algorithm.
+    * @param mp The properties of the model.
+    * @param kmf A MatrixFactory object.
+    * @return An updated instance of the algorithm.
+    */
+  def gradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LeanMatrixFactory): NoMatrices = {
+    val stochasticUpdate = calculateGradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: MatrixFactory)
+    copy(alphas = alphas.copy(alpha = stochasticUpdate))
+  }
+}
+
+/**
   * Sequential gradient descent algorithm with local matrices
   * @param alphas The current and old values of the alphas.
   * @param ap Properties of the algorithm
