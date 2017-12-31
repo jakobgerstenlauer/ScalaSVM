@@ -43,12 +43,18 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
     val map: MultiMap[Int, Int] = new HashMap[Int, MSet[Int]] with MultiMap[Int, Int]
     var size2 : Int = 0
     val N = d.getN_train
-    for (i <- 0 until N; j <- 0 until N;
+    //only iterate over the upper diagonal matrix
+    for (i <- 0 until N; j <- i until N;
          if(kf.kernel(d.getRowTrain(i), d.getRowTrain(j)) > epsilon)){
       map.addBinding(i,j)
-      size2 = size2+1
+      if(i!=j) {
+        size2 = size2 + 2
+        map.addBinding(j, i)
+      }else{
+        size2 = size2+1
+      }
     }
-    println("The map size is: " + map.size + "or: "+ size2)
+    println("The matrix has " + map.size + " rows and "+ size2 + "non-sparse elements.")
     val sparsity = 1.0 - (map.size / (N*N).toDouble)
     println("The sparsity of the Kernel matrix K is: " + sparsity)
     map
@@ -59,12 +65,18 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
     var size2 : Int = 0
     val N_train = d.getN_train
     val N_test = d.getN_test
-    for (i <- 0 until N_test; j <- 0 until N_train;
+    //only iterate over the upper diagonal matrix
+    for (i <- 0 until N_test; j <- i until N_train;
          if(kf.kernel(d.getRowTest(i), d.getRowTrain(j)) > epsilon)){
       map.addBinding(i,j)
-      size2 = size2+1
+      if(i!=j) {
+        size2 = size2 + 2
+        map.addBinding(j, i)
+      }else{
+        size2 = size2+1
+      }
     }
-    println("The map size is: " + map.size + "or: "+ size2)
+    println("The matrix has " + map.size + " rows and "+ size2 + "non-sparse elements.")
     val sparsity = 1.0 - (map.size / (N_train * N_test).toDouble)
     println("The sparsity of the Kernel matrix S is: " + sparsity)
     map
