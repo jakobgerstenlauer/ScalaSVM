@@ -22,12 +22,8 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
     */
   val rowColumnPairs : MultiMap[Int, Int] = time{initializeRowColumnPairs()};
 
+  //val rowColumnPairs2 : MultiMap[Int, Int] = time{initializeRowColumnPairs2()};
 
-  /**
-    * key: row index of matrix K
-    * value: set of non-sparse column indices of matrix K
-    */
-  val rowColumnPairs2 : MultiMap[Int, Int] = time{initializeRowColumnPairs2()};
 
   /**
     * Check if the similarity between instance i and j is significant.
@@ -85,14 +81,13 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
 
     filteredParallelStream.toArray.foreach(localFunction)
 
-    println("The matrix has " + mmap.size + " rows and "+ size2 + " non-sparse elements.")
+    println("Parallel approach: The matrix has " + mmap.size + " rows and "+ size2 + " non-sparse elements.")
     val sparsity = 1.0 - (mmap.size / NumElements.toDouble)
     println("The sparsity of the Kernel matrix K is: " + sparsity)
     mmap
   }
 
   /**
-    * TODO Parallelize this operation because it is very time consuming!
     * @return
     */
   def initializeRowColumnPairs(): MultiMap[Int, Int] = {
@@ -111,14 +106,13 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
       map.addBinding(i,i)
       size2 = size2 + 1
     }
-    println("The matrix has " + map.size + " rows and "+ size2 + " non-sparse elements.")
+    println("Sequential approach: The matrix has " + map.size + " rows and "+ size2 + " non-sparse elements.")
     val sparsity = 1.0 - (map.size / (N*N).toDouble)
     println("The sparsity of the Kernel matrix K is: " + sparsity)
     map
   }
 
   /**
-    * TODO Parallelize this operation because it is very time consuming!
     * @return
     */
   def initializeRowColumnPairsTest(): MultiMap[Int, Int] = {
