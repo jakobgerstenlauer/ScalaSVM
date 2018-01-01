@@ -14,7 +14,7 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
 
   def initializeDiagonal():DenseVector[Double]={
     val N = d.getN_train
-    var diagonal = DenseVector.zeros[Double](N)
+    val diagonal = DenseVector.zeros[Double](N)
     for (i <- 0 until N){
       diagonal(i) = kf.kernel(d.getRowTrain(i), d.getRowTrain(i))
     }
@@ -35,8 +35,6 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
     * value: set of non-sparse column indices of matrix K
     */
   val rowColumnPairs : MultiMap[Int, Int] = time{initializeRowColumnPairs()};
-
-  //val rowColumnPairs2 : MultiMap[Int, Int] = time{initializeRowColumnPairs2()};
 
 
   /**
@@ -106,8 +104,8 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
     */
   def initializeRowColumnPairs(): MultiMap[Int, Int] = {
     val map: MultiMap[Int, Int] = new HashMap[Int, MSet[Int]] with MultiMap[Int, Int]
-    var size2 : Int = 0
     val N = d.getN_train
+    var size2 : Int = N
     //only iterate over the upper diagonal matrix
     for (i <- 0 until N; j <- (i+1) until N;
          if(kf.kernel(d.getRowTrain(i), d.getRowTrain(j)) > epsilon)){
@@ -116,7 +114,8 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
         size2 = size2 + 2
     }
 
-    println("Sequential approach: The matrix has " + map.size + " rows and "+ size2 + " non-sparse elements.")
+    println("Sequential approach: The matrix has " + N + " rows and "+ size2 + " non-sparse elements.")
+    println("The hash map has " + map.size + " <key,value> pairs.")
     val sparsity = 1.0 - (map.size / (N*N).toDouble)
     println("The sparsity of the Kernel matrix K is: " + sparsity)
     map
@@ -171,8 +170,8 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
   */
   def calculateGradient(alphas : DenseVector[Double]) : DenseVector[Double]  = {
     val N = d.getN_train
-    val labels : DenseVector[Double] = d.getLabelsTrain.map(x=>x.toDouble)
-    val z : DenseVector[Double] = alphas *:* d.getLabelsTrain.map(x=>x.toDouble)
+    val labels: DenseVector[Double] = d.getLabelsTrain.map(x=>x.toDouble)
+    val z: DenseVector[Double] = alphas *:* labels
     //for the diagonal:
     val v : DenseVector[Double] = z  *:* diagonal *:* labels
     //for the off-diagonal entries:

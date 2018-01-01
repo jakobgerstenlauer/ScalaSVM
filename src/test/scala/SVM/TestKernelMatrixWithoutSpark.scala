@@ -17,7 +17,7 @@ object testKernelMatrixWithoutSpark extends App {
 	println(d)
 	d.simulate()
 	println(d)
-	val epsilon = 0.1
+	val epsilon = 0.001
 	val lmf = LeanMatrixFactory(d, gaussianKernel, epsilon)
 	//println(lmf.rowColumnPairs==lmf.rowColumnPairs2)
 	//println(lmf.rowColumnPairs.equals(lmf.rowColumnPairs2))
