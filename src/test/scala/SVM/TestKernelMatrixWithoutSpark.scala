@@ -11,7 +11,7 @@ object testKernelMatrixWithoutSpark extends App {
 	println(kernelPar)
 	val gaussianKernel = GaussianKernel(kernelPar)
 	println(gaussianKernel)
-	val dataProperties = DataParams(N = 50000, d = 10, ratioTrain = 0.5)
+	val dataProperties = DataParams(N = 70000, d = 10, ratioTrain = 0.5)
 	println(dataProperties)
 	val d = new SimData(dataProperties)
 	println(d)
