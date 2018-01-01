@@ -4,9 +4,6 @@ import breeze.linalg._
 import breeze.numerics.signum
 
 import scala.collection.mutable.{HashMap, MultiMap, Set => MSet}
-import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
-
 
 abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) extends MatrixFactory {
 
@@ -76,17 +73,18 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
       mmap.addBinding(i,i)
     }
 
-    //FIXME: There is a synchronization issue here!
+    val filteredParallelStream = MatrixIndexStream.getMatrixIndexStream(N)
+      .par
+      .filter(x => kf.kernel(d.getRowTrain(x.i), d.getRowTrain(x.j)) > epsilon)
+
     val localFunction = (ind: Indices) => {
       mmap.addBinding(ind.i, ind.j)
       mmap.addBinding(ind.j, ind.i)
       size2 = size2 + 2
     }
 
-    MatrixIndexStream.getMatrixIndexStream(N)
-      .par
-      .filter( x => kf.kernel(d.getRowTrain(x.i), d.getRowTrain(x.j)) > epsilon)
-      .foreach(localFunction)
+    filteredParallelStream.toArray.foreach(localFunction)
+
     println("The matrix has " + mmap.size + " rows and "+ size2 + " non-sparse elements.")
     val sparsity = 1.0 - (mmap.size / NumElements.toDouble)
     println("The sparsity of the Kernel matrix K is: " + sparsity)

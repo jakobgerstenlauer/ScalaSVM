@@ -11,13 +11,13 @@ object testKernelMatrixWithoutSpark extends App {
 	println(kernelPar)
 	val gaussianKernel = GaussianKernel(kernelPar)
 	println(gaussianKernel)
-	val dataProperties = DataParams(N = 20000, d = 10, ratioTrain = 0.5)
+	val dataProperties = DataParams(N = 40000, d = 10, ratioTrain = 0.5)
 	println(dataProperties)
 	val d = new SimData(dataProperties)
 	println(d)
 	d.simulate()
 	println(d)
-	val epsilon = 0.00001
+	val epsilon = 0.001
 	val lmf = LeanMatrixFactory(d, gaussianKernel, epsilon)
 	println(lmf.rowColumnPairs==lmf.rowColumnPairs2)
 	println(lmf.rowColumnPairs.equals(lmf.rowColumnPairs2))
