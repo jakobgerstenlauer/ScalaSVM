@@ -4,7 +4,8 @@ import breeze.linalg._
 import breeze.numerics.signum
 
 import scala.collection.mutable.{HashMap, MultiMap, Set => MSet}
-import scala.collection.concurrent.TrieMap
+import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
 
 
 abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) extends MatrixFactory {
@@ -75,10 +76,10 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
       mmap.addBinding(i,i)
     }
 
+    //FIXME: There is a synchronization issue here!
     val localFunction = (ind: Indices) => {
       mmap.addBinding(ind.i, ind.j)
       mmap.addBinding(ind.j, ind.i)
-      //FIXME: There is a synchronization issue here!
       size2 = size2 + 2
     }
 
@@ -104,7 +105,7 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
     for (i <- 0 until N; j <- (i+1) until N;
          if(kf.kernel(d.getRowTrain(i), d.getRowTrain(j)) > epsilon)){
         map.addBinding(i,j)
-        map.addBinding(j, i)
+        map.addBinding(j,i)
         size2 = size2 + 2
     }
     //add the diagonal
