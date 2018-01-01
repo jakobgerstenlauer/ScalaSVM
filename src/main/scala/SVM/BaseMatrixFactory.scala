@@ -7,6 +7,20 @@ import scala.collection.mutable.{HashMap, MultiMap, Set => MSet}
 
 abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) extends MatrixFactory {
 
+  /**
+    * Diagonal of K, i.e. the kernel matrix of the training set.
+    */
+  val diagonal = time{initializeDiagonal()}
+
+  def initializeDiagonal():DenseVector[Double]={
+    val N = d.getN_train
+    var diagonal = DenseVector.zeros[Double](N)
+    for (i <- 0 until N){
+      diagonal(i) = kf.kernel(d.getRowTrain(i), d.getRowTrain(i))
+    }
+    diagonal
+  }
+
   //http://biercoff.com/easily-measuring-code-execution-time-in-scala/
   def time[R](block: => R): R = {
     val t0 = System.nanoTime()
@@ -101,11 +115,7 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
         map.addBinding(j,i)
         size2 = size2 + 2
     }
-    //add the diagonal
-    for (i <- 0 until N){
-      map.addBinding(i,i)
-      size2 = size2 + 1
-    }
+
     println("Sequential approach: The matrix has " + map.size + " rows and "+ size2 + " non-sparse elements.")
     val sparsity = 1.0 - (map.size / (N*N).toDouble)
     println("The sparsity of the Kernel matrix K is: " + sparsity)
@@ -161,9 +171,12 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
   */
   def calculateGradient(alphas : DenseVector[Double]) : DenseVector[Double]  = {
     val N = d.getN_train
-    val v = DenseVector.fill(N){0.0}
+    val labels : DenseVector[Double] = d.getLabelsTrain.map(x=>x.toDouble)
     val z : DenseVector[Double] = alphas *:* d.getLabelsTrain.map(x=>x.toDouble)
-    for ((i,set) <- rowColumnPairs; j <- set){
+    //for the diagonal:
+    val v : DenseVector[Double] = z  *:* diagonal *:* labels
+    //for the off-diagonal entries:
+    for (i <- 0 until N; setOfCols <- rowColumnPairs.get(i); j<- setOfCols){
       v(i) += z(j) * d.getLabelTrain(i) * kf.kernel(d.getRowTrain(i), d.getRowTrain(j))
     }
     v
@@ -171,9 +184,11 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
 
   def predictOnTrainingSet(alphas : DenseVector[Double]) : DenseVector[Double]  = {
     val N = d.getN_train
-    val v = DenseVector.fill(N){0.0}
     val z : DenseVector[Double] = alphas *:* d.getLabelsTrain.map(x=>x.toDouble)
-    for ((i,set) <- rowColumnPairs; j <- set){
+    //for the diagonal:
+    val v : DenseVector[Double] = z *:* diagonal
+    //for the off-diagonal entries:
+    for (i <- 0 until N; setOfCols <- rowColumnPairs.get(i); j<- setOfCols){
       v(i) += z(j) * kf.kernel(d.getRowTrain(i), d.getRowTrain(j))
     }
     signum(v)
