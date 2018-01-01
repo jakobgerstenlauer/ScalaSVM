@@ -5,23 +5,31 @@ import breeze.numerics.signum
 
 import scala.collection.mutable.{HashMap, MultiMap, Set => MSet}
 import scala.collection.concurrent.TrieMap
-case class Indices(i: Int, j: Int)
+
 
 abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) extends MatrixFactory {
 
-  def streamMatrixIndices(m: Indices, N2: Int): Stream[Indices] = {
-    if(m.j<(N2-1)){
-      m #:: streamMatrixIndices(Indices(m.i,m.j+1),N2)
-    }else{
-      m #:: streamMatrixIndices(Indices(m.i+1,m.i+2),N2)
-    }
+  //http://biercoff.com/easily-measuring-code-execution-time-in-scala/
+  def time[R](block: => R): R = {
+    val t0 = System.nanoTime()
+    val result = block    // call-by-name
+    val t1 = System.nanoTime()
+    println("Elapsed time: " + (t1 - t0) + "ns")
+    result
   }
 
   /**
     * key: row index of matrix K
     * value: set of non-sparse column indices of matrix K
     */
-  val rowColumnPairs : MultiMap[Int, Int] = initializeRowColumnPairs();
+  val rowColumnPairs : MultiMap[Int, Int] = time{initializeRowColumnPairs()};
+
+
+  /**
+    * key: row index of matrix K
+    * value: set of non-sparse column indices of matrix K
+    */
+  val rowColumnPairs2 : MultiMap[Int, Int] = time{initializeRowColumnPairs2()};
 
   /**
     * Check if the similarity between instance i and j is significant.
@@ -49,9 +57,6 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
     */
   val rowColumnPairsTest : MultiMap[Int, Int] = initializeRowColumnPairsTest();
 
-
-
-
   /**
     * TODO Parallelize this operation because it is very time consuming!
     * @return
@@ -59,24 +64,29 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
   def initializeRowColumnPairs2(): MultiMap[Int, Int] = {
     //FIXME: This MultiMap implementation is build on top of HashMap which is probably not threadsafe!
     val mmap: MultiMap[Int, Int] = new HashMap[Int, MSet[Int]] with MultiMap[Int, Int]
+
     val N = d.getN_train
     val NumElements = N*N
+
     //add the number of diagonal elements
     var size2 = N
-    def addBindings(ind: Indices) : Unit= {
+    //add the diagonal by default without calculating the kernel function
+    for (i <- 0 until N){
+      mmap.addBinding(i,i)
+    }
+
+    val localFunction = (ind: Indices) => {
       mmap.addBinding(ind.i, ind.j)
       mmap.addBinding(ind.j, ind.i)
       //FIXME: There is a synchronization issue here!
       size2 = size2 + 2
     }
-    //add the diagonal by default without calculating the kernel function
-    for (i <- 0 until N){
-      mmap.addBinding(i,i)
-    }
-    streamMatrixIndices(Indices(0,1), NumElements).take(NumElements)
-      .filter(x => kf.kernel(d.getRowTrain(x.i), d.getRowTrain(x.j)) > epsilon)
-      .foreach(x=>addBindings(x))
-    println("The matrix has " + mmap.size + " rows and "+ size2 + "non-sparse elements.")
+
+    MatrixIndexStream.getMatrixIndexStream(N)
+      .par
+      .filter( x => kf.kernel(d.getRowTrain(x.i), d.getRowTrain(x.j)) > epsilon)
+      .foreach(localFunction)
+    println("The matrix has " + mmap.size + " rows and "+ size2 + " non-sparse elements.")
     val sparsity = 1.0 - (mmap.size / NumElements.toDouble)
     println("The sparsity of the Kernel matrix K is: " + sparsity)
     mmap
@@ -102,7 +112,7 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
       map.addBinding(i,i)
       size2 = size2 + 1
     }
-    println("The matrix has " + map.size + " rows and "+ size2 + "non-sparse elements.")
+    println("The matrix has " + map.size + " rows and "+ size2 + " non-sparse elements.")
     val sparsity = 1.0 - (map.size / (N*N).toDouble)
     println("The sparsity of the Kernel matrix K is: " + sparsity)
     map
