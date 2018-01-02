@@ -22,7 +22,7 @@ trait hasClipAlphas {
     */
   def clipAlphas (alphas: DenseVector[Double], cutOff: Double) : DenseVector[Double] = {
     //add a small epsilon to x to avoid -Infinity of log(x):
-    val eps : Double = 0.1
+    val eps : Double = 0.001
     val meanAndVar = breeze.stats.meanAndVariance (alphas.map(x => log (x + eps) ) )
     if(!hasClipAlphas.isDefined && !isInvalid(meanAndVar.mean)) {
       if(!isInvalid(meanAndVar.variance)) {

@@ -33,7 +33,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     * key: row index of matrix K
     * value: set of non-sparse column indices of matrix K
     */
-  val rowColumnPairs : MultiMap[Int, Int] = time{initializeRowColumnPairs()};
+  val rowColumnPairs : MultiMap[Int, Int] = time{initializeRowColumnPairs(false)};
 
 
   /**
@@ -60,10 +60,11 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     * key: row index of matrix S (index of test instance)
     * value: set of non-sparse column indices of matrix S
     */
-  val rowColumnPairsTest : MultiMap[Int, Int] = initializeRowColumnPairsTest();
+  val rowColumnPairsTest : MultiMap[Int, Int] = initializeRowColumnPairsTest(false);
 
   /**
-    * TODO Parallelize this operation because it is very time consuming!
+    * Parallel version that works on stream.
+    * Is not used because the performance is not better and synchronization issues are not solved.
     * @return
     */
   def initializeRowColumnPairs2(): MultiMap[Int, Int] = {
@@ -99,9 +100,11 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   }
 
   /**
+    *
+    * @param isCountingSparsity Should the sparsity of the matrix representation be assessed? Involves some overhead.
     * @return
     */
-  def initializeRowColumnPairs(): MultiMap[Int, Int] = {
+  def initializeRowColumnPairs(isCountingSparsity: Boolean): MultiMap[Int, Int] = {
     val map: MultiMap[Int, Int] = new HashMap[Int, MSet[Int]] with MultiMap[Int, Int]
     val N = d.getN_train
     var size2 : Int = N
@@ -109,20 +112,20 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     for (i <- 0 until N; j <- (i+1) until N if(kf.kernel(d.getRowTrain(i), d.getRowTrain(j)) > epsilon)){
       map.addBinding(i,j)
       map.addBinding(j,i)
-      size2 = size2 + 2
+      if(isCountingSparsity) size2 = size2 + 2
     }
-
-    println("Sequential approach: The matrix has " + N + " rows and "+ size2 + " non-sparse elements.")
+    println("Sequential approach: The matrix has " + N + " rows.")
     println("The hash map has " + map.size + " <key,value> pairs.")
-    val sparsity = 1.0 - (map.size / (N*N).toDouble)
-    println("The sparsity of the Kernel matrix K is: " + sparsity)
+    if(isCountingSparsity) {
+      println("The matrix has " + size2 + " non-sparse elements.")
+    }
     map
   }
 
   /**
     * @return
     */
-  def initializeRowColumnPairsTest(): MultiMap[Int, Int] = {
+  def initializeRowColumnPairsTest(isCountingSparsity: Boolean): MultiMap[Int, Int] = {
     val map: MultiMap[Int, Int] = new HashMap[Int, MSet[Int]] with MultiMap[Int, Int]
     var size2 : Int = 0
     val N_train = d.getN_train
@@ -132,16 +135,17 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
          if(kf.kernel(d.getRowTest(i), d.getRowTrain(j)) > epsilon)){
       map.addBinding(i,j)
       map.addBinding(j, i)
-      size2 = size2 + 2
+      if(isCountingSparsity) size2 = size2 + 2
     }
     //add the diagonal
     for (i <- 0 until max(N_test,N_train)){
       map.addBinding(i,i)
       size2 = size2 + 1
     }
-    println("The matrix has " + map.size + " rows and "+ size2 + "non-sparse elements.")
-    val sparsity = 1.0 - (map.size / (N_train * N_test).toDouble)
-    println("The sparsity of the Kernel matrix S is: " + sparsity)
+    println("The hash map has " + map.size + " <key,value> pairs.")
+    if(isCountingSparsity) {
+      println("The matrix has " + size2 + " non-sparse elements.")
+    }
     map
   }
 

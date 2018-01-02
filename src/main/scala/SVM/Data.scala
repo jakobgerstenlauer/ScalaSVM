@@ -170,7 +170,7 @@ class SimData (val params: DataParams) extends Data {
       val theta2 : DenseVector[Double] = DenseVector.rand(params.d)
 
       //Randomly allocate observations to each class (0 or 1)
-      val z : DenseVector[Int] = DenseVector.rand(params.N).map(x=>2*x).map(x=>floor(x)).map(x=>(2*x)-1)
+      val z : DenseVector[Int] = DenseVector.rand(params.N).map(x=>2*x).map(x=>floor(x)).map(x=>((2*x)-1).toInt)
       z_train = z(0 until params.N_train)
       z_test = z(params.N_train until params.N)
 
