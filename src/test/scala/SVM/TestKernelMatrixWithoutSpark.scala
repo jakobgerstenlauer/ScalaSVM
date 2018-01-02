@@ -1,17 +1,12 @@
 package test
 import SVM._
 
-/**
-	* Here I compare the computation time using the linear loop approach of initializeRowColumnPairs()
-	* with the parallelized streaming approach of initializeRowColumnPairs2().
-	* I also check for identical results (identical Map).
-	*/
 object testKernelMatrixWithoutSpark extends App {
 	val kernelPar = GaussianKernelParameter(1.0)
 	println(kernelPar)
 	val gaussianKernel = GaussianKernel(kernelPar)
 	println(gaussianKernel)
-	val N = 100000
+	val N = 10000
 	val dataProperties = DataParams(N = N, d = 10, ratioTrain = 0.5)
 	println(dataProperties)
 	val d = new SimData(dataProperties)
