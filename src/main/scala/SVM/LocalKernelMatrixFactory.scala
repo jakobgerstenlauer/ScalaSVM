@@ -13,8 +13,6 @@ trait MatrixFactory{
 }
 
 abstract class BaseMatrixFactoryWithMatrices(d: Data, kf: KernelFunction, epsilon: Double) extends BaseMatrixFactory(d, kf, epsilon){
-  val K : DenseMatrix[Double] = initKernelMatrixTraining()
-  val S : DenseMatrix[Double] = initKernelMatrixTest()
   val z : DenseVector[Int] = initTargetTraining()
   val z_test : DenseVector[Int] = initTargetTest()
 
@@ -27,12 +25,12 @@ abstract class BaseMatrixFactoryWithMatrices(d: Data, kf: KernelFunction, epsilo
     assert(d.isDefined, "The input data is not defined!")
     d.getLabelsTest
   }
-
-  def initKernelMatrixTraining() : DenseMatrix[Double]
-  def initKernelMatrixTest() : DenseMatrix[Double]
 }
 
 case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc: SparkContext) extends BaseMatrixFactoryWithMatrices(d, kf, epsilon) {
+
+  val K  = initKernelMatrixTraining()
+  val S  = initKernelMatrixTest()
 
   def initKernelMatrixTraining() : CoordinateMatrix  = {
     assert(d.isDefined, "The input data is not defined!")
@@ -56,6 +54,9 @@ case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc:
 }
 
 case class LocalKernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) extends BaseMatrixFactoryWithMatrices(d, kf, epsilon){
+
+  val K  = initKernelMatrixTraining()
+  val S  = initKernelMatrixTest()
 
   def initKernelMatrixTraining() : DenseMatrix[Double]  = {
     assert(d.isDefined, "The input data is not defined!")

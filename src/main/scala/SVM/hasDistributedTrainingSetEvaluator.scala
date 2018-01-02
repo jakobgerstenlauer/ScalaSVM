@@ -2,7 +2,7 @@ package SVM
 
 import breeze.linalg.{DenseVector, max, min}
 import breeze.numerics.signum
-import org.apache.spark.mllib.linalg.distributed.MatrixEntry
+import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
 
 trait hasDistributedTrainingSetEvaluator extends Algorithm{
   /**
@@ -16,7 +16,7 @@ trait hasDistributedTrainingSetEvaluator extends Algorithm{
   def evaluateOnTrainingSet(alphas: Alphas, ap: AlgoParams, kmf: KernelMatrixFactory, matOps: DistributedMatrixOps):DenseVector[Double]= {
 
     //Get the distributed kernel matrix for the test set:
-    val K = kmf.K
+    val K : CoordinateMatrix = kmf.K
     val z = kmf.z.map(x=>x.toDouble)
     val epsilon = max(min(ap.epsilon, min(alphas.alpha)), 0.000001)
     val A = matOps.distributeRowVector(alphas.alpha *:* z, epsilon)

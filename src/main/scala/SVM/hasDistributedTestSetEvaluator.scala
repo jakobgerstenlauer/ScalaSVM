@@ -1,8 +1,8 @@
 package SVM
 
-import breeze.linalg.{DenseVector, max, min}
+import breeze.linalg.{DenseMatrix, DenseVector, max, min}
 import breeze.numerics.signum
-import org.apache.spark.mllib.linalg.distributed.MatrixEntry
+import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
 
 trait hasDistributedTestSetEvaluator extends Algorithm{
   /**
@@ -16,7 +16,7 @@ trait hasDistributedTestSetEvaluator extends Algorithm{
   def evaluateOnTestSet(alphas: Alphas, ap: AlgoParams, kmf: KernelMatrixFactory, matOps: DistributedMatrixOps) : DenseVector[Double] = {
 
     //Get the distributed kernel matrix for the test set:
-    val S = kmf.S
+    val S  : CoordinateMatrix= kmf.S
     val epsilon = max(min(ap.epsilon, min(alphas.alpha)), 0.000001)
     val A = matOps.distributeRowVector(alphas.alpha *:* kmf.getData().getLabelsTrain.map(x=>x.toDouble), epsilon)
 
