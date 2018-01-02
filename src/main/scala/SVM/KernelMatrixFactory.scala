@@ -2,10 +2,7 @@ package SVM
 
 import breeze.linalg._
 import breeze.numerics.signum
-import org.apache.spark.SparkContext
 import scala.collection.mutable.{HashMap, MultiMap, Set => MSet}
-import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
-import org.apache.spark.rdd.RDD
 
 case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) extends BaseMatrixFactory(d, kf, epsilon){
 

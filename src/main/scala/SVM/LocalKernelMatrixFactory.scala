@@ -30,7 +30,6 @@ abstract class BaseMatrixFactoryWithMatrices(d: Data, kf: KernelFunction, epsilo
 
   def initKernelMatrixTraining() : DenseMatrix[Double]
   def initKernelMatrixTest() : DenseMatrix[Double]
-
 }
 
 case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc: SparkContext) extends BaseMatrixFactoryWithMatrices(d, kf, epsilon) {
