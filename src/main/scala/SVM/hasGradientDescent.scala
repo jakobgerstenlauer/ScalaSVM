@@ -3,7 +3,6 @@ import breeze.linalg.{DenseVector, _}
 import breeze.stats.distributions._
 import breeze.numerics._
 
-
 /**
   * Stores moment information which can be used if no mean or variance can be calculated for a given sample of alphas.
   */
