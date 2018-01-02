@@ -148,7 +148,7 @@ class SimData (val params: DataParams) extends Data {
 	var X_test : DenseMatrix[Double]  = DenseMatrix.zeros[Double](params.N_test, params.d)
 
 	//stores the maximum of the square of the euclidean norm
-	var tau : Double = 0.0
+	//var tau : Double = 0.0
 
 	//empty vectors for the labels of training and test set
 	var z_train : DenseVector[Int] = DenseVector.zeros[Int](params.N_train)
@@ -170,7 +170,7 @@ class SimData (val params: DataParams) extends Data {
       val theta2 : DenseVector[Double] = DenseVector.rand(params.d)
 
       //Randomly allocate observations to each class (0 or 1)
-      val z : DenseVector[Int] = DenseVector.rand(params.N).map(x=>2*x).map(x=>floor(x)).map(x=>(2*x)-1).map(x=>x.toInt)
+      val z : DenseVector[Int] = DenseVector.rand(params.N).map(x=>2*x).map(x=>floor(x)).map(x=>(2*x)-1)
       z_train = z(0 until params.N_train)
       z_test = z(params.N_train until params.N)
 
@@ -191,9 +191,9 @@ class SimData (val params: DataParams) extends Data {
         //For training set:
         if( i < params.N_train ){
           //calculate the L1 norm for vector x:
-          val norm = sqrt(x.map(e => abs(e)).reduce(_+_))
+          //val norm = sqrt(x.map(e => abs(e)).reduce(_+_))
           //update tau as maximum over all norms
-          tau = max(tau, norm)
+          //tau = max(tau, norm)
           X_train(i, ::) := DenseVector(x.toArray).t
         //For the tests set:
         }else{
