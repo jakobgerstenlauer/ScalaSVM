@@ -30,7 +30,7 @@ object testKernelMatrixWithoutSpark extends App {
 	val epsilon = 0.001
 	val numElementsS =  probeMatrices.probeSparsity(Test, 0.001)
 	val numElementsK =  probeMatrices.probeSparsity(Train, 0.001)
-  println("Projected memmory requirements for epsilon ="+epsilon+":")
+  println("Projected memory requirements for epsilon ="+epsilon+":")
   //Integer = 32 bits = 4 Byte
   val intsPerKB = 256
   println("Training matrix K: "+numElementsK/intsPerKB+"kB:")
@@ -38,8 +38,8 @@ object testKernelMatrixWithoutSpark extends App {
 
   val lmf = time{LeanMatrixFactory(d, gaussianKernel, epsilon)}
 	val alphas = new Alphas(N=N/2)
-	val ap = AlgoParams(maxIter = 30, batchProb = 0.6, minDeltaAlpha = 0.001, learningRateDecline = 0.7, epsilon = epsilon, isDebug = false, hasMomentum = false, sparsity=0.1)
-	val mp = ModelParams(C = 0.2, delta = 0.1)
+	val ap = AlgoParams(maxIter = 8, batchProb = 0.8, minDeltaAlpha = 0.001, learningRateDecline = 0.5, epsilon = epsilon, isDebug = false, hasMomentum = false, sparsity=0.000001)
+	val mp = ModelParams(C = 1.0, delta = 0.1)
 	var algo = new NoMatrices(alphas, ap, mp, lmf)
 	var numInt = 0
 	while(alphas.getDelta > 0.01 && numInt < ap.maxIter){
