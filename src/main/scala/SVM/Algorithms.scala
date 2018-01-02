@@ -26,6 +26,22 @@ abstract class Algorithm{
     val misclassified : Int = predictions.length - correct
     (correct, misclassified)
   }
+
+  private def printAccuracy(correct: Int, misclassified: Int):String = {
+    val total = correct + misclassified
+    "%d/%d=%d%%".format(correct, total, Math.round(100.0 * (correct.toDouble / total.toDouble)))
+  }
+
+  private def printSparsity(alphas: Alphas) : String = {
+    val sparsity = Math.round(100.0 * (alphas.alpha.map(x => if (x==0) 1 else 0).reduce(_+_).toDouble / alphas.alpha.length.toDouble))
+    "%d%%".format(sparsity)
+  }
+
+  def createLog(correct: Int, misclassified : Int, correctT : Int, misclassifiedT : Int, alphas : Alphas):String={
+    "Train:"+printAccuracy(correct,misclassified)+
+      ",Test:"+printAccuracy(correctT,misclassifiedT)+
+      ",Sparsity:"+printSparsity(alphas)
+  }
 }
 
 /**
@@ -41,8 +57,7 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
 
     val (correct, misclassified) = calculateAccuracy(kmf.predictOnTrainingSet(alphas.alpha), kmf.getData().getLabelsTrain)
     val (correctT, misclassifiedT) = calculateAccuracy(kmf.predictOnTestSet(alphas.alpha), kmf.getData().getLabelsTest)
-    val sparsity = 1.0 - alphas.alpha.map(x=>if (x>0) 1 else 0).reduce(_+_).toDouble / alphas.alpha.length.toDouble
-    println("Train: "+ correct +"/"+ misclassified + ", Test: "+ correctT + "/" + misclassifiedT+ ", Sparsity: "+ sparsity)
+    println(createLog(correct, misclassified, correctT, misclassifiedT, alphas))
 
     //Decrease the step size, i.e. learning rate:
     val ump = mp.updateDelta(ap)
@@ -80,8 +95,7 @@ case class SGLocal(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LocalKe
 
     val (correct, misclassified) = calculateAccuracy(evaluateOnTrainingSet(alphas, ap, kmf), kmf.getData().getLabelsTrain)
     val (correctT, misclassifiedT) = calculateAccuracy(evaluateOnTestSet(alphas, ap, kmf), kmf.getData().getLabelsTest)
-    val sparsity = 1.0 - alphas.alpha.map(x=>if (x>0) 1 else 0).reduce(_+_).toDouble / alphas.alpha.length.toDouble
-    println("Train: "+ correct +"/"+ misclassified + ", Test: "+ correctT + "/" + misclassifiedT+ ", Sparsity: "+ sparsity)
+    println(createLog(correct, misclassified, correctT, misclassifiedT, alphas))
 
     //Decrease the step size, i.e. learning rate:
     val ump = mp.updateDelta(ap)
@@ -122,8 +136,7 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
 
     val (correct, misclassified) = calculateAccuracy(evaluateOnTrainingSet(alphas, ap, kmf, matOps), kmf.getData().getLabelsTrain)
     val (correctT, misclassifiedT) = calculateAccuracy(evaluateOnTestSet(alphas, ap, kmf, matOps), kmf.getData().getLabelsTest)
-    val sparsity = 1.0 - alphas.alpha.map(x=>if (x>0) 1 else 0).reduce(_+_).toDouble / alphas.alpha.length.toDouble
-    println("Train: "+ correct +"/"+ misclassified + ", Test: "+ correctT + "/" + misclassifiedT+ ", Sparsity: "+ sparsity)
+    println(createLog(correct, misclassified, correctT, misclassifiedT, alphas))
 
 		//Decrease the step size, i.e. learning rate:
 		val ump = mp.updateDelta(ap)
