@@ -26,7 +26,6 @@ abstract class BaseMatrixFactoryWithMatrices(d: Data, kf: KernelFunction, epsilo
     assert(d.isDefined, "The input data is not defined!")
     d.getLabelsTest
   }
-
 }
 
 case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc: SparkContext) extends BaseMatrixFactoryWithMatrices(d, kf, epsilon) {

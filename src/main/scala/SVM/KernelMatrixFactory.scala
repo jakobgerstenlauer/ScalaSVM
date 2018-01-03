@@ -225,8 +225,8 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val N_test = d.getN_test
     val v = DenseVector.fill(N_test){0.0}
     val z : DenseVector[Double] = alphas *:* d.getLabelsTrain.map(x=>x.toDouble)
-    for ((i,set) <- rowColumnPairsTest; rowTest_i = d.getRowTest(i); j <- set){
-      v(i.toInt) += z(j.toInt) * kf.kernel(rowTest_i, d.getRowTrain(j))
+    for ((i,set) <- rowColumnPairsTest; rowTrain_i = d.getRowTrain(i); j <- set){
+      v(i.toInt) += z(j.toInt) * kf.kernel(rowTrain_i, d.getRowTest(j))
     }
     signum(v)
   }
