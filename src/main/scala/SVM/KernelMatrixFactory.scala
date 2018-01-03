@@ -204,7 +204,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val v : DenseVector[Double] = z  *:* diagonal *:* labels
     //for the off-diagonal entries:
     for (i <- 0 until N; labelTrain = d.getLabelTrain(i); rowTrain_i = d.getRowTrain(i); setOfCols <- rowColumnPairs.get(i); j<- setOfCols){
-      v(i) += z(j) * labelTrain * kf.kernel(rowTrain_i, d.getRowTrain(j))
+      v(i) += z(j.toInt) * labelTrain * kf.kernel(rowTrain_i, d.getRowTrain(j))
     }
     v
   }
@@ -216,7 +216,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val v : DenseVector[Double] = z *:* diagonal
     //for the off-diagonal entries:
     for (i <- 0 until N; rowTrain_i = d.getRowTrain(i); setOfCols <- rowColumnPairs.get(i); j<- setOfCols){
-      v(i) += z(j) * kf.kernel(rowTrain_i, d.getRowTrain(j))
+      v(i) += z(j.toInt) * kf.kernel(rowTrain_i, d.getRowTrain(j))
     }
     signum(v)
   }
@@ -226,7 +226,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val v = DenseVector.fill(N_test){0.0}
     val z : DenseVector[Double] = alphas *:* d.getLabelsTrain.map(x=>x.toDouble)
     for ((i,set) <- rowColumnPairsTest; rowTest_i = d.getRowTest(i); j <- set){
-      v(i) += z(j) * kf.kernel(rowTest_i, d.getRowTrain(j))
+      v(i.toInt) += z(j.toInt) * kf.kernel(rowTest_i, d.getRowTrain(j))
     }
     signum(v)
   }
