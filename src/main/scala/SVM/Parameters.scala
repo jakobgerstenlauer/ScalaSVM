@@ -10,9 +10,10 @@ abstract class Parameters
   * @param epsilon Threshold for similarity between data instances (If k(x,y) < epsilon then we approximate with 0!)
   * @param isDebug Should the algorithm be verbose?
   * @param hasMomentum Should the stochastic gradient descent be replace by conjugate gradient descent?
-  * @param sparsity Setting sparsity lower quantile of alphas to zero in each iteration. Can be tuned to enforce stronger sparsity.
+  * @param quantileAlphaClipping Setting sparsity lower quantile of alphas to zero in each iteration. Can be tuned to enforce stronger sparsity.
   */
-case class AlgoParams(maxIter: Int = 30, minDeltaAlpha: Double = 0.001, learningRateDecline: Double = 0.95, batchProb: Double = 0.7, epsilon : Double = 0.0001, isDebug: Boolean = false, hasMomentum: Boolean = false, sparsity: Double = 0.0) extends Parameters{
+case class AlgoParams(maxIter: Int = 30, minDeltaAlpha: Double = 0.001, learningRateDecline: Double = 0.95, batchProb: Double = 0.7, epsilon : Double = 0.0001, isDebug: Boolean = false, hasMomentum: Boolean = false, quantileAlphaClipping: Double = 0.0) extends Parameters{
+  assert(quantileAlphaClipping>=0 && quantileAlphaClipping<=0.99)
   assert(batchProb>0.0 && batchProb<1.0)
   assert(learningRateDecline <= 1.0 && learningRateDecline > 0.0)
   assert(epsilon >= 0)

@@ -15,6 +15,24 @@ case class Alphas(N: Int,
     this(N, DenseVector.ones[Double](N) - DenseVector.rand(N), DenseVector.ones[Double](N) - DenseVector.rand(N))
   }
 
+  private def getSortedAlphas : Array[Double] = alpha.toArray.sorted[Double]
+
+  def getQuantile(quantile: Double) : Double = {
+    val sortedAlphas : Array[Double] = getSortedAlphas
+    val N = alpha.length
+    val rank : Int = (Math.ceil(N * quantile)).toInt
+    sortedAlphas(rank)
+  }
+
+  /**
+    * @param quantile The quantile of empirical distribution where the alphas are cut-off and set to zero.
+    * @return The new vector with cutOff % of elements zet to zero.
+    */
+  def clipAlphas (quantile: Double) : Alphas = {
+    assert(quantile>=0 && quantile<=0.999)
+    copy(alpha=alpha.map(x => if (x < getQuantile(quantile)) 0 else x))
+  }
+
   def getDelta : Double = sum(abs(alpha - alphaOld))
 
   def updateAlphaAsConjugateGradient() : Alphas = {

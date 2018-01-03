@@ -77,7 +77,7 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
     */
   def gradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LeanMatrixFactory): NoMatrices = {
     val stochasticUpdate = calculateGradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: MatrixFactory)
-    copy(alphas = alphas.copy(alpha = stochasticUpdate))
+    copy(alphas = alphas.copy(alpha = stochasticUpdate).clipAlphas(ap.quantileAlphaClipping))
   }
 }
 
@@ -115,7 +115,7 @@ case class SGLocal(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LocalKe
     */
   def gradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: MatrixFactory): SGLocal = {
     val stochasticUpdate = calculateGradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: MatrixFactory)
-    copy(alphas = alphas.copy(alpha = stochasticUpdate))
+    copy(alphas = alphas.copy(alpha = stochasticUpdate).clipAlphas(ap.quantileAlphaClipping))
   }
 }
 
@@ -156,6 +156,6 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
     */
   def gradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: MatrixFactory): SG = {
     val stochasticUpdate = calculateGradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: MatrixFactory)
-    copy(alphas = alphas.copy(alpha = stochasticUpdate))
+    copy(alphas = alphas.copy(alpha = stochasticUpdate).clipAlphas(ap.quantileAlphaClipping))
   }
 }

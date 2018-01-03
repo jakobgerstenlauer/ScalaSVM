@@ -38,7 +38,7 @@ object testKernelMatrixWithoutSpark extends App {
 
   val lmf = time{LeanMatrixFactory(d, gaussianKernel, epsilon)}
 	val alphas = new Alphas(N=N/2)
-	val ap = AlgoParams(maxIter = 8, batchProb = 0.8, minDeltaAlpha = 0.001, learningRateDecline = 0.5, epsilon = epsilon, isDebug = false, hasMomentum = false, sparsity=0.000001)
+	val ap = AlgoParams(maxIter = 8, batchProb = 0.8, minDeltaAlpha = 0.001, learningRateDecline = 0.5, epsilon = epsilon, isDebug = false, hasMomentum = false, quantileAlphaClipping=0.000001)
 	val mp = ModelParams(C = 1.0, delta = 0.1)
 	var algo = new NoMatrices(alphas, ap, mp, lmf)
 	var numInt = 0
