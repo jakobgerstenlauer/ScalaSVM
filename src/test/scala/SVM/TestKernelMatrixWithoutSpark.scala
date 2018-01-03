@@ -15,7 +15,7 @@ object testKernelMatrixWithoutSpark extends App {
 	println(kernelPar)
 	val gaussianKernel = GaussianKernel(kernelPar)
 	println(gaussianKernel)
-	val N = 40000
+	val N = 2000
 	val dataProperties = DataParams(N = N, d = 10, ratioTrain = 0.5)
 	println(dataProperties)
 	val d = new SimData(dataProperties)
@@ -37,12 +37,14 @@ object testKernelMatrixWithoutSpark extends App {
   //println("Training matrix S: "+numElementsS/intsPerKB+"kB:")
 
   val lmf = time{LeanMatrixFactory(d, gaussianKernel, epsilon)}
-	val mp = ModelParams(C = 0.1, delta = 0.1)
+	val mp = ModelParams(C = 0.01, delta = 0.1)
 	val alphas = new Alphas(N=N/2, mp)
 	val ap = AlgoParams(maxIter = 30, batchProb = 0.8, minDeltaAlpha = 0.001, learningRateDecline = 0.5, epsilon = epsilon, isDebug = false, hasMomentum = false, quantileAlphaClipping=0.01)
 	var algo = new NoMatrices(alphas, ap, mp, lmf)
 	var numInt = 0
-	while(numInt < ap.maxIter && algo.getSparsity()<0.9){
+  println("Sparsity:" + algo.getSparsity())
+  println("Sparsity < 0.9 is "+ (algo.getSparsity() < 0.9))
+	while(numInt < ap.maxIter && algo.getSparsity() < 0.9){
 		algo = time{algo.iterate()}
 		numInt += 1
 	}

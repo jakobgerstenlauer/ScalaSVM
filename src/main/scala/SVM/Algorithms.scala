@@ -5,9 +5,7 @@ import org.apache.spark.SparkContext
 case class AllMatrixElementsZeroException(message:String) extends Exception(message)
 case class EmptyRowException(message:String) extends Exception(message)
 
-abstract class Algorithm{
-
-  val alphas: Alphas
+abstract class Algorithm(alphas: Alphas){
 
   /**
     * Performs one iteration of the algorithm and returns the updated algorithm.
@@ -58,7 +56,7 @@ abstract class Algorithm{
   * @param mp Properties of the model
   * @param kmf A KernelMatrixFactory for local matrices.N
   */
-case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LeanMatrixFactory) extends Algorithm with hasGradientDescent {
+case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LeanMatrixFactory) extends Algorithm(alphas) with hasGradientDescent {
 
   def iterate() : NoMatrices = {
 
@@ -97,7 +95,7 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
   * @param mp Properties of the model
   * @param kmf A KernelMatrixFactory for local matrices.
   */
-case class SGLocal(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LocalKernelMatrixFactory) extends Algorithm
+case class SGLocal(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LocalKernelMatrixFactory) extends Algorithm(alphas)
   with hasLocalTrainingSetEvaluator with hasLocalTestSetEvaluator with hasGradientDescent {
 
   def iterate() : SGLocal = {
@@ -138,7 +136,7 @@ case class SGLocal(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LocalKe
   * @param kmf A KernelMatrixFactory for distributed matrices.
   * @param sc The Spark context of the cluster.
   */
-case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, sc: SparkContext) extends Algorithm
+case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, sc: SparkContext) extends Algorithm(alphas)
   with hasDistributedTestSetEvaluator with hasDistributedTrainingSetEvaluator with hasGradientDescent {
 
 	val matOps : DistributedMatrixOps = new DistributedMatrixOps(sc)
