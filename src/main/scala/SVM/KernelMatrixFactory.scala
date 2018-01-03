@@ -2,6 +2,8 @@ package SVM
 
 import breeze.linalg._
 import breeze.numerics.signum
+
+import scala.collection.mutable
 import scala.collection.mutable.{HashMap, MultiMap, Set => MSet}
 
 case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) extends BaseMatrixFactory(d, kf, epsilon){
@@ -110,10 +112,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     var size2 : Int = N
     //only iterate over the upper diagonal matrix
     for (i <- 0 until N; j <- (i+1) until N if(kf.kernel(d.getRowTrain(i), d.getRowTrain(j)) > epsilon)){
-      val i_ = Integer.valueOf(i)
-      val j_ = Integer.valueOf(j)
-      map.addBinding(i_,j_)
-      map.addBinding(j_,i_)
+      addBindings(map, i, j)
       if(isCountingSparsity) size2 = size2 + 2
     }
     println("Sequential approach: The matrix has " + N + " rows.")
@@ -125,6 +124,37 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   }
 
   /**
+    * The matrices K and S are
+    * @param map
+    * @param i
+    * @param j
+    * @return
+    */
+  private def addBindings (map: mutable.MultiMap[Integer, Integer], i: Int, j: Int) = {
+    val i_ = Integer.valueOf(i)
+    val j_ = Integer.valueOf(j)
+    map.addBinding(i_, j_)
+    map.addBinding(j_, i_)
+  }
+
+  /**
+    * The matrices K and S are
+    * @param map
+    * @param i
+    * @param j
+    * @return
+    */
+  private def addBinding (map: mutable.MultiMap[Integer, Integer], i: Int, j: Int) = {
+    val i_ = Integer.valueOf(i)
+    val j_ = Integer.valueOf(j)
+    map.addBinding(i_, j_)
+  }
+
+  /**
+    * FIXME Is the way bindings are added correct? The matrix is not diagonal as K!!!
+    * Maybe I have to iterate over the whole matrix!
+    *
+    * @param isCountingSparsity
     * @return
     */
   def initializeRowColumnPairsTest(isCountingSparsity: Boolean): MultiMap[Integer, Integer] = {
@@ -132,21 +162,11 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     var size2 : Int = 0
     val N_train = d.getN_train
     val N_test = d.getN_test
-    //only iterate over the upper diagonal matrix
-    for (i <- 0 until N_test; j <- (i+1) until N_train
-         if(kf.kernel(d.getRowTest(i), d.getRowTrain(j)) > epsilon)){
-      val i_ = Integer.valueOf(i)
-      val j_ = Integer.valueOf(j)
-      map.addBinding(i_,j_)
-      map.addBinding(j_,i_)
-      if(isCountingSparsity) size2 = size2 + 2
-    }
-    //add the diagonal but test!!!
-    for (i <- 0 until max(N_test,N_train)
-         if(kf.kernel(d.getRowTest(i), d.getRowTrain(i)) > epsilon)){
-      val i_ = Integer.valueOf(i)
-      map.addBinding(i_,i_)
-      size2 = size2 + 1
+    //iterate over all combinations
+    for (i <- 0 until N_train; j <- 0 until N_test
+         if(kf.kernel(d.getRowTrain(i), d.getRowTest(j)) > epsilon)){
+      addBinding (map, i, j)
+      if(isCountingSparsity) size2 = size2 + 1
     }
     println("The hash map has " + map.size + " <key,value> pairs.")
     if(isCountingSparsity) {
