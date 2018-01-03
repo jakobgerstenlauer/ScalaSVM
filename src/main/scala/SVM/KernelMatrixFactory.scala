@@ -33,7 +33,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     * key: row index of matrix K
     * value: set of non-sparse column indices of matrix K
     */
-  val rowColumnPairs : MultiMap[Int, Int] = time{initializeRowColumnPairs(false)};
+  val rowColumnPairs : MultiMap[Integer, Integer] = time{initializeRowColumnPairs(false)};
 
 
   /**
@@ -42,7 +42,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     * @param j column index of K
     * @return
     */
-  def entryExists(i: Int, j: Int):Boolean = {
+  def entryExists(i: Integer, j: Integer):Boolean = {
     rowColumnPairs.entryExists(i, _ == j)
   }
 
@@ -52,7 +52,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     * @param j column index of S
     * @return
     */
-  def entryExistsTest(i: Int, j: Int):Boolean = {
+  def entryExistsTest(i: Integer, j: Integer):Boolean = {
     rowColumnPairsTest.entryExists(i, _ == j)
   }
 
@@ -60,7 +60,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     * key: row index of matrix S (index of test instance)
     * value: set of non-sparse column indices of matrix S
     */
-  val rowColumnPairsTest : MultiMap[Int, Int] = initializeRowColumnPairsTest(false);
+  val rowColumnPairsTest : MultiMap[Integer, Integer] = initializeRowColumnPairsTest(false);
 
   /**
     * Parallel version that works on stream.
@@ -104,14 +104,16 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     * @param isCountingSparsity Should the sparsity of the matrix representation be assessed? Involves some overhead.
     * @return
     */
-  def initializeRowColumnPairs(isCountingSparsity: Boolean): MultiMap[Int, Int] = {
-    val map: MultiMap[Int, Int] = new HashMap[Int, MSet[Int]] with MultiMap[Int, Int]
+  def initializeRowColumnPairs(isCountingSparsity: Boolean): MultiMap[Integer, Integer] = {
+    val map: MultiMap[Integer, Integer] = new HashMap[Integer, MSet[Integer]] with MultiMap[Integer, Integer]
     val N = d.getN_train
     var size2 : Int = N
     //only iterate over the upper diagonal matrix
     for (i <- 0 until N; j <- (i+1) until N if(kf.kernel(d.getRowTrain(i), d.getRowTrain(j)) > epsilon)){
-      map.addBinding(Integer.valueOf(i),Integer.valueOf(j))
-      map.addBinding(Integer.valueOf(j),Integer.valueOf(i))
+      val i_ = Integer.valueOf(i)
+      val j_ = Integer.valueOf(j)
+      map.addBinding(i_,j_)
+      map.addBinding(j_,i_)
       if(isCountingSparsity) size2 = size2 + 2
     }
     println("Sequential approach: The matrix has " + N + " rows.")
@@ -125,21 +127,25 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   /**
     * @return
     */
-  def initializeRowColumnPairsTest(isCountingSparsity: Boolean): MultiMap[Int, Int] = {
-    val map: MultiMap[Int, Int] = new HashMap[Int, MSet[Int]] with MultiMap[Int, Int]
+  def initializeRowColumnPairsTest(isCountingSparsity: Boolean): MultiMap[Integer, Integer] = {
+    val map: MultiMap[Integer, Integer] = new HashMap[Integer, MSet[Integer]] with MultiMap[Integer, Integer]
     var size2 : Int = 0
     val N_train = d.getN_train
     val N_test = d.getN_test
     //only iterate over the upper diagonal matrix
     for (i <- 0 until N_test; j <- (i+1) until N_train
          if(kf.kernel(d.getRowTest(i), d.getRowTrain(j)) > epsilon)){
-      map.addBinding(Integer.valueOf(i),Integer.valueOf(j))
-      map.addBinding(Integer.valueOf(j),Integer.valueOf(i))
+      val i_ = Integer.valueOf(i)
+      val j_ = Integer.valueOf(j)
+      map.addBinding(i_,j_)
+      map.addBinding(j_,i_)
       if(isCountingSparsity) size2 = size2 + 2
     }
-    //add the diagonal
-    for (i <- 0 until max(N_test,N_train)){
-      map.addBinding(Integer.valueOf(i),Integer.valueOf(i))
+    //add the diagonal but test!!!
+    for (i <- 0 until max(N_test,N_train)
+         if(kf.kernel(d.getRowTest(i), d.getRowTrain(i)) > epsilon)){
+      val i_ = Integer.valueOf(i)
+      map.addBinding(i_,i_)
       size2 = size2 + 1
     }
     println("The hash map has " + map.size + " <key,value> pairs.")

@@ -2,6 +2,15 @@ package test
 import SVM._
 import SVM.DataSetType.{Test, Train}
 
+//Important flags for the Java virtual machine:
+//Force the JVM to cache Integers up to dimensionality of K and S:
+//-Djava.lang.Integer.IntegerCache.high=50000
+//This way duplicate integers in the HashMaps are cached
+// and memory footprint is significantly reduced! (Flyweight pattern)
+//Also define the maximum available RAM:
+// -Xmx14G
+//And the minimum available RAM (should be close to or equal to max):
+// -Xms8G
 object testKernelMatrixWithoutSpark extends App {
   //http://biercoff.com/easily-measuring-code-execution-time-in-scala/
   def time[R](block: => R): R = {
