@@ -39,10 +39,10 @@ object testKernelMatrixWithoutSpark extends App {
   val lmf = time{LeanMatrixFactory(d, gaussianKernel, epsilon)}
 	val mp = ModelParams(C = 0.1, delta = 0.1)
 	val alphas = new Alphas(N=N/2, mp)
-	val ap = AlgoParams(maxIter = 8, batchProb = 0.8, minDeltaAlpha = 0.001, learningRateDecline = 0.5, epsilon = epsilon, isDebug = false, hasMomentum = false, quantileAlphaClipping=0.05)
+	val ap = AlgoParams(maxIter = 30, batchProb = 0.8, minDeltaAlpha = 0.001, learningRateDecline = 0.5, epsilon = epsilon, isDebug = false, hasMomentum = false, quantileAlphaClipping=0.01)
 	var algo = new NoMatrices(alphas, ap, mp, lmf)
 	var numInt = 0
-	while(numInt < ap.maxIter){
+	while(numInt < ap.maxIter && algo.getSparsity()<0.9){
 		algo = time{algo.iterate()}
 		numInt += 1
 	}
