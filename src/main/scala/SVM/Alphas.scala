@@ -11,8 +11,8 @@ case class Alphas(N: Int,
                   alphaOld: DenseVector[Double]){
 
   //Secondary constructor with random default values for the alphas
-  def this(N: Int) {
-    this(N, DenseVector.ones[Double](N) - DenseVector.rand(N), DenseVector.ones[Double](N) - DenseVector.rand(N))
+  def this(N: Int, mp: ModelParams) {
+    this(N, mp.C * (DenseVector.ones[Double](N) - DenseVector.rand(N)), mp.C *(DenseVector.ones[Double](N) - DenseVector.rand(N)))
   }
 
   private def getSortedAlphas : Array[Double] = alpha.toArray.sorted[Double]
