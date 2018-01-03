@@ -110,8 +110,8 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     var size2 : Int = N
     //only iterate over the upper diagonal matrix
     for (i <- 0 until N; j <- (i+1) until N if(kf.kernel(d.getRowTrain(i), d.getRowTrain(j)) > epsilon)){
-      map.addBinding(i,j)
-      map.addBinding(j,i)
+      map.addBinding(Integer.valueOf(i),Integer.valueOf(j))
+      map.addBinding(Integer.valueOf(j),Integer.valueOf(i))
       if(isCountingSparsity) size2 = size2 + 2
     }
     println("Sequential approach: The matrix has " + N + " rows.")
@@ -133,13 +133,13 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     //only iterate over the upper diagonal matrix
     for (i <- 0 until N_test; j <- (i+1) until N_train
          if(kf.kernel(d.getRowTest(i), d.getRowTrain(j)) > epsilon)){
-      map.addBinding(i,j)
-      map.addBinding(j, i)
+      map.addBinding(Integer.valueOf(i),Integer.valueOf(j))
+      map.addBinding(Integer.valueOf(j),Integer.valueOf(i))
       if(isCountingSparsity) size2 = size2 + 2
     }
     //add the diagonal
     for (i <- 0 until max(N_test,N_train)){
-      map.addBinding(i,i)
+      map.addBinding(Integer.valueOf(i),Integer.valueOf(i))
       size2 = size2 + 1
     }
     println("The hash map has " + map.size + " <key,value> pairs.")

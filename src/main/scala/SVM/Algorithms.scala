@@ -43,10 +43,9 @@ abstract class Algorithm(alphas: Alphas){
 
   /**
     * Get the sparsity of the algorithm.
-    * @return Sparsity between 0 and 100%
+    * @return Sparsity between 0 (0%) and 100 (100%)
     */
   def getSparsity(): Double = 100.0 * (alphas.alpha.map(x => if (x == 0) 1 else 0).reduce(_ + _).toDouble / alphas.alpha.length.toDouble)
-
 }
 
 /**
@@ -64,7 +63,7 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
     val (correctT, misclassifiedT) = calculateAccuracy(kmf.predictOnTestSet(alphas.alpha), kmf.getData().getLabelsTest)
     println(createLog(correct, misclassified, correctT, misclassifiedT, alphas))
 
-    assert(getSparsity()<0.99)
+    assert(getSparsity() < 99.0)
 
     //Decrease the step size, i.e. learning rate:
     val ump = mp.updateDelta(ap)
@@ -83,7 +82,7 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
     * @return An updated instance of the algorithm.
     */
   def gradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LeanMatrixFactory): NoMatrices = {
-    val stochasticUpdate = calculateGradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: MatrixFactory)
+    val stochasticUpdate = calculateGradientDescent (alphas, ap, mp, kmf)
     copy(alphas = alphas.copy(alpha = stochasticUpdate).clipAlphas(ap.quantileAlphaClipping))
   }
 }
@@ -104,7 +103,7 @@ case class SGLocal(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LocalKe
     val (correctT, misclassifiedT) = calculateAccuracy(evaluateOnTestSet(alphas, ap, kmf), kmf.getData().getLabelsTest)
     println(createLog(correct, misclassified, correctT, misclassifiedT, alphas))
 
-    assert(getSparsity()<0.99)
+    assert(getSparsity() < 99.0)
 
     //Decrease the step size, i.e. learning rate:
     val ump = mp.updateDelta(ap)
@@ -123,7 +122,7 @@ case class SGLocal(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LocalKe
     * @return An updated instance of the algorithm.
     */
   def gradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: MatrixFactory): SGLocal = {
-    val stochasticUpdate = calculateGradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: MatrixFactory)
+    val stochasticUpdate = calculateGradientDescent (alphas, ap, mp, kmf)
     copy(alphas = alphas.copy(alpha = stochasticUpdate).clipAlphas(ap.quantileAlphaClipping))
   }
 }
@@ -147,7 +146,7 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
     val (correctT, misclassifiedT) = calculateAccuracy(evaluateOnTestSet(alphas, ap, kmf, matOps), kmf.getData().getLabelsTest)
     println(createLog(correct, misclassified, correctT, misclassifiedT, alphas))
 
-    assert(getSparsity()<0.99)
+    assert(getSparsity()< 99.0)
 
     //Decrease the step size, i.e. learning rate:
 		val ump = mp.updateDelta(ap)
@@ -166,7 +165,7 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
     * @return An updated instance of the algorithm.
     */
   def gradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: MatrixFactory): SG = {
-    val stochasticUpdate = calculateGradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: MatrixFactory)
+    val stochasticUpdate = calculateGradientDescent (alphas, ap, mp, kmf)
     copy(alphas = alphas.copy(alpha = stochasticUpdate).clipAlphas(ap.quantileAlphaClipping))
   }
 }
