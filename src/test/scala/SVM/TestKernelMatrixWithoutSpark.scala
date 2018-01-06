@@ -53,7 +53,7 @@ object testKernelMatrixWithoutSpark extends App {
 	println(kernelPar)
 	val gaussianKernel = GaussianKernel(kernelPar)
 	println(gaussianKernel)
-	val N = 20000
+	val N = 100000
   testJVMArgs(N/2)
 	val dataProperties = DataParams(N = N, d = 10, ratioTrain = 0.5)
 	println(dataProperties)
@@ -66,7 +66,7 @@ object testKernelMatrixWithoutSpark extends App {
 	//val probeMatrices = ProbeMatrices(d, gaussianKernel)
 
 	//Number of non-sparse matrix elements with epsilon = 0.001:
-	val epsilon = 0.001
+	val epsilon = 0.01
 	//val numElementsS =  probeMatrices.probeSparsity(Test, 0.001)
 	//val numElementsK =  probeMatrices.probeSparsity(Train, 0.001)
   //println("Projected memory requirements for epsilon ="+epsilon+":")
@@ -76,13 +76,13 @@ object testKernelMatrixWithoutSpark extends App {
   //println("Training matrix S: "+numElementsS/intsPerKB+"kB:")
 
   val lmf = time{LeanMatrixFactory(d, gaussianKernel, epsilon)}
-	val mp = ModelParams(C = 100, delta = 0.1)
+	val mp = ModelParams(C = 0.5, delta = 0.1)
 	val alphas = new Alphas(N=N/2, mp)
-	val ap = AlgoParams(maxIter = 10, batchProb = 0.8, minDeltaAlpha = 0.001, learningRateDecline = 0.5, epsilon = epsilon, isDebug = false, hasMomentum = false, quantileAlphaClipping=0.03)
+	val ap = AlgoParams(maxIter = 30, batchProb = 0.99, minDeltaAlpha = 0.001, learningRateDecline = 0.5, epsilon = epsilon, isDebug = false, hasMomentum = false, quantileAlphaClipping=0.03)
 	var algo = new NoMatrices(alphas, ap, mp, lmf)
 	var numInt = 0
   while(numInt < ap.maxIter && algo.getSparsity() < 99.0){
-		algo = time{algo.iterate()}
+		algo = algo.iterate()
 		numInt += 1
 	}
 }

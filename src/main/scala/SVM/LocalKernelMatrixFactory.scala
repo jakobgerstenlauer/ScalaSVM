@@ -4,7 +4,6 @@ import breeze.linalg._
 import org.apache.spark.SparkContext
 import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
 import org.apache.spark.rdd.RDD
-import SVM.DataSetType.{Test, Train}
 
 trait MatrixFactory{
   def calculateGradient(alpha: DenseVector[Double]):DenseVector[Double]

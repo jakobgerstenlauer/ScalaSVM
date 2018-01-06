@@ -60,7 +60,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
 
   /**
     * key: row index of matrix S (index of test instance)
-    * value: set of non-sparse column indices of matrix S
+    * value: set of non-sparse column indices of matrix S (index of trainings instance)
     */
   val rowColumnPairsTest : MultiMap[Integer, Integer] = initializeRowColumnPairsTest(false);
 
@@ -225,8 +225,8 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val N_test = d.getN_test
     val v = DenseVector.fill(N_test){0.0}
     val z : DenseVector[Double] = alphas *:* d.getLabelsTrain.map(x=>x.toDouble)
-    for ((i,set) <- rowColumnPairsTest; rowTrain_i = d.getRowTrain(i); j <- set){
-      v(i.toInt) += z(j.toInt) * kf.kernel(rowTrain_i, d.getRowTest(j))
+    for ((i,set) <- rowColumnPairsTest; j <- set){
+      v(j.toInt) += z(i.toInt) * kf.kernel(d.getRowTest(j), d.getRowTrain(i))
     }
     signum(v)
   }
