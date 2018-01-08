@@ -50,6 +50,17 @@ class SparkDataSet[T <: basicDataSetEntry](dataSetTrain: Dataset[T], dataSetTest
     else throw new Exception("Unsupported data set type!")
   }
 
+  //Get vector of labels from test set.
+  def getLabels (dataSetType: DataSetType.Value): DenseVector[Int] = {
+    //I have to import implicits here to be able to extract the label from the data set.
+    //https://stackoverflow.com/questions/39151189/importing-spark-implicits-in-scala#39173501
+    val sparkSession = SparkSession.builder.getOrCreate()
+    import sparkSession.implicits._
+    if(dataSetType == Test)return new DenseVector(dataSetTest.map(x => x.label).collect())
+    if(dataSetType == Train)return new DenseVector(dataSetTrain.map(x => x.label).collect())
+    else throw new Exception("Unsupported data set type!")
+ }
+
   //Get row with row index (starting with 0) from test set.
   def getRowTest(rowIndex: Int):DenseVector[Double] = getRow(rowIndex, Test).getPredictors()
 
@@ -64,22 +75,12 @@ class SparkDataSet[T <: basicDataSetEntry](dataSetTrain: Dataset[T], dataSetTest
 
   //Get vector of labels from test set.
   def getLabelsTest : DenseVector[Int] = {
-    //I have to import implicits here to be able to extract the label from the data set.
-    //https://stackoverflow.com/questions/39151189/importing-spark-implicits-in-scala#39173501
-    val sparkSession = SparkSession.builder.getOrCreate()
-    import sparkSession.implicits._
-    val labels = dataSetTest.map(x => x.label).collect()
-    new DenseVector(labels)
+    getLabels (Test)
   }
 
   //Get vector of labels from training set.
   def getLabelsTrain : DenseVector[Int] = {
-    //I have to import implicits here to be able to extract the label from the data set.
-    //https://stackoverflow.com/questions/39151189/importing-spark-implicits-in-scala#39173501
-    val sparkSession = SparkSession.builder.getOrCreate()
-    import sparkSession.implicits._
-    val labels = dataSetTrain.map(x => x.label).collect()
-    new DenseVector(labels)
+    getLabels(Train)
   }
 
   //Was the data set correctly initialized?
