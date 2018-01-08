@@ -12,8 +12,8 @@ object TestLocalAlgorithm extends App {
   val pathTrain = workingDir + "magic04train.csv"
   val pathTest = workingDir + "magic04test.csv"
 
-  d.readTrainingDataSet (pathTrain, ',', 10)
-  d.readTestDataSet (pathTest, ',', 10)
+  d.readTrainingDataSet (pathTrain, ',', 11)
+  d.readTestDataSet (pathTest, ',', 11)
   println(d)
   val epsilon = 0.0001
   val kernelPar = GaussianKernelParameter(10.0)
