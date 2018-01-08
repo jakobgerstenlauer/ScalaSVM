@@ -1,5 +1,0 @@
-package SVM
-
-class AlphasTest {
-
-}
