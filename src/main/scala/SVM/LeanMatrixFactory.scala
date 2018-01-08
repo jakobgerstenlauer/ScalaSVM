@@ -35,7 +35,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     * key: row index of matrix K
     * value: set of non-sparse column indices of matrix K
     */
-  val rowColumnPairs : MultiMap[Integer, Integer] = time{initializeRowColumnPairs(false)};
+  val rowColumnPairs : MultiMap[Integer, Integer] = time{initializeRowColumnPairs(true)};
 
 
   /**
@@ -62,7 +62,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     * key: row index of matrix S (index of test instance)
     * value: set of non-sparse column indices of matrix S (index of trainings instance)
     */
-  val rowColumnPairsTest : MultiMap[Integer, Integer] = initializeRowColumnPairsTest(false);
+  val rowColumnPairsTest : MultiMap[Integer, Integer] = initializeRowColumnPairsTest(true);
 
   /**
     * Parallel version that works on stream.

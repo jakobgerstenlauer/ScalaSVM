@@ -261,7 +261,7 @@ class LocalData extends Data{
     override def toString : String = {
       val sb = new StringBuilder
       sb.append("Empirical dataset from local file system with "+ d+" variables.\n")
-      sb.append("Observations: "+ N_train +" (training), " + N_test+ "(test)\n")
+      sb.append("Observations: "+ N_train +" (training), " + N_test+ " (test)\n")
       if(isFilled) sb.append("Data was already generated.\n")
       else sb.append("Data was not yet generated.\n")
       sb.toString()
