@@ -2,6 +2,7 @@ package SVM
 
 import breeze.linalg.{DenseVector, sum}
 import breeze.numerics.{abs, pow, sqrt}
+import scala.math.{min,max}
 
 /**
   * N: The number of observations in the training set
@@ -20,13 +21,15 @@ case class Alphas(N: Int,
   def mean (d: Double, d1: Double): Double = 0.5 * (d + d1 )
 
   def getQuantile (quantile: Double) : Double = {
+    if(quantile == 0.0) return alpha.reduce(min(_,_))  
+    if(quantile == 1.0) return alpha.reduce(max(_,_))
     val sortedAlphas : Array[Double] = getSortedAlphas
     val N = alpha.length
-    val x = N * quantile
-    val rank_low : Int = (Math.ceil(x)).toInt
-    val rank_high : Int = (Math.floor(x)).toInt
-    if(rank_high==rank_low)return (sortedAlphas(rank_high))
-    else return mean(sortedAlphas(rank_high), sortedAlphas(rank_low))
+    val x = (N+1) * quantile
+    val rank_high : Int = min(Math.ceil(x).toInt,N)
+    val rank_low : Int = max(Math.floor(x).toInt,1)
+    if(rank_high==rank_low) return (sortedAlphas(rank_high-1))
+    else return mean(sortedAlphas(rank_high-1), sortedAlphas(rank_low-1))
   }
 
   /**
