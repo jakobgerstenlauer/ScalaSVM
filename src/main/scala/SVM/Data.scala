@@ -3,6 +3,7 @@ import SVM.DataSetType.{Test, Train}
 import breeze.linalg._
 import breeze.numerics._
 import org.apache.spark.sql.{Dataset, SparkSession}
+import breeze.stats._
 
 trait Data{
 
@@ -210,6 +211,12 @@ class SimData (val params: DataParams) extends Data {
   */
 class LocalData extends Data{
 
+  /**
+    * Matrix with 3 rows for mean, variance, and standard deviation
+    * and columns for data columns
+    */
+  var trainSummary = DenseMatrix.zeros[Double](3,1)
+
     //Get column with column index (starting with 0) from test set.
     override def getRowTest(columnIndex: Int): DenseVector[Double] = {
       X_test(columnIndex,::).t
@@ -271,6 +278,10 @@ class LocalData extends Data{
       val csvReader : CSVReader = new CSVReader(path, separator, columnIndexClass)
       val (inputs, labels) = csvReader.read()
       X_train = inputs
+      trainSummary = summary(Train)
+      println("Summary statistics of train data set before z-transformation:")
+      println(trainSummary)
+      //TODO Do z-transformation of X_train!
       z_train = labels
       d = X_train.cols
       N_train = X_train.rows
@@ -282,12 +293,43 @@ class LocalData extends Data{
       val csvReader : CSVReader = new CSVReader(path, separator, columnIndexClass)
       val (inputs, labels) = csvReader.read()
       X_test = inputs
+      val testSummary = summary(Test)
+      println("Summary statistics of test data set before z-transformation with means and standard deviation of the training set:")
+      println(testSummary)
+      //TODO Do z-transformation of X_test with means and SDev of X_train!
       z_test = labels
       d = X_test.cols
       N_test = X_test.rows
       testSetIsFilled = true
       isFilled = testSetIsFilled && trainingSetIsFilled
     }
+
+  /**
+    * @param dataSetType
+    * @return
+    */
+  def summary(dataSetType: DataSetType.Value):DenseMatrix[Double]={
+    if(dataSetType == Test) return createSummary(X_test)
+    if(dataSetType == Train) return createSummary(X_train)
+    else throw new Exception("Unsupported data set type!")
+  }
+
+  def columnMeans(m: DenseMatrix[Double]):DenseVector[Double] = mean(m(::,*)).t
+  def columnVariance(m: DenseMatrix[Double]):DenseVector[Double] = variance(m(::,*)).t
+  def columnStandardDeviation(m: DenseMatrix[Double]):DenseVector[Double] = variance(m(::,*)).t.map(x=>sqrt(x))
+
+  /**
+    * Returns column summary statistics (mean, var, standard deviation) as a matrix.
+    * @param m
+    * @return
+    */
+  def createSummary(m: DenseMatrix[Double]): DenseMatrix[Double] = {
+    val summaryM = DenseMatrix.zeros[Double](3,m.cols)
+    summaryM.t(::,0) := columnMeans(m)
+    summaryM.t(::,1) := columnVariance(m)
+    summaryM.t(::,2) := columnStandardDeviation(m)
+    summaryM
+  }
 
   override def getN_train: Int = N_train
 

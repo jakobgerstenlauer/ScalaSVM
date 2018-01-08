@@ -16,8 +16,8 @@ object TestLocalAlgorithm extends App {
   d.readTestDataSet (pathTest, ',', 11)
   println(d)
 
-  val epsilon = 0.0000001
-  val kernelPar = GaussianKernelParameter(2.0)
+  val epsilon = 0.00001
+  val kernelPar = GaussianKernelParameter(10000.0)
   val gaussianKernel = GaussianKernel(kernelPar)
   val kmf = LeanMatrixFactory(d, gaussianKernel, epsilon)
   val mp = ModelParams(C = 1.0, delta = 0.1)
