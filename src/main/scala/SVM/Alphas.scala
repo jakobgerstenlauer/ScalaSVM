@@ -17,11 +17,16 @@ case class Alphas(N: Int,
 
   private def getSortedAlphas : Array[Double] = alpha.toArray.sorted[Double]
 
-  def getQuantile(quantile: Double) : Double = {
+  def mean (d: Double, d1: Double): Double = 0.5 * (d + d1 )
+
+  def getQuantile (quantile: Double) : Double = {
     val sortedAlphas : Array[Double] = getSortedAlphas
     val N = alpha.length
-    val rank : Int = (Math.ceil(N * quantile)).toInt
-    sortedAlphas(rank)
+    val x = N * quantile
+    val rank_low : Int = (Math.ceil(x)).toInt
+    val rank_high : Int = (Math.floor(x)).toInt
+    if(rank_high==rank_low)return (sortedAlphas(rank_high))
+    else return mean(sortedAlphas(rank_high), sortedAlphas(rank_low))
   }
 
   /**
