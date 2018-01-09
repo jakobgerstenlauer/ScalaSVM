@@ -280,8 +280,15 @@ class LocalData extends Data{
       X_train = inputs
       trainSummary = summary(Train)
       println("Summary statistics of train data set before z-transformation:")
-      println(trainSummary)
+      println(trainSummary.t)
       //TODO Do z-transformation of X_train!
+      val means = columnMeans(X_train)
+      val stdev = columnStandardDeviation(X_train)
+      val N = X_train.rows
+      val Means = tile(means, 1, N).t
+      val SD = tile(stdev, 1, N).t
+
+      X_train = (X_train - Means) / SD
       z_train = labels
       d = X_train.cols
       N_train = X_train.rows
@@ -295,8 +302,14 @@ class LocalData extends Data{
       X_test = inputs
       val testSummary = summary(Test)
       println("Summary statistics of test data set before z-transformation with means and standard deviation of the training set:")
-      println(testSummary)
+      println(testSummary.t)
       //TODO Do z-transformation of X_test with means and SDev of X_train!
+      val means = columnMeans(X_train)
+      val stdev = columnStandardDeviation(X_train)
+      val N = X_test.rows
+      val Means = tile(means, 1, N).t
+      val SD = tile(stdev, 1, N).t
+      X_train = (X_train - Means) / SD
       z_test = labels
       d = X_test.cols
       N_test = X_test.rows
