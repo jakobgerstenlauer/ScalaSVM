@@ -30,6 +30,9 @@ trait Data{
   def getN_train : Int
   def getN_test : Int
   def getd : Int
+
+  //print distribution of labels in test and training set
+  def tableLabels(): Unit
 }
 
 abstract class basicDataSetEntry{
@@ -44,6 +47,19 @@ abstract class basicDataSetEntry{
 }
 
 class SparkDataSet[T <: basicDataSetEntry](dataSetTrain: Dataset[T], dataSetTest: Dataset[T]) extends Data{
+
+  def tableLabels(): Unit = {
+
+    val z_train = getLabels(Train)
+    val positive_train = z_train.map(x => if(x>0)1 else 0).reduce(_+_)
+    val negative_train = z_train.map(x => if(x<0)1 else 0).reduce(_+_)
+    println("Training: "+positive_train+"(+)/"+negative_train+"(-)/"+z_train.length+"(total)")
+
+    val z_test = getLabels(Test)
+    val positive_test = z_test.map(x => if(x>0)1 else 0).reduce(_+_)
+    val negative_test = z_test.map(x => if(x<0)1 else 0).reduce(_+_)
+    println("Test: "+positive_test+"(+)/"+negative_test+"(-)/"+z_test.length +"(total)")
+  }
 
   def getRow(rowIndex: Int, dataSetType: DataSetType.Value): T = {
     if(dataSetType == Test) return dataSetTest.filter(x => x.rowNr == rowIndex).first()
@@ -109,6 +125,17 @@ class SimData (val params: DataParams) extends Data {
   def getN_train : Int = params.N_train
   def getN_test : Int = params.N_test
   def getd : Int = params.d
+
+  def tableLabels(): Unit = {
+
+    val positive_train = z_train.map(x => if(x>0)1 else 0).reduce(_+_)
+    val negative_train = z_train.map(x => if(x<0)1 else 0).reduce(_+_)
+    println("Training: "+positive_train+"(+)/"+negative_train+"(-)/"+z_train.length+"(total)")
+
+    val positive_test = z_test.map(x => if(x>0)1 else 0).reduce(_+_)
+    val negative_test = z_test.map(x => if(x<0)1 else 0).reduce(_+_)
+    println("Test: "+positive_test+"(+)/"+negative_test+"(-)/"+z_test.length +"(total)")
+  }
 
   //Get column with column index (starting with 0) from test set.
   override def getRowTest(columnIndex: Int): DenseVector[Double] = {
@@ -215,9 +242,12 @@ class LocalData extends Data{
     * Matrix with 3 rows for mean, variance, and standard deviation
     * and columns for data columns
     */
-  var trainSummary = DenseMatrix.zeros[Double](3,1)
+  var trainSummary = DenseMatrix.zeros[Double](0,0)
+  var means = DenseVector.zeros[Double](0)
+  var stdev = DenseVector.zeros[Double](0)
 
-    //Get column with column index (starting with 0) from test set.
+
+  //Get column with column index (starting with 0) from test set.
     override def getRowTest(columnIndex: Int): DenseVector[Double] = {
       X_test(columnIndex,::).t
     }
@@ -280,15 +310,19 @@ class LocalData extends Data{
       X_train = inputs
       trainSummary = summary(Train)
       println("Summary statistics of train data set before z-transformation:")
+      println("mean:\t\tvariance:\t\tstandard deviation:")
       println(trainSummary.t)
-      //TODO Do z-transformation of X_train!
-      val means = columnMeans(X_train).t
-      val stdev = columnStandardDeviation(X_train).t
+      //z-transformation of X_train!
+      means = columnMeans(X_train)
+      stdev = columnStandardDeviation(X_train)
       val N = X_train.rows
-      val Means = tile(means, 1, N)
-      val SD = tile(stdev, 1, N)
-
+      val Means = tile(means.t, 1, N)
+      val SD = tile(stdev.t, 1, N)
       X_train = (X_train - Means) / SD
+      trainSummary = summary(Train)
+      println("Summary statistics of train data set AFTER z-transformation:")
+      println("mean:\tvariance:\tstandard deviation:")
+      println(trainSummary.t)
       z_train = labels
       d = X_train.cols
       N_train = X_train.rows
@@ -300,16 +334,23 @@ class LocalData extends Data{
       val csvReader : CSVReader = new CSVReader(path, separator, columnIndexClass)
       val (inputs, labels) = csvReader.read()
       X_test = inputs
-      val testSummary = summary(Test)
-      println("Summary statistics of test data set before z-transformation with means and standard deviation of the training set:")
+      var testSummary = summary(Test)
+      println("Summary statistics of test data set BEFORE z-transformation with means and standard deviation of the training set:")
+      println("mean:\tvariance:\tstandard deviation:")
       println(testSummary.t)
       //TODO Do z-transformation of X_test with means and SDev of X_train!
-      val means = columnMeans(X_train).t
-      val stdev = columnStandardDeviation(X_train).t
       val N = X_test.rows
-      val Means = tile(means, 1, N)
-      val SD = tile(stdev, 1, N)
-      X_train = (X_train - Means) / SD
+      //val means_test = columnMeans(X_test)
+      //val stdev_test = columnStandardDeviation(X_test)
+      //val Means = tile(means_test.t, 1, N)
+      //val SD = tile(stdev_test.t, 1, N)
+      val Means = tile(means.t, 1, N)
+      val SD = tile(stdev.t, 1, N)
+      X_test = (X_test - Means) / SD
+      testSummary = summary(Test)
+      println("Summary statistics of test data set AFTER z-transformation with means and standard deviation of the training set:")
+      println("mean:\tvariance:\tstandard deviation:")
+      println(testSummary.t)
       z_test = labels
       d = X_test.cols
       N_test = X_test.rows
@@ -330,6 +371,18 @@ class LocalData extends Data{
   def columnMeans(m: DenseMatrix[Double]):DenseVector[Double] = mean(m(::,*)).t
   def columnVariance(m: DenseMatrix[Double]):DenseVector[Double] = variance(m(::,*)).t
   def columnStandardDeviation(m: DenseMatrix[Double]):DenseVector[Double] = variance(m(::,*)).t.map(x=>sqrt(x))
+
+
+  def tableLabels(): Unit = {
+
+    val positive_train = z_train.map(x => if(x>0)1 else 0).reduce(_+_)
+    val negative_train = z_train.map(x => if(x<0)1 else 0).reduce(_+_)
+    println("Training: "+positive_train+"(+)/"+negative_train+"(-)/"+z_train.length+"(total)")
+
+    val positive_test = z_test.map(x => if(x>0)1 else 0).reduce(_+_)
+    val negative_test = z_test.map(x => if(x<0)1 else 0).reduce(_+_)
+    println("Test: "+positive_test+"(+)/"+negative_test+"(-)/"+z_test.length +"(total)")
+  }
 
   /**
     * Returns column summary statistics (mean, var, standard deviation) as a matrix.

@@ -225,9 +225,16 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val N_test = d.getN_test
     val v = DenseVector.fill(N_test){0.0}
     val z : DenseVector[Double] = alphas *:* d.getLabelsTrain.map(x=>x.toDouble)
+    val positiveEntries = z.map(x => if(x>0)1 else 0).reduce(_+_)
+    val negativeEntries = z.map(x => if(x<0)1 else 0).reduce(_+_)
+    println("In z with length: "+z.length+" there are: "+positiveEntries+" positive and: "+negativeEntries+" negative entries!")
     for ((i,set) <- rowColumnPairsTest; j <- set){
-      v(j.toInt) += z(i.toInt) * kf.kernel(d.getRowTest(j), d.getRowTrain(i))
+      v(j.toInt) = v(j.toInt) + z(i.toInt) * kf.kernel(d.getRowTest(j), d.getRowTrain(i))
     }
+    val positiveEntries_v = v.map(x => if(x>0)1 else 0).reduce(_+_)
+    val negativeEntries_v = v.map(x => if(x<0)1 else 0).reduce(_+_)
+    println("In z with length: "+v.length+" there are: "+positiveEntries_v+" positive and: "+negativeEntries_v+" negative entries!")
+
     signum(v)
   }
 }
