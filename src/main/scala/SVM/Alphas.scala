@@ -52,9 +52,9 @@ case class Alphas(N: Int,
   def updateAlphaAsConjugateGradient() : Alphas = {
     val diff : DenseVector[Double] = alpha - alphaOld
     val dotProduct : Double = alpha.t * diff
-    val alphaOldNorm : Double = sqrt(alphaOld.map(x => pow(x,2)).reduce(_ + _))
-    if(alphaOldNorm > 0.001){
-      val momentum : Double = dotProduct / alphaOldNorm
+    val alphaOldInnerProduct : Double = alphaOld.t * alphaOld
+    if(alphaOldInnerProduct > 0.001){
+      val momentum : Double = dotProduct / alphaOldInnerProduct
       printf("Momentum %.3f ", momentum)
       val alphaUpdated : DenseVector[Double] = alpha + momentum * alphaOld
       //val alphaUpdatedNorm : Double = sqrt(alphaUpdated.map(x => pow(x,2)).reduce(_ + _))
