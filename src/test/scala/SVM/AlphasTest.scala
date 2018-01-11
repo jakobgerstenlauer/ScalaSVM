@@ -8,7 +8,7 @@ class AlphasTest extends FunSuite{
 
   test("Momentum must be 1/3."){
     val alpha : DenseVector[Double] = new DenseVector(Array(1.0,2.0,3.0))
-    val alpha_old : DenseVector[Double] = new DenseVector(Array(-1.0,0.0,1.0))
+    val alpha_old : DenseVector[Double] = new DenseVector(Array(2.0,2.0,2.0))
     val alphas = Alphas(3, alpha, alpha_old)
     val expectedValue : DenseVector[Double] = alpha + alpha_old / 3.0
     val diff : DenseVector[Double] = alphas.updateAlphaAsConjugateGradient().alpha - expectedValue
