@@ -53,23 +53,18 @@ case class Alphas(N: Int,
     val diff : DenseVector[Double] = alpha - alphaOld
     val dotProduct : Double = alpha.t * diff
     val alphaOldNorm : Double = sqrt(alphaOld.map(x => pow(x,2)).reduce(_ + _))
-    if(alphaOldNorm > 0.000001){
+    if(alphaOldNorm > 0.001){
       val momentum : Double = dotProduct / alphaOldNorm
       printf("Momentum %.3f ", momentum)
       val alphaUpdated : DenseVector[Double] = alpha + momentum * alphaOld
-      val alphaUpdatedNorm : Double = sqrt(alphaUpdated.map(x => pow(x,2)).reduce(_ + _))
+      //val alphaUpdatedNorm : Double = sqrt(alphaUpdated.map(x => pow(x,2)).reduce(_ + _))
       //Return a copy of this object with alpha updated according to the
       //Polak-Ribiere conjugate gradient formula.
       //Compare: https://en.wikipedia.org/wiki/Conjugate_gradient_method
-      copy(alpha = alphaUpdated / alphaUpdatedNorm, alphaOld = alpha)
+      //copy(alpha = alphaUpdated / alphaUpdatedNorm, alphaOld = alpha)
+      copy(alpha = alphaUpdated, alphaOld = alpha)
     }else{
-      val momentum = 0.01
-      printf("Momentum %.3f ", momentum)
-      val alphaUpdated : DenseVector[Double] = alpha + momentum * alphaOld
-      val alphaUpdatedNorm : Double = sqrt(alphaUpdated.map(x => pow(x,2)).reduce(_ + _))
-      //If the norm of alpha in the previous step is below a threshold,
-      //return a copy of this object without any changes.
-      copy(alpha = alphaUpdated / alphaUpdatedNorm, alphaOld = alpha)
+     this
     }
   }
 }

@@ -5,6 +5,23 @@ import breeze.linalg._
 
 class AlphasTest extends FunSuite{
 
+  test("Conjugate gradient must be identical to original alpha if norm of alpha old is zero."){
+    val N = 10
+    val alpha : DenseVector[Double] = new DenseVector(Array(1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0))
+    val alpha_old : DenseVector[Double] = DenseVector.fill(N){0.0}
+    val alphas = Alphas(N, alpha, alpha_old)
+    assert(alphas.updateAlphaAsConjugateGradient().alpha == alpha)
+  }
+
+  test("Conjugate gradient must be identical to original alpha if alpha old is identical to new alpha."){
+    val N = 10
+    val vector = new DenseVector(Array(1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0))
+    val alpha : DenseVector[Double] = vector
+    val alpha_old : DenseVector[Double] = vector
+    val alphas = Alphas(N, alpha, alpha_old)
+    assert(alphas.updateAlphaAsConjugateGradient().alpha == alpha)
+  }
+
   test("After clipping 50% quantile, sparsity must be 50%."){
     val N = 10
     val alpha : DenseVector[Double] = new DenseVector(Array(2.0,1.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0))
