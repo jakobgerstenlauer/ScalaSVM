@@ -18,7 +18,7 @@ case class Alphas(N: Int,
 
   private def getSortedAlphas : Array[Double] = alpha.toArray.sorted[Double]
 
-  def mean (d: Double, d1: Double): Double = 0.5 * (d + d1 )
+  def mean (d: Double, d1: Double): Double = 0.5 * (d + d1)
 
   def getQuantile (quantile: Double) : Double = {
     if(quantile == 0.0) return alpha.reduce(min(_,_))  

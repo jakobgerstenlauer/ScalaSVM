@@ -2,7 +2,6 @@ package SVM
 
 import breeze.linalg._
 import breeze.numerics.signum
-
 import scala.collection.mutable
 import scala.collection.mutable.{HashMap, MultiMap, Set => MSet}
 
@@ -107,6 +106,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     * @return
     */
   def initializeRowColumnPairs(isCountingSparsity: Boolean): MultiMap[Integer, Integer] = {
+    println("Preparing the hash map for the training set.")
     val map: MultiMap[Integer, Integer] = new HashMap[Integer, MSet[Integer]] with MultiMap[Integer, Integer]
     val N = d.getN_train
     var size2 : Int = N
@@ -115,8 +115,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
       addBindings(map, i, j)
       if(isCountingSparsity) size2 = size2 + 2
     }
-    println("Sequential approach: The matrix has " + N + " rows.")
-    println("The hash map has " + map.size + " <key,value> pairs.")
+    println("The map has " + map.size + " <key,value> pairs.")
     if(isCountingSparsity) {
       println("The matrix has " + size2 + " non-sparse elements.")
     }
@@ -151,13 +150,15 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   }
 
   /**
-    * FIXME Is the way bindings are added correct? The matrix is not diagonal as K!!!
-    * Maybe I have to iterate over the whole matrix!
+    * Prepares hash map for the training set.
+    * The hash map stores all elements Training Instance => Set(Test Instance) as Integer=>Set(Integer),
+    * where there is a strog enough (> epsilon) similarity between the training instance and a test instance.
     *
     * @param isCountingSparsity
     * @return
     */
   def initializeRowColumnPairsTest(isCountingSparsity: Boolean): MultiMap[Integer, Integer] = {
+    println("Preparing the hash map for the test set.")
     val map: MultiMap[Integer, Integer] = new HashMap[Integer, MSet[Integer]] with MultiMap[Integer, Integer]
     var size2 : Int = 0
     val N_train = d.getN_train
@@ -225,17 +226,18 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val N_test = d.getN_test
     val v = DenseVector.fill(N_test){0.0}
     val z : DenseVector[Double] = alphas *:* d.getLabelsTrain.map(x=>x.toDouble)
-    val positiveEntries = z.map(x => if(x>0)1 else 0).reduce(_+_)
-    val negativeEntries = z.map(x => if(x<0)1 else 0).reduce(_+_)
-    println("In z with length: "+z.length+" there are: "+positiveEntries+" positive and: "+negativeEntries+" negative entries!")
+    //logClassDistribution(z)
     for ((i,set) <- rowColumnPairsTest; j <- set){
       v(j.toInt) = v(j.toInt) + z(i.toInt) * kf.kernel(d.getRowTest(j), d.getRowTrain(i))
     }
-    val positiveEntries_v = v.map(x => if(x>0)1 else 0).reduce(_+_)
-    val negativeEntries_v = v.map(x => if(x<0)1 else 0).reduce(_+_)
-    println("In z with length: "+v.length+" there are: "+positiveEntries_v+" positive and: "+negativeEntries_v+" negative entries!")
-
+    //logClassDistribution(v)
     signum(v)
+  }
+
+  private def logClassDistribution (z: DenseVector[Double]) = {
+    val positiveEntries = z.map(x => if (x > 0) 1 else 0).reduce(_ + _)
+    val negativeEntries = z.map(x => if (x < 0) 1 else 0).reduce(_ + _)
+    println("In vector with length: "+z.length+" there are: "+positiveEntries+" positive and: "+negativeEntries+" negative entries!")
   }
 }
 
