@@ -16,7 +16,11 @@ case class Alphas(N: Int,
     this(N, mp.C * (DenseVector.ones[Double](N) - DenseVector.rand(N)), mp.C *(DenseVector.ones[Double](N) - DenseVector.rand(N)))
   }
 
-  private def getSortedAlphas : Array[Double] = alpha.toArray.sorted[Double]
+  /**
+    *
+    * @return
+    */
+  def getSortedAlphas : Array[Double] = alpha.toArray.sorted[Double]
 
   def mean (d: Double, d1: Double): Double = 0.5 * (d + d1)
 
