@@ -2,8 +2,20 @@ import org.scalatest.FunSuite
 import SVM.Alphas
 import SVM.Alphas
 import breeze.linalg._
+import breeze.numerics.{pow, sqrt}
 
 class AlphasTest extends FunSuite{
+
+  test("Momentum must be 1/3."){
+    val alpha : DenseVector[Double] = new DenseVector(Array(1.0,2.0,3.0))
+    val alpha_old : DenseVector[Double] = new DenseVector(Array(-1.0,0.0,1.0))
+    val alphas = Alphas(3, alpha, alpha_old)
+    val expectedValue : DenseVector[Double] = alpha + alpha_old / 3.0
+    val diff : DenseVector[Double] = alphas.updateAlphaAsConjugateGradient().alpha - expectedValue
+    val distance : Double = sqrt(diff.map(x => pow(x,2)).reduce(_ + _))
+    val epsilon = 0.001
+    assert(distance < epsilon)
+  }
 
   test("Conjugate gradient must be identical to original alpha if norm of alpha old is zero."){
     val N = 10
