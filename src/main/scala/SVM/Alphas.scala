@@ -57,11 +57,9 @@ case class Alphas(N: Int,
       val momentum : Double = dotProduct / alphaOldInnerProduct
       printf("Momentum %.3f ", momentum)
       val alphaUpdated : DenseVector[Double] = alpha + momentum * alphaOld
-      //val alphaUpdatedNorm : Double = sqrt(alphaUpdated.map(x => pow(x,2)).reduce(_ + _))
       //Return a copy of this object with alpha updated according to the
       //Polak-Ribiere conjugate gradient formula.
       //Compare: https://en.wikipedia.org/wiki/Conjugate_gradient_method
-      //copy(alpha = alphaUpdated / alphaUpdatedNorm, alphaOld = alpha)
       copy(alpha = alphaUpdated, alphaOld = alpha)
     }else{
      this
