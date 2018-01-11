@@ -5,6 +5,7 @@ import breeze.numerics.{abs, pow, sqrt}
 import scala.math.{min,max}
 
 object Alphas{
+  val minMomentum : Double = 0.01
   def mean (d: Double, d1: Double): Double = 0.5 * (d + d1)
 }
 
@@ -54,7 +55,8 @@ case class Alphas(N: Int,
     val dotProduct : Double = alpha.t * diff
     val alphaOldInnerProduct : Double = alphaOld.t * alphaOld
     if(alphaOldInnerProduct > 0.001){
-      val momentum : Double = dotProduct / alphaOldInnerProduct
+      val tentativeMomentum = dotProduct / alphaOldInnerProduct
+      val momentum : Double = max(tentativeMomentum, Alphas.minMomentum)
       printf("Momentum %.3f ", momentum)
       val alphaUpdated : DenseVector[Double] = alpha + momentum * alphaOld
       //Return a copy of this object with alpha updated according to the

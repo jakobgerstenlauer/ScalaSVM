@@ -161,4 +161,26 @@ In z with length: 6340 there are: 5062 positive and: 1248 negative entries!
 Train:10755/12680=85%,Test:5110/6340=81%,Sparsity:31%
 
 Process finished with exit code 0
+
+Momentum 0.140 Train:10679/12680=84%,Test:5188/6340=82%,Sparsity:0%
+Momentum 0.035 Train:10802/12680=85%,Test:5206/6340=82%,Sparsity:7%
+Momentum -0.024 Train:10859/12680=86%,Test:5225/6340=82%,Sparsity:9%
+Momentum -0.063 Train:10936/12680=86%,Test:5233/6340=83%,Sparsity:11%
+Momentum -0.093 Train:10926/12680=86%,Test:5233/6340=83%,Sparsity:13%
+Momentum -0.117 Train:10955/12680=86%,Test:5199/6340=82%,Sparsity:15%
+Momentum -0.137 Train:10980/12680=87%,Test:5213/6340=82%,Sparsity:16%
+Momentum -0.153 Train:10955/12680=86%,Test:5206/6340=82%,Sparsity:18%
+Momentum -0.166 Train:10966/12680=86%,Test:5234/6340=83%,Sparsity:19%
+Momentum -0.176 Train:10899/12680=86%,Test:5199/6340=82%,Sparsity:21%
+Momentum -0.186 Train:10894/12680=86%,Test:5212/6340=82%,Sparsity:22%
+Momentum -0.193 Train:10782/12680=85%,Test:5160/6340=81%,Sparsity:23%
+Momentum -0.199 Train:10913/12680=86%,Test:5159/6340=81%,Sparsity:24%
+Momentum -0.204 Train:10793/12680=85%,Test:5137/6340=81%,Sparsity:26%
+Momentum -0.208 Train:10578/12680=83%,Test:5070/6340=80%,Sparsity:29%
+Momentum -0.211 Train:10714/12680=84%,Test:5114/6340=81%,Sparsity:30%
+Momentum -0.214 Train:10615/12680=84%,Test:5057/6340=80%,Sparsity:32%
+Momentum -0.216 Train:10616/12680=84%,Test:5031/6340=79%,Sparsity:35%
+Momentum -0.218 Train:10686/12680=84%,Test:5057/6340=80%,Sparsity:36%
+Momentum -0.219
+Process finished with exit code 0
 */
