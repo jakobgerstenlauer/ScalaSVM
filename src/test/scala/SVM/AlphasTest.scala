@@ -10,7 +10,7 @@ class AlphasTest extends FunSuite{
     val alpha : DenseVector[Double] = new DenseVector(Array(1.0,2.0,3.0))
     val alpha_old : DenseVector[Double] = new DenseVector(Array(2.0,2.0,2.0))
     val alphas = Alphas(3, alpha, alpha_old)
-    val expectedValue : DenseVector[Double] = alpha + alpha_old / 3.0
+    val expectedValue : DenseVector[Double] = alpha + alpha_old / 6.0
     val diff : DenseVector[Double] = alphas.updateAlphaAsConjugateGradient().alpha - expectedValue
     val distance : Double = sqrt(diff.map(x => pow(x,2)).reduce(_ + _))
     val epsilon = 0.001
