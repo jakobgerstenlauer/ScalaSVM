@@ -64,6 +64,10 @@ case class Alphas(N: Int,
     copy(alpha=alpha.map(x => if (x < getQuantile(quantile)) 0 else x))
   }
 
+  /**
+    * Get the delta
+    * @return
+    */
   def getDeltaL1 : Double = sum(abs(alpha - alphaOld)) / sum(abs(alphaOld))
 
   def updateAlphaAsConjugateGradient() : Alphas = {
