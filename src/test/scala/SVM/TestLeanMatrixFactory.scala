@@ -14,7 +14,7 @@ class TestLeanMatrixFactory extends FunSuite{
         val lmf = LeanMatrixFactory(d, gaussianKernel, epsilon)
 	val mp = ModelParams(C = 0.5, delta = 0.1)
 	val alphas = new Alphas(N=N/2, mp)
-	val ap = AlgoParams(maxIter = 2, batchProb = 0.8, minDeltaAlpha = 0.001, learningRateDecline = 0.5, epsilon = epsilon, isDebug = false, hasMomentum = false, quantileAlphaClipping=0.03)
+	val ap = AlgoParams(maxIter = 2, batchProb = 0.8, minDeltaAlpha = 0.001, learningRateDecline = 0.5, epsilon = epsilon, isDebug = false, quantileAlphaClipping=0.03)
 	var algo = new NoMatrices(alphas, ap, mp, lmf)
 	var numInt = 0
   	while(numInt < ap.maxIter && algo.getSparsity() < 99.0){

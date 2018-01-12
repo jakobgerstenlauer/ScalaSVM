@@ -5,7 +5,23 @@ import breeze.numerics.{abs, pow, sqrt}
 import scala.math.{min,max}
 
 object Alphas{
-  val minMomentum : Double = 0.01
+  /**
+    * Setting the momentum to zero when <0 is equivalent to resetting the algorithm because we "forget" previous search directions:
+    *
+    * "The Fletcher-Reeves method converges if the starting point is sufficiently close to the desired minimum,
+      whereas the Polak-Ribiere method can, in rare cases, cycle infinitely without converging. However, Polak-
+      Ribiere often converges much more quickly.
+      Fortunately, convergence of the Polak-Ribiere method can be guaranteed by choosing max{beta,0}.
+      Using this value is equivalent to restarting CG if beta < 0.
+      To restart CG is to forget past search directions,
+      and start CG anew in the direction of steepest descent."
+
+    Source: Page 42, 14.1. Outline of the Nonlinear Conjugate Gradient Method, in:
+    "An Introduction to the Conjugate Gradient Method Without the Agonizing Pain"
+    Jonathan Richard Shewchuk, August 4, 1994
+    https://www.cs.cmu.edu/~quake-papers/painless-conjugate-gradient.pdf
+    */
+  val minMomentum : Double = 0.00
   def mean (d: Double, d1: Double): Double = 0.5 * (d + d1)
 }
 
@@ -48,7 +64,7 @@ case class Alphas(N: Int,
     copy(alpha=alpha.map(x => if (x < getQuantile(quantile)) 0 else x))
   }
 
-  def getDelta : Double = sum(abs(alpha - alphaOld))
+  def getDeltaL1 : Double = sum(abs(alpha - alphaOld)) / sum(abs(alphaOld))
 
   def updateAlphaAsConjugateGradient() : Alphas = {
     val diff : DenseVector[Double] = alpha - alphaOld

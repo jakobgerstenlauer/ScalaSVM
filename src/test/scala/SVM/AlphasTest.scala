@@ -49,7 +49,7 @@ class AlphasTest extends FunSuite{
     val alpha : DenseVector[Double] = DenseVector.fill(N){1.0}
     val alpha_old : DenseVector[Double] = DenseVector.fill(N){0.0}
     val alphas = Alphas(N, alpha, alpha_old)
-    assert(alphas.getDelta == 10.0)
+    assert(alphas.getDeltaL1 == 10.0)
   }
 
   test("Mean must be 5.0."){

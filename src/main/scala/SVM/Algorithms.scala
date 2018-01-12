@@ -59,17 +59,21 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
 
   def iterate() : NoMatrices = {
 
+    if(alphas.getDeltaL1 < ap.minDeltaAlpha)return this
     val (correct, misclassified) = calculateAccuracy(kmf.predictOnTrainingSet(alphas.alpha), kmf.getData().getLabelsTrain)
     val (correctT, misclassifiedT) = calculateAccuracy(kmf.predictOnTestSet(alphas.alpha), kmf.getData().getLabelsTest)
     println(createLog(correct, misclassified, correctT, misclassifiedT, alphas))
-
     assert(getSparsity() < 99.0)
-
     //Decrease the step size, i.e. learning rate:
     val ump = mp.updateDelta(ap)
-
     //Update the alphas using gradient descent
-    gradientDescent(alphas, ap, ump, kmf)
+    val algo = gradientDescent(alphas, ap, ump, kmf)
+    if(alphas.getDeltaL1<ap.minDeltaAlpha){
+      val (correct, misclassified) = calculateAccuracy(kmf.predictOnTrainingSet(alphas.alpha), kmf.getData().getLabelsTrain)
+      val (correctT, misclassifiedT) = calculateAccuracy(kmf.predictOnTestSet(alphas.alpha), kmf.getData().getLabelsTest)
+      println(createLog(correct, misclassified, correctT, misclassifiedT, alphas))
+    }
+    algo
   }
 
   /**

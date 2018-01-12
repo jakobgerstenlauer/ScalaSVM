@@ -19,8 +19,8 @@ object TestLocalAlgorithm extends App {
   val kmf = LeanMatrixFactory(d, gaussianKernel, epsilon)
   val mp = ModelParams(C = 0.5, delta = 0.01)
   val alphas = new Alphas(N=d.N_train, mp)
-  val ap = AlgoParams(maxIter = 20, batchProb = 0.9, minDeltaAlpha = 0.001, learningRateDecline = 0.5,
-    epsilon = epsilon, isDebug = false, hasMomentum = false, quantileAlphaClipping = 0.0)
+  val ap = AlgoParams(maxIter = 100, batchProb = 0.9, learningRateDecline = 0.5,
+    epsilon = epsilon, isDebug = false, quantileAlphaClipping = 0.0)
   var algo1 = NoMatrices(alphas, ap, mp, kmf)
   var numInt = 0
   while(numInt < ap.maxIter){
@@ -183,4 +183,71 @@ Momentum -0.216 Train:10616/12680=84%,Test:5031/6340=79%,Sparsity:35%
 Momentum -0.218 Train:10686/12680=84%,Test:5057/6340=80%,Sparsity:36%
 Momentum -0.219
 Process finished with exit code 0
+
+
+The matrix has 22846588 non-sparse elements.
+Train:10395/12680=82%,Test:5078/6340=80%,Sparsity:0%
+Jan 11, 2018 5:40:12 PM com.github.fommil.jni.JniLoader liberalLoad
+INFO: successfully loaded /tmp/jniloader7064380985094450399netlib-native_system-linux-x86_64.so
+Momentum 0.146 Train:10691/12680=84%,Test:5179/6340=82%,Sparsity:0%
+Momentum 0.041 Train:10796/12680=85%,Test:5198/6340=82%,Sparsity:7%
+Momentum 0.000 Train:10881/12680=86%,Test:5219/6340=82%,Sparsity:11%
+Momentum 0.000 Train:10932/12680=86%,Test:5239/6340=83%,Sparsity:14%
+Momentum 0.000 Train:10983/12680=87%,Test:5257/6340=83%,Sparsity:15%
+Momentum 0.000 Train:10986/12680=87%,Test:5254/6340=83%,Sparsity:17%
+Momentum 0.000 Train:11001/12680=87%,Test:5259/6340=83%,Sparsity:18%
+Momentum 0.000 Train:10985/12680=87%,Test:5235/6340=83%,Sparsity:19%
+Momentum 0.000 Train:11011/12680=87%,Test:5256/6340=83%,Sparsity:20%
+Momentum 0.000 Train:11006/12680=87%,Test:5221/6340=82%,Sparsity:22%
+Momentum 0.000 Train:10988/12680=87%,Test:5251/6340=83%,Sparsity:22%
+Momentum 0.000 Train:10986/12680=87%,Test:5236/6340=83%,Sparsity:23%
+Momentum 0.000 Train:10972/12680=87%,Test:5241/6340=83%,Sparsity:24%
+Momentum 0.000 Train:10979/12680=87%,Test:5234/6340=83%,Sparsity:25%
+Momentum 0.000 Train:10970/12680=87%,Test:5215/6340=82%,Sparsity:26%
+Momentum 0.000 Train:10964/12680=86%,Test:5217/6340=82%,Sparsity:27%
+Momentum 0.000 Train:10984/12680=87%,Test:5204/6340=82%,Sparsity:27%
+Momentum 0.000 Train:10995/12680=87%,Test:5224/6340=82%,Sparsity:27%
+Momentum 0.000 Train:10953/12680=86%,Test:5218/6340=82%,Sparsity:28%
+Momentum 0.000 Train:10876/12680=86%,Test:5187/6340=82%,Sparsity:29%
+Momentum 0.000 Train:10922/12680=86%,Test:5215/6340=82%,Sparsity:29%
+Momentum 0.000 Train:10890/12680=86%,Test:5151/6340=81%,Sparsity:30%
+Momentum 0.000 Train:10901/12680=86%,Test:5165/6340=81%,Sparsity:29%
+Momentum 0.000 Train:10911/12680=86%,Test:5142/6340=81%,Sparsity:30%
+Momentum 0.000 Train:10874/12680=86%,Test:5136/6340=81%,Sparsity:31%
+Momentum 0.000 Train:10794/12680=85%,Test:5099/6340=80%,Sparsity:33%
+Momentum 0.000 Train:10770/12680=85%,Test:5062/6340=80%,Sparsity:33%
+Momentum 0.000 Train:10623/12680=84%,Test:4947/6340=78%,Sparsity:33%
+Momentum 0.000 Train:10543/12680=83%,Test:4887/6340=77%,Sparsity:32%
+Momentum 0.000 Train:10496/12680=83%,Test:4847/6340=76%,Sparsity:33%
+Momentum 0.000 Train:10775/12680=85%,Test:5049/6340=80%,Sparsity:32%
+Momentum 0.000 Train:10769/12680=85%,Test:5038/6340=79%,Sparsity:35%
+Momentum 0.000 Train:10596/12680=84%,Test:4919/6340=78%,Sparsity:35%
+Momentum 0.000 Train:10711/12680=84%,Test:5050/6340=80%,Sparsity:34%
+Momentum 0.000 Train:10674/12680=84%,Test:5059/6340=80%,Sparsity:35%
+Momentum 0.000 Train:10631/12680=84%,Test:5035/6340=79%,Sparsity:34%
+Momentum 0.000 Train:10593/12680=84%,Test:5001/6340=79%,Sparsity:35%
+Momentum 0.000 Train:10534/12680=83%,Test:4936/6340=78%,Sparsity:35%
+Momentum 0.000 Train:10623/12680=84%,Test:4982/6340=79%,Sparsity:37%
+Momentum 0.000 Train:10618/12680=84%,Test:4926/6340=78%,Sparsity:38%
+Momentum 0.000 Train:10576/12680=83%,Test:4944/6340=78%,Sparsity:38%
+Momentum 0.000 Train:10368/12680=82%,Test:4858/6340=77%,Sparsity:39%
+Momentum 0.000 Train:10402/12680=82%,Test:4850/6340=76%,Sparsity:38%
+Momentum 0.000 Train:10364/12680=82%,Test:4910/6340=77%,Sparsity:37%
+Momentum 0.000 Train:10397/12680=82%,Test:4937/6340=78%,Sparsity:36%
+Momentum 0.000 Train:10002/12680=79%,Test:4816/6340=76%,Sparsity:37%
+Momentum 0.000 Train:9888/12680=78%,Test:4777/6340=75%,Sparsity:36%
+Momentum 0.000 Train:9858/12680=78%,Test:4749/6340=75%,Sparsity:37%
+Momentum 0.000 Train:10017/12680=79%,Test:4663/6340=74%,Sparsity:38%
+Momentum 0.000 Train:10040/12680=79%,Test:4783/6340=75%,Sparsity:38%
+Momentum 0.000 Train:10107/12680=80%,Test:4723/6340=74%,Sparsity:39%
+Momentum 0.000 Train:10180/12680=80%,Test:4745/6340=75%,Sparsity:40%
+Momentum 0.000 Train:9978/12680=79%,Test:4639/6340=73%,Sparsity:41%
+Momentum 0.000 Train:10079/12680=79%,Test:4789/6340=76%,Sparsity:41%
+Momentum 0.000 Train:9802/12680=77%,Test:4562/6340=72%,Sparsity:42%
+Momentum 0.000 Train:9638/12680=76%,Test:4595/6340=72%,Sparsity:41%
+Momentum 0.000 Train:9691/12680=76%,Test:4568/6340=72%,Sparsity:40%
+Momentum 0.000 Train:9920/12680=78%,Test:4772/6340=75%,Sparsity:39%
+Momentum 0.000 Train:10085/12680=80%,Test:4794/6340=76%,Sparsity:40%
+Momentum 0.000
+Process finished with exit code 130 (interrupted by signal 2: SIGINT)
 */
