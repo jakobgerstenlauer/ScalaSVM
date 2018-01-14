@@ -102,16 +102,12 @@ case class SGLocal(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LocalKe
   with hasLocalTrainingSetEvaluator with hasLocalTestSetEvaluator with hasGradientDescent {
 
   def iterate() : SGLocal = {
-
     val (correct, misclassified) = calculateAccuracy(evaluateOnTrainingSet(alphas, ap, kmf), kmf.getData().getLabelsTrain)
     val (correctT, misclassifiedT) = calculateAccuracy(evaluateOnTestSet(alphas, ap, kmf), kmf.getData().getLabelsTest)
     println(createLog(correct, misclassified, correctT, misclassifiedT, alphas))
-
     assert(getSparsity() < 99.0)
-
     //Decrease the step size, i.e. learning rate:
     val ump = mp.updateDelta(ap)
-
     //Update the alphas using gradient descent
     gradientDescent(alphas, ap, ump, kmf)
   }
@@ -141,20 +137,15 @@ case class SGLocal(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LocalKe
   */
 case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, sc: SparkContext) extends Algorithm(alphas)
   with hasDistributedTestSetEvaluator with hasDistributedTrainingSetEvaluator with hasGradientDescent {
-
 	val matOps : DistributedMatrixOps = new DistributedMatrixOps(sc)
 
 	def iterate() : SG = {
-
     val (correct, misclassified) = calculateAccuracy(evaluateOnTrainingSet(alphas, ap, kmf, matOps), kmf.getData().getLabelsTrain)
     val (correctT, misclassifiedT) = calculateAccuracy(evaluateOnTestSet(alphas, ap, kmf, matOps), kmf.getData().getLabelsTest)
     println(createLog(correct, misclassified, correctT, misclassifiedT, alphas))
-
     assert(getSparsity()< 99.0)
-
     //Decrease the step size, i.e. learning rate:
 		val ump = mp.updateDelta(ap)
-
 		//Update the alphas using gradient descent
 		gradientDescent(alphas, ap, ump, kmf)
 	}
