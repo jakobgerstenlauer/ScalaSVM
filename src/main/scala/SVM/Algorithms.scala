@@ -60,20 +60,16 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
   def iterate() : NoMatrices = {
 
     if(alphas.getDeltaL1 < ap.minDeltaAlpha)return this
-    val (correct, misclassified) = calculateAccuracy(kmf.predictOnTrainingSet(alphas.alpha), kmf.getData().getLabelsTrain)
-    val (correctT, misclassifiedT) = calculateAccuracy(kmf.predictOnTestSet(alphas.alpha), kmf.getData().getLabelsTest)
-    println(createLog(correct, misclassified, correctT, misclassifiedT, alphas))
     assert(getSparsity() < 99.0)
     //Decrease the step size, i.e. learning rate:
     val ump = mp.updateDelta(ap)
+    println("Run gradient descent.")
     //Update the alphas using gradient descent
     val algo = gradientDescent(alphas, ap, ump, kmf)
-    if(alphas.getDeltaL1<ap.minDeltaAlpha){
-      val (correct, misclassified) = calculateAccuracy(kmf.predictOnTrainingSet(alphas.alpha), kmf.getData().getLabelsTrain)
-      val (correctT, misclassifiedT) = calculateAccuracy(kmf.predictOnTestSet(alphas.alpha), kmf.getData().getLabelsTest)
-      println(createLog(correct, misclassified, correctT, misclassifiedT, alphas))
-    }
-    algo
+    println("Cross validate sparsity.")
+    val (optimQuantile, correctPredictions) = kmf.predictOnTestSet(algo.alphas)
+    println("Nr of correct predictions for test set: "+correctPredictions +" with sparsity: "+ optimQuantile)
+    algo.copy(alphas= algo.alphas.clipAlphas(0.01 * optimQuantile))
   }
 
   /**
@@ -87,7 +83,7 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
     */
   def gradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LeanMatrixFactory): NoMatrices = {
     val stochasticUpdate = calculateGradientDescent (alphas, ap, mp, kmf)
-    copy(alphas = alphas.copy(alpha = stochasticUpdate).updateAlphaAsConjugateGradient().clipAlphas(ap.quantileAlphaClipping))
+    copy(alphas = alphas.copy(alpha = stochasticUpdate).updateAlphaAsConjugateGradient())
   }
 }
 

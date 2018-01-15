@@ -234,6 +234,48 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     signum(v)
   }
 
+  /**
+    *
+    * @param alphas
+    * @return Tuple (optimal sparsity, nr of correct predictions for this quantile):
+    */
+  def predictOnTestSet(alphas : Alphas) : (Int,Int)  = {
+    val N_test = d.getN_test
+    val maxQuantile = 40
+    val V = DenseMatrix.zeros[Double](maxQuantile,N_test)
+    val Z = DenseMatrix.zeros[Double](maxQuantile,N_test)
+
+    println("Calculate Z matrix")
+    for(q <- 0 until maxQuantile){
+      val quantile : Double = 0.01 * q
+      Z(q,::) := (alphas.clipAlphas(quantile).alpha *:* d.getLabelsTrain.map(x=>x.toDouble)).t
+    }
+
+    println("Calculate predictions")
+    for ((i,set) <- rowColumnPairsTest; j <- set){
+      val valueKernelFunction = kf.kernel(d.getRowTest(j), d.getRowTrain(i))
+      V(0 until maxQuantile,j.toInt) := V(0 until maxQuantile,j.toInt) + Z(0 until maxQuantile,i.toInt) * valueKernelFunction
+    }
+
+    println("Determine the optimal sparsity")
+    //determine the optimal sparsity
+    var bestCase = 0
+    var bestQuantile = 0
+    for(q <- 0 until maxQuantile) {
+      val correctPredictions = calcCorrectPredictions(V(q, ::).t, d.getLabelsTest)
+      if(correctPredictions >= bestCase){
+        bestCase = correctPredictions
+        bestQuantile = q
+      }
+    }
+    assert((bestQuantile<=99) && (bestQuantile>=0),"Invalid quantile: "+bestQuantile)
+    (bestQuantile, bestCase)
+  }
+
+  def calcCorrectPredictions(v0: DenseVector[Double], labels: DenseVector[Int]) : Int={
+    (signum(v0) *:* labels.map(x => x.toDouble) ).map(x=>if(x>0) 1 else 0).reduce(_+_)
+  }
+
   private def logClassDistribution (z: DenseVector[Double]) = {
     val positiveEntries = z.map(x => if (x > 0) 1 else 0).reduce(_ + _)
     val negativeEntries = z.map(x => if (x < 0) 1 else 0).reduce(_ + _)

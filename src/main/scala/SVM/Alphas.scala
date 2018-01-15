@@ -44,6 +44,7 @@ case class Alphas(N: Int,
   def getSortedAlphas : Array[Double] = alpha.toArray.sorted[Double]
 
   def getQuantile (quantile: Double) : Double = {
+    assert(quantile>=0 && quantile<=1.0)
     if(quantile == 0.0) return alpha.reduce(min(_,_))  
     if(quantile == 1.0) return alpha.reduce(max(_,_))
     val sortedAlphas : Array[Double] = getSortedAlphas
