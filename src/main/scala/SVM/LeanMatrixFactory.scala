@@ -1,7 +1,8 @@
 package SVM
 
-import breeze.linalg._
+import breeze.linalg.{DenseVector, _}
 import breeze.numerics.signum
+
 import scala.collection.mutable
 import scala.collection.mutable.{HashMap, MultiMap, Set => MSet}
 
@@ -244,16 +245,31 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val maxQuantile = 40
     val V = DenseMatrix.zeros[Double](maxQuantile,N_test)
     val Z = DenseMatrix.zeros[Double](maxQuantile,N_test)
+    val labels = d.getLabelsTrain.map(x=>x.toDouble)
 
     println("Calculate Z matrix")
-    for(q <- 0 until maxQuantile){
-      val quantile : Double = 0.01 * q
-      Z(q,::) := (alphas.clipAlphas(quantile).alpha *:* d.getLabelsTrain.map(x=>x.toDouble)).t
+    val qu = DenseVector.ones[Double](maxQuantile)
+    for(q <- 0 until maxQuantile; quantile : Double = 0.01 * q) {
+      qu(q)= alphas.getQuantile(quantile)
     }
 
+    //println("The quantiles: "+qu)
+    //val ZZ = clip(Z(*,::), qu, 10000.0)
+    //Z(*, ::) := clip(Z(*,::), 0.0, 1.0)
+    //alphas.alpha.clip(a, lower, upper)
+
+    def clip(vector : DenseVector[Double], threshold: Double) : DenseVector[Double] = {
+      vector.map(x => if (x < threshold) 0 else x)
+    }
+
+    for(q <- 0 until maxQuantile; quantile : Double = 0.01 * q) {
+      Z(q, ::) := (clip(alphas.alpha, qu(q))  *:* labels).t
+    }
+
+    //Z(0 until maxQuantile, ::) := Z(0 until maxQuantile, ::).t *:* labels
+
     println("Calculate predictions")
-    for ((i,set) <- rowColumnPairsTest; j <- set){
-      val valueKernelFunction = kf.kernel(d.getRowTest(j), d.getRowTrain(i))
+    for ((i,set) <- rowColumnPairsTest; j <- set; valueKernelFunction = kf.kernel(d.getRowTest(j), d.getRowTrain(i))){
       V(0 until maxQuantile,j.toInt) := V(0 until maxQuantile,j.toInt) + Z(0 until maxQuantile,i.toInt) * valueKernelFunction
     }
 
