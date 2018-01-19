@@ -111,10 +111,16 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val map: MultiMap[Integer, Integer] = new HashMap[Integer, MSet[Integer]] with MultiMap[Integer, Integer]
     val N = d.getN_train
     var size2 : Int = N
+    val maxIterations : Int = (N * N - N) / 2
+    val whenToPrintProgress : Int = maxIterations / 10
+    var numIterations = 0
     //only iterate over the upper diagonal matrix
     for (i <- 0 until N; j <- (i+1) until N if(kf.kernel(d.getRowTrain(i), d.getRowTrain(j)) > epsilon)){
       addBindings(map, i, j)
       if(isCountingSparsity) size2 = size2 + 2
+      numIterations = numIterations + 1
+      //print progress
+      if(numIterations % whenToPrintProgress == 0) println(numIterations+" iterations out of "+ maxIterations)
     }
     println("The map has " + map.size + " <key,value> pairs.")
     if(isCountingSparsity) {
