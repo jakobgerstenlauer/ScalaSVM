@@ -14,10 +14,8 @@ import SVM.DataSetType.{Test, Train}
 //-Djava.lang.Integer.IntegerCache.high=50000
 //This way duplicate integers in the HashMaps are cached
 // and memory footprint is significantly reduced! (Flyweight pattern)
-//Also define the maximum available RAM:
-// -Xmx14G
-//And the minimum available RAM (should be close to or equal to max):
-// -Xms8G
+//All flags:
+//-server -XX:+UseConcMarkSweepGC -XX:+CMSIncrementalMode -XX:+CMSIncrementalPacing -XX:CMSIncrementalDutyCycleMin=0 -XX:CMSIncrementalDutyCycle=10 -XX:+UseCMSInitiatingOccupancyOnly - -XX:ThreadStackSize=300 -XX:MaxTenuringThreshold=0 -XX:SurvivorRatio=128 -XX:+UseTLAB -XX:+PrintGCDetails -Xms12288M  -Xmx12288M  -XX:NewSize=3072M  -XX:MaxNewSize=3072M -XX:ParallelGCThreads=4 -Djava.lang.Integer.IntegerCache.high=1000000 -verbose:gc -Xloggc:"/home/jakob/Documents/UPC/master_thesis/jvm/logs"
 object testKernelMatrixWithoutSpark extends App {
   /**
     * Measures the processing time of a given Scala command.
@@ -38,7 +36,7 @@ object testKernelMatrixWithoutSpark extends App {
 	println(kernelPar)
 	val gaussianKernel = GaussianKernel(kernelPar)
 	println(gaussianKernel)
-	val N = 1000000
+	val N = 200000
   Utility.testJVMArgs(N/2)
 	val dataProperties = DataParams(N = N, d = 10, ratioTrain = 0.5)
 	println(dataProperties)
@@ -51,7 +49,7 @@ object testKernelMatrixWithoutSpark extends App {
 	//val probeMatrices = ProbeMatrices(d, gaussianKernel)
 
 	//Number of non-sparse matrix elements with epsilon = 0.001:
-	val epsilon = 0.001
+	val epsilon = 0.01
 	//val numElementsS =  probeMatrices.probeSparsity(Test, 0.001)
 	//val numElementsK =  probeMatrices.probeSparsity(Train, 0.001)
   //println("Projected memory requirements for epsilon ="+epsilon+":")

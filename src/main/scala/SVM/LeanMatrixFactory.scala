@@ -11,7 +11,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   /**
     * Cached diagonal of K, i.e. the kernel matrix of the training set.
     */
-  val diagonal : DenseVector[Double]= time{initializeDiagonal()}
+  val diagonal : DenseVector[Double]= initializeDiagonal()
 
   def initializeDiagonal():DenseVector[Double]={
     val N = d.getN_train
@@ -35,7 +35,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     * key: row index of matrix K
     * value: set of non-sparse column indices of matrix K
     */
-  val rowColumnPairs : MultiMap[Integer, Integer] = time{initializeRowColumnPairs(true)};
+  val rowColumnPairs : MultiMap[Integer, Integer] = initializeRowColumnPairs(true);
 
 
   /**
