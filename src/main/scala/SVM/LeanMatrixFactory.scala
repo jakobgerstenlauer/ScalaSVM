@@ -346,29 +346,10 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val z: DenseVector[Double] = alphas *:* labels
     //for the diagonal:
     val v : DenseVector[Double] = z  *:* diagonal *:* labels
-    //for the off-diagonal entries:
     for (i <- 0 until N; labelTrain = d.getLabelTrain(i); rowTrain_i = d.getRowTrain(i); setOfCols <- hashMap.get(i); j<- setOfCols){
       v(i) += z(j.toInt) * labelTrain * kf.kernel(rowTrain_i, d.getRowTrain(j))
     }
     return v
-
-    /*rowColumnPairs.onComplete({
-      case Success(rowColumnPairs) => {
-        val N = d.getN_train
-        val labels: DenseVector[Double] = d.getLabelsTrain.map(x=>x.toDouble)
-        val z: DenseVector[Double] = alphas *:* labels
-        //for the diagonal:
-        val v : DenseVector[Double] = z  *:* diagonal *:* labels
-        //for the off-diagonal entries:
-        for (i <- 0 until N; labelTrain = d.getLabelTrain(i); rowTrain_i = d.getRowTrain(i); setOfCols <- rowColumnPairs.get(i); j<- setOfCols){
-          v(i) += z(j.toInt) * labelTrain * kf.kernel(rowTrain_i, d.getRowTrain(j))
-        }
-        return v
-      }
-      case Failure(exception) => {
-        //Do something with my error
-      }
-    })*/
   }
 
   override def predictOnTrainingSet(alphas : DenseVector[Double]) : DenseVector[Double]  = {
@@ -397,6 +378,27 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     signum(v)
   }
 
+  def clip(vector : DenseVector[Double], threshold: Double) : DenseVector[Double] = {
+    vector.map(x => if (x < threshold) 0 else x)
+  }
+
+
+  def calculateZmatrix(alphas : Alphas, quantileStart : Int, maxQuantile : Int, Z : DenseMatrix[Double], labels : DenseVector[Double],
+                       qu: DenseVector[Double]) : Future[Int] = {
+    val p = Promise[Int]()
+    Future{
+      for (q <- quantileStart until maxQuantile; quantile: Double = 0.01 * q) {
+        qu(q) = alphas.getQuantile(quantile)
+      }
+
+      for (q <- quantileStart until maxQuantile; quantile: Double = 0.01 * q) {
+        Z(q, ::) := (clip(alphas.alpha, qu(q)) *:* labels).t
+      }
+      p.success(1)
+    }
+    p.future
+  }
+
   /**
     *
     * @param alphas
@@ -411,46 +413,41 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
 
     println("Calculate Z matrix")
     val qu = DenseVector.ones[Double](maxQuantile)
-    for(q <- 0 until maxQuantile; quantile : Double = 0.01 * q) {
-      qu(q)= alphas.getQuantile(quantile)
-    }
 
-    //println("The quantiles: "+qu)
-    //val ZZ = clip(Z(*,::), qu, 10000.0)
-    //Z(*, ::) := clip(Z(*,::), 0.0, 1.0)
-    //alphas.alpha.clip(a, lower, upper)
+    val result = for {
+      z1 <- calculateZmatrix(alphas, 0, 10, Z, labels, qu)
+      z2 <- calculateZmatrix(alphas, 11, 20, Z, labels, qu)
+      z3 <- calculateZmatrix(alphas, 21, 30, Z, labels, qu)
+      z4 <- calculateZmatrix(alphas, 31, 40, Z, labels, qu)
+    } yield (z1 + z2 + z3 + z4)
 
-    def clip(vector : DenseVector[Double], threshold: Double) : DenseVector[Double] = {
-      vector.map(x => if (x < threshold) 0 else x)
-    }
+    result onSuccess {
+      case result => {
+        val hashMapTest = Await.result(rowColumnPairsTest, Duration(60, "minutes"))
 
-    for(q <- 0 until maxQuantile; quantile : Double = 0.01 * q) {
-      Z(q, ::) := (clip(alphas.alpha, qu(q))  *:* labels).t
-    }
+        println("Calculate predictions")
+        for ((i, set) <- hashMapTest; j <- set; valueKernelFunction = kf.kernel(d.getRowTest(j), d.getRowTrain(i))) {
+          V(0 until maxQuantile, j.toInt) := V(0 until maxQuantile, j.toInt) + Z(0 until maxQuantile, i.toInt) * valueKernelFunction
+        }
 
-    //Z(0 until maxQuantile, ::) := Z(0 until maxQuantile, ::).t *:* labels
-
-    val hashMapTest = Await.result(rowColumnPairsTest, Duration(60,"minutes"))
-
-    println("Calculate predictions")
-    for ((i,set) <- hashMapTest; j <- set; valueKernelFunction = kf.kernel(d.getRowTest(j), d.getRowTrain(i))){
-      V(0 until maxQuantile,j.toInt) := V(0 until maxQuantile,j.toInt) + Z(0 until maxQuantile,i.toInt) * valueKernelFunction
-    }
-
-    println("Determine the optimal sparsity")
-    //determine the optimal sparsity
-    var bestCase = 0
-    var bestQuantile = 0
-    for(q <- 0 until maxQuantile) {
-      val correctPredictions = calcCorrectPredictions(V(q, ::).t, d.getLabelsTest)
-      if(correctPredictions >= bestCase){
-        bestCase = correctPredictions
-        bestQuantile = q
+        println("Determine the optimal sparsity")
+        //determine the optimal sparsity
+        var bestCase = 0
+        var bestQuantile = 0
+        for (q <- 0 until maxQuantile) {
+          val correctPredictions = calcCorrectPredictions(V(q, ::).t, d.getLabelsTest)
+          if (correctPredictions >= bestCase) {
+            bestCase = correctPredictions
+            bestQuantile = q
+          }
+        }
+        assert((bestQuantile <= 99) && (bestQuantile >= 0), "Invalid quantile: " + bestQuantile)
+        return (bestQuantile, bestCase)
       }
+      case _ => return (0,0)
     }
-    assert((bestQuantile<=99) && (bestQuantile>=0),"Invalid quantile: "+bestQuantile)
-    (bestQuantile, bestCase)
   }
+
 
   def calcCorrectPredictions(v0: DenseVector[Double], labels: DenseVector[Int]) : Int={
     (signum(v0) *:* labels.map(x => x.toDouble) ).map(x=>if(x>0) 1 else 0).reduce(_+_)
