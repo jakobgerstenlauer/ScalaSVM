@@ -5,6 +5,11 @@ import breeze.numerics.signum
 
 import scala.collection.mutable
 import scala.collection.mutable.{HashMap, MultiMap, Set => MSet}
+import scala.concurrent.{Await, Future, Promise}
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.Duration
+import scala.util.{Failure, Success}
+import scala.util.Random
 
 case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) extends BaseMatrixFactory(d, kf, epsilon){
 
@@ -22,6 +27,8 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     diagonal
   }
 
+  //Measures execution time of a block of code and prints it to std out.
+  //Usage: time{code}
   //http://biercoff.com/easily-measuring-code-execution-time-in-scala/
   def time[R](block: => R): R = {
     val t0 = System.nanoTime()
@@ -35,8 +42,13 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     * key: row index of matrix K
     * value: set of non-sparse column indices of matrix K
     */
-  val rowColumnPairs : MultiMap[Integer, Integer] = initializeRowColumnPairs(true);
+  val rowColumnPairs : MultiMap[Integer, Integer] = initializeRowColumnPairs4Threads();
 
+  /**
+    * key: row index of matrix K
+    * value: set of non-sparse column indices of matrix K
+    */
+  //val rowColumnPairsParallel : MultiMap[Integer, Integer] = initializeRowColumnPairs2();
 
   /**
     * Check if the similarity between instance i and j is significant.
@@ -64,42 +76,38 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     */
   val rowColumnPairsTest : MultiMap[Integer, Integer] = initializeRowColumnPairsTest(true);
 
-  /**
+ /* /**
     * Parallel version that works on stream.
     * Is not used because the performance is not better and synchronization issues are not solved.
     * @return
     */
-  def initializeRowColumnPairs2(): MultiMap[Int, Int] = {
+  def initializeRowColumnPairs2(): MultiMap[Integer , Integer] = {
     //FIXME: This MultiMap implementation is build on top of HashMap which is probably not threadsafe!
-    val mmap: MultiMap[Int, Int] = new HashMap[Int, MSet[Int]] with MultiMap[Int, Int]
+    val mmap: MultiMap[Integer, Integer] = new HashMap[Integer, MSet[Integer]] with MultiMap[Integer, Integer]
 
     val N = d.getN_train
-    val NumElements = N*N
+    //val NumElements = N*N
 
-    //add the number of diagonal elements
-    var size2 = N
-    //add the diagonal by default without calculating the kernel function
+   //add the diagonal by default without calculating the kernel function
     for (i <- 0 until N){
       mmap.addBinding(i,i)
     }
 
-    val filteredParallelStream = MatrixIndexStream.getMatrixIndexStream(N)
-      .par
-      .filter(x => kf.kernel(d.getRowTrain(x.i), d.getRowTrain(x.j)) > epsilon)
-
     val localFunction = (ind: Indices) => {
       mmap.addBinding(ind.i, ind.j)
       mmap.addBinding(ind.j, ind.i)
-      size2 = size2 + 2
     }
 
-    filteredParallelStream.toArray.foreach(localFunction)
+    val filteredParallelStream =
+    MatrixIndexStream.getMatrixIndexStream(N)
+      .par
+      .filter(x => kf.kernel(d.getRowTrain(x.i), d.getRowTrain(x.j)) > epsilon)
+      //.map(x => localFunction(x))
 
-    println("Parallel approach: The matrix has " + mmap.size + " rows and "+ size2 + " non-sparse elements.")
-    val sparsity = 1.0 - (mmap.size / NumElements.toDouble)
-    println("The sparsity of the Kernel matrix K is: " + sparsity)
+
+    filteredParallelStream.toArray.foreach(localFunction)
     mmap
-  }
+  }*/
 
   /**
     *
@@ -112,21 +120,114 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val N = d.getN_train
     var size2 : Int = N
     val maxIterations : Int = (N * N - N) / 2
-    val whenToPrintProgress : Int = maxIterations / 10
-    var numIterations = 0
+    println("Number of iterations: "+ maxIterations)
     //only iterate over the upper diagonal matrix
-    for (i <- 0 until N; j <- (i+1) until N if(kf.kernel(d.getRowTrain(i), d.getRowTrain(j)) > epsilon)){
+    for (i <- 0 until N; j <- (i+1) until N; if(kf.kernel(d.getRowTrain(i), d.getRowTrain(j)) > epsilon)){
       addBindings(map, i, j)
       if(isCountingSparsity) size2 = size2 + 2
-      numIterations = numIterations + 1
-      //print progress
-      if(numIterations % whenToPrintProgress == 0) println(numIterations+" iterations out of "+ maxIterations)
     }
     println("The map has " + map.size + " <key,value> pairs.")
     if(isCountingSparsity) {
       println("The matrix has " + size2 + " non-sparse elements.")
     }
     map
+  }
+
+  def initializeRowColumnPairsTest(Nstart_train: Int, Nstart_test: Int, Nstop_train: Int, Nstop_test: Int): Future[MultiMap[Integer, Integer]] = {
+    println("Preparing the hash map for the training set.")
+    val promise = Promise[MultiMap[Integer, Integer]]
+    Future{
+      val map = new HashMap[Integer, MSet[Integer]] with MultiMap[Integer, Integer]
+      //iterate over all combinations
+      for (i <- Nstart_train until Nstop_train; j <- Nstart_test until Nstop_test
+           if(kf.kernel(d.getRowTrain(i), d.getRowTest(j)) > epsilon)){
+        addBinding (map, i, j)
+      }
+      promise.success(map)
+    }
+    promise.future
+  }
+
+  def initializeRowColumnPairs(Nstart: Int, N: Int): Future[MultiMap[Integer, Integer]] = {
+    println("Preparing the hash map for the training set.")
+    val promise = Promise[MultiMap[Integer, Integer]]
+    Future{
+      val map = new HashMap[Integer, MSet[Integer]] with MultiMap[Integer, Integer]
+      //only iterate over the upper diagonal matrix
+      for (i <- Nstart until N; j <- (i+1) until N; if(kf.kernel(d.getRowTrain(i), d.getRowTrain(j)) > epsilon)){
+        addBindings(map, i, j)
+      }
+      promise.success(map)
+    }
+    promise.future
+  }
+
+  def initializeRowColumnPairs4Threads(): MultiMap[Integer, Integer] = {
+
+    val N = d.getN_train
+    val N1: Int = math.round(0.5 * N).toInt
+    val N2: Int = calculateOptMatrixDim(N, N1)
+    val N3: Int = calculateOptMatrixDim(N, N2)
+    val N4: Int = N
+
+    val N1_elements : BigInt = BigInt(N1) * BigInt(N1)
+    val N2_elements : BigInt = BigInt(N2) * BigInt(N2) - N1_elements
+    val N3_elements : BigInt = BigInt(N3) * BigInt(N3) - BigInt(N2) * BigInt(N2)
+    val numElements = BigInt(N) * BigInt(N)
+    val N4_elements : BigInt = numElements - BigInt(N3) * BigInt(N3)
+
+    println("The relative proportion [%] of matrix elements in submatrices is:")
+    println("submatrix 1: " + BigInt(100) * N1_elements / numElements +" %")
+    println("submatrix 2: " + BigInt(100) * N2_elements / numElements +" %")
+    println("submatrix 3: " + BigInt(100) * N3_elements / numElements +" %")
+    println("submatrix 4: " + BigInt(100) * N4_elements / numElements +" %")
+
+    val map1 = initializeRowColumnPairs(0, N1)
+    val map2 = initializeRowColumnPairs(N1, N2)
+    val map3 = initializeRowColumnPairs(N2, N3)
+    val map4 = initializeRowColumnPairs(N3, N4)
+
+    println("before for-comprehension")
+    val map: Future[mutable.MultiMap[Integer, Integer]] = for {
+      m1 <- map1
+      m2 <- map2
+      m3 <- map3
+      m4 <- map4
+    } yield (mergeMaps(Seq(m1,m2,m3,m4)))
+
+    val result = Await.result(map, Duration(10,"minutes"))
+    println("Successfully merged hash maps for the training set!")
+    result
+  }
+
+  /*def mergeMaps(maps: Seq[mutable.MultiMap[Integer, Integer]]):
+  MultiMap[Integer, Integer] = {
+    maps.reduceLeft ((r, m) => m.foldLeft(r) {
+        case (dict, (k, values)) => for(v <- values) {dict.addBinding(k,v)}
+    })
+  }*/
+
+  private def calculateOptMatrixDim (N: Int, N1: Int): Int = {
+    val t = BigInt(4) * BigInt(N1) * BigInt(N1) + BigInt(N) * BigInt(N)
+    val diff = math.round(
+      0.5 * (math.sqrt(t.doubleValue()) - 2 * N1)
+    ).toInt
+    assert(diff>0)
+    N1 + diff
+  }
+
+  def mergeMaps (maps: Seq[mutable.MultiMap[Integer, Integer]]):
+  MultiMap[Integer, Integer] = {
+    maps.reduceLeft ((r, m) => mergeMMaps(r,m))
+  }
+
+  /**
+    * Merges two multimaps and returns new merged map
+    * @return
+    */
+  def mergeMMaps(mm1: mutable.MultiMap[Integer, Integer], mm2: mutable.MultiMap[Integer, Integer]):mutable.MultiMap[Integer, Integer]={
+    for ( (k, vs) <- mm2; v <- vs ) mm1.addBinding(k, v)
+    mm1
   }
 
   /**
@@ -183,6 +284,51 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     map
   }
 
+  def initializeRowColumnPairsTest4Threads(): MultiMap[Integer, Integer] = {
+
+    println("Preparing the hash map for the test set.")
+    val N_train = d.getN_train
+    val N_test = d.getN_test
+
+    val N1_train: Int = math.round(0.5 * N_train).toInt
+    val N2_train: Int = calculateOptMatrixDim(N_train, N1_train)
+    val N3_train: Int = calculateOptMatrixDim(N_train, N2_train)
+    val N4_train: Int = N_train
+
+    val N1_test: Int = math.round(0.5 * N_test).toInt
+    val N2_test: Int = calculateOptMatrixDim(N_test, N1_test)
+    val N3_test: Int = calculateOptMatrixDim(N_test, N2_test)
+    val N4_test: Int = N_test
+
+    val N1_elements : BigInt = BigInt(N1_train) * BigInt(N1_test)
+    val N2_elements : BigInt = BigInt(N2_train) * BigInt(N2_test) - N1_elements
+    val N3_elements : BigInt = BigInt(N3_train) * BigInt(N3_test) - BigInt(N2_test) * BigInt(N2_train)
+    val numElements = BigInt(N_train) * BigInt(N_test)
+    val N4_elements : BigInt = numElements - BigInt(N3_train) * BigInt(N3_test)
+
+    println("The relative proportion [%] of matrix elements in submatrices is:")
+    println("submatrix 1: " + BigInt(100) * N1_elements / numElements +" %")
+    println("submatrix 2: " + BigInt(100) * N2_elements / numElements +" %")
+    println("submatrix 3: " + BigInt(100) * N3_elements / numElements +" %")
+    println("submatrix 4: " + BigInt(100) * N4_elements / numElements +" %")
+
+    val map1 = initializeRowColumnPairsTest(0, 0, N1_train, N1_test)
+    val map2 = initializeRowColumnPairsTest(N1_train, N1_test, N2_train, N2_test)
+    val map3 = initializeRowColumnPairsTest(N2_train, N2_test, N3_train, N3_test)
+    val map4 = initializeRowColumnPairsTest(N3_train, N3_test, N4_train, N4_test)
+
+    println("before for-comprehension")
+    val map: Future[mutable.MultiMap[Integer, Integer]] = for {
+      m1 <- map1
+      m2 <- map2
+      m3 <- map3
+      m4 <- map4
+    } yield (mergeMaps(Seq(m1,m2,m3,m4)))
+
+    val result = Await.result(map, Duration(10,"minutes"))
+    println("Successfully merged hash maps for the test set!")
+    result
+  }
 
   /**
     * Calculates the gradient vector without storing the kernel matrix Q

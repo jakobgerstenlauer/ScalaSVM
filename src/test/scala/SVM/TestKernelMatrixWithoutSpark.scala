@@ -17,8 +17,7 @@ import SVM.DataSetType.{Test, Train}
 //All flags:
 //-server -XX:+UseConcMarkSweepGC -XX:+CMSIncrementalMode -XX:+CMSIncrementalPacing -XX:CMSIncrementalDutyCycleMin=0 -XX:CMSIncrementalDutyCycle=10 -XX:+UseCMSInitiatingOccupancyOnly - -XX:ThreadStackSize=300 -XX:MaxTenuringThreshold=0 -XX:SurvivorRatio=128 -XX:+UseTLAB -XX:+PrintGCDetails -Xms12288M  -Xmx12288M  -XX:NewSize=3072M  -XX:MaxNewSize=3072M -XX:ParallelGCThreads=4 -Djava.lang.Integer.IntegerCache.high=1000000 -verbose:gc -Xloggc:"/home/jakob/Documents/UPC/master_thesis/jvm/logs"
 object testKernelMatrixWithoutSpark extends App {
-  /**
-    * Measures the processing time of a given Scala command.
+  /*** Measures the processing time of a given Scala command.
     * Source: http://biercoff.com/easily-measuring-code-execution-time-in-scala/
     * @param block The code block to execute.
     * @tparam R
@@ -36,7 +35,7 @@ object testKernelMatrixWithoutSpark extends App {
 	println(kernelPar)
 	val gaussianKernel = GaussianKernel(kernelPar)
 	println(gaussianKernel)
-	val N = 200000
+	val N = 100000
   Utility.testJVMArgs(N/2)
 	val dataProperties = DataParams(N = N, d = 10, ratioTrain = 0.5)
 	println(dataProperties)
@@ -49,7 +48,7 @@ object testKernelMatrixWithoutSpark extends App {
 	//val probeMatrices = ProbeMatrices(d, gaussianKernel)
 
 	//Number of non-sparse matrix elements with epsilon = 0.001:
-	val epsilon = 0.01
+	val epsilon = 0.0001
 	//val numElementsS =  probeMatrices.probeSparsity(Test, 0.001)
 	//val numElementsK =  probeMatrices.probeSparsity(Train, 0.001)
   //println("Projected memory requirements for epsilon ="+epsilon+":")
@@ -58,7 +57,10 @@ object testKernelMatrixWithoutSpark extends App {
   //println("Training matrix K: "+numElementsK/intsPerKB+"kB:")
   //println("Training matrix S: "+numElementsS/intsPerKB+"kB:")
 
-  val lmf = time{LeanMatrixFactory(d, gaussianKernel, epsilon)}
+  val lmf = LeanMatrixFactory(d, gaussianKernel, epsilon)
+//  println("Are the two hash maps identical? "+ lmf.rowColumnPairs == lmf.rowColumnPairsParallel)
+//  println("Num elements rowColumnPairs: " + lmf.rowColumnPairs.size)
+//  println("Num elements rowColumnPairsParallel: " + lmf.rowColumnPairsParallel.size)
 	val mp = ModelParams(C = 0.5, delta = 0.05)
 	val alphas = new Alphas(N=N/2, mp)
 	val ap = AlgoParams(maxIter = 30, batchProb = 0.8, minDeltaAlpha = 0.0001, learningRateDecline = 0.5, epsilon = epsilon, isDebug = false, quantileAlphaClipping=0.03)
