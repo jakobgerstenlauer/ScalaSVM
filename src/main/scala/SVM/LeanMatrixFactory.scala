@@ -13,6 +13,9 @@ import scala.util.Random
 
 case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) extends BaseMatrixFactory(d, kf, epsilon){
 
+  private var hasHashMapTraining = false
+  private var hasHashMapTest = false
+
   /**
     * Cached diagonal of K, i.e. the kernel matrix of the training set.
     */
@@ -42,39 +45,13 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     * key: row index of matrix K
     * value: set of non-sparse column indices of matrix K
     */
-  val rowColumnPairs : MultiMap[Integer, Integer] = initializeRowColumnPairs4Threads();
-
-  /**
-    * key: row index of matrix K
-    * value: set of non-sparse column indices of matrix K
-    */
-  //val rowColumnPairsParallel : MultiMap[Integer, Integer] = initializeRowColumnPairs2();
-
-  /**
-    * Check if the similarity between instance i and j is significant.
-    * @param i row index of K
-    * @param j column index of K
-    * @return
-    */
-  def entryExists(i: Integer, j: Integer):Boolean = {
-    rowColumnPairs.entryExists(i, _ == j)
-  }
-
-  /**
-    * Check if the similarity between test instance i and training instance j is significant.
-    * @param i row index of S
-    * @param j column index of S
-    * @return
-    */
-  def entryExistsTest(i: Integer, j: Integer):Boolean = {
-    rowColumnPairsTest.entryExists(i, _ == j)
-  }
+  val rowColumnPairs : Future[MultiMap[Integer, Integer]] = initializeRowColumnPairs4Threads();
 
   /**
     * key: row index of matrix S (index of test instance)
     * value: set of non-sparse column indices of matrix S (index of trainings instance)
     */
-  val rowColumnPairsTest : MultiMap[Integer, Integer] = initializeRowColumnPairsTest(true);
+  val rowColumnPairsTest : Future[MultiMap[Integer, Integer]] = initializeRowColumnPairsTest4Threads();
 
  /* /**
     * Parallel version that works on stream.
@@ -162,7 +139,8 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     promise.future
   }
 
-  def initializeRowColumnPairs4Threads(): MultiMap[Integer, Integer] = {
+  def initializeRowColumnPairs4Threads(): Future[MultiMap[Integer, Integer]] = {
+    val promise = Promise[MultiMap[Integer, Integer]]
 
     val N = d.getN_train
     val N1: Int = math.round(0.5 * N).toInt
@@ -195,9 +173,15 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
       m4 <- map4
     } yield (mergeMaps(Seq(m1,m2,m3,m4)))
 
-    val result = Await.result(map, Duration(10,"minutes"))
+    map onComplete {
+      case Success(map) => hasHashMapTraining = true
+      case Failure(t) => println("An error when creating the hash map for the training set: " + t.getMessage)
+    }
+
+    /*val result = Await.result(map, Duration(10,"minutes"))
     println("Successfully merged hash maps for the training set!")
-    result
+    result*/
+    promise.future
   }
 
   /*def mergeMaps(maps: Seq[mutable.MultiMap[Integer, Integer]]):
@@ -284,7 +268,9 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     map
   }
 
-  def initializeRowColumnPairsTest4Threads(): MultiMap[Integer, Integer] = {
+  def initializeRowColumnPairsTest4Threads(): Future[MultiMap[Integer, Integer]] = {
+
+    val promise = Promise[MultiMap[Integer, Integer]]
 
     println("Preparing the hash map for the test set.")
     val N_train = d.getN_train
@@ -325,9 +311,14 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
       m4 <- map4
     } yield (mergeMaps(Seq(m1,m2,m3,m4)))
 
-    val result = Await.result(map, Duration(10,"minutes"))
+    map onComplete {
+      case Success(map) => hasHashMapTest = true
+      case Failure(t) => println("An error when creating the hash map for the test set: " + t.getMessage)
+    }
+/*    val result = Await.result(map, Duration(10,"minutes"))
     println("Successfully merged hash maps for the test set!")
-    result
+    result*/
+    promise.future
   }
 
   /**
