@@ -165,7 +165,6 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val map3 = initializeRowColumnPairs(N2, N3)
     val map4 = initializeRowColumnPairs(N3, N4)
 
-    println("before for-comprehension")
     val map: Future[mutable.MultiMap[Integer, Integer]] = for {
       m1 <- map1
       m2 <- map2
@@ -174,7 +173,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     } yield (mergeMaps(Seq(m1,m2,m3,m4)))
 
     map onComplete {
-      case Success(map) => hasHashMapTraining = true
+      case Success(mergedHashMap) => promise.success(mergedHashMap); hasHashMapTraining = true
       case Failure(t) => println("An error when creating the hash map for the training set: " + t.getMessage)
     }
 
@@ -303,8 +302,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val map3 = initializeRowColumnPairsTest(N2_train, N2_test, N3_train, N3_test)
     val map4 = initializeRowColumnPairsTest(N3_train, N3_test, N4_train, N4_test)
 
-    println("before for-comprehension")
-    val map: Future[mutable.MultiMap[Integer, Integer]] = for {
+   val map: Future[mutable.MultiMap[Integer, Integer]] = for {
       m1 <- map1
       m2 <- map2
       m3 <- map3
@@ -312,7 +310,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     } yield (mergeMaps(Seq(m1,m2,m3,m4)))
 
     map onComplete {
-      case Success(map) => hasHashMapTest = true
+      case Success(mergedHashMap) => promise.success(mergedHashMap); hasHashMapTest = true
       case Failure(t) => println("An error when creating the hash map for the test set: " + t.getMessage)
     }
 /*    val result = Await.result(map, Duration(10,"minutes"))
@@ -342,36 +340,57 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     *  @return
     */
   override def calculateGradient(alphas : DenseVector[Double]) : DenseVector[Double]  = {
+    val hashMap = Await.result(rowColumnPairs, Duration(60,"minutes"))
     val N = d.getN_train
     val labels: DenseVector[Double] = d.getLabelsTrain.map(x=>x.toDouble)
     val z: DenseVector[Double] = alphas *:* labels
     //for the diagonal:
     val v : DenseVector[Double] = z  *:* diagonal *:* labels
     //for the off-diagonal entries:
-    for (i <- 0 until N; labelTrain = d.getLabelTrain(i); rowTrain_i = d.getRowTrain(i); setOfCols <- rowColumnPairs.get(i); j<- setOfCols){
+    for (i <- 0 until N; labelTrain = d.getLabelTrain(i); rowTrain_i = d.getRowTrain(i); setOfCols <- hashMap.get(i); j<- setOfCols){
       v(i) += z(j.toInt) * labelTrain * kf.kernel(rowTrain_i, d.getRowTrain(j))
     }
-    v
+    return v
+
+    /*rowColumnPairs.onComplete({
+      case Success(rowColumnPairs) => {
+        val N = d.getN_train
+        val labels: DenseVector[Double] = d.getLabelsTrain.map(x=>x.toDouble)
+        val z: DenseVector[Double] = alphas *:* labels
+        //for the diagonal:
+        val v : DenseVector[Double] = z  *:* diagonal *:* labels
+        //for the off-diagonal entries:
+        for (i <- 0 until N; labelTrain = d.getLabelTrain(i); rowTrain_i = d.getRowTrain(i); setOfCols <- rowColumnPairs.get(i); j<- setOfCols){
+          v(i) += z(j.toInt) * labelTrain * kf.kernel(rowTrain_i, d.getRowTrain(j))
+        }
+        return v
+      }
+      case Failure(exception) => {
+        //Do something with my error
+      }
+    })*/
   }
 
   override def predictOnTrainingSet(alphas : DenseVector[Double]) : DenseVector[Double]  = {
+    val hashMap = Await.result(rowColumnPairs, Duration(60,"minutes"))
     val N = d.getN_train
     val z : DenseVector[Double] = alphas *:* d.getLabelsTrain.map(x=>x.toDouble)
     //for the diagonal:
     val v : DenseVector[Double] = z *:* diagonal
     //for the off-diagonal entries:
-    for (i <- 0 until N; rowTrain_i = d.getRowTrain(i); setOfCols <- rowColumnPairs.get(i); j<- setOfCols){
+    for (i <- 0 until N; rowTrain_i = d.getRowTrain(i); setOfCols <- hashMap.get(i); j<- setOfCols){
       v(i) += z(j.toInt) * kf.kernel(rowTrain_i, d.getRowTrain(j))
     }
     signum(v)
   }
 
   override def predictOnTestSet(alphas : DenseVector[Double]) : DenseVector[Double]  = {
+    val hashMap = Await.result(rowColumnPairsTest, Duration(60,"minutes"))
     val N_test = d.getN_test
     val v = DenseVector.fill(N_test){0.0}
     val z : DenseVector[Double] = alphas *:* d.getLabelsTrain.map(x=>x.toDouble)
     //logClassDistribution(z)
-    for ((i,set) <- rowColumnPairsTest; j <- set){
+    for ((i,set) <- hashMap; j <- set){
       v(j.toInt) = v(j.toInt) + z(i.toInt) * kf.kernel(d.getRowTest(j), d.getRowTrain(i))
     }
     //logClassDistribution(v)
@@ -411,8 +430,10 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
 
     //Z(0 until maxQuantile, ::) := Z(0 until maxQuantile, ::).t *:* labels
 
+    val hashMapTest = Await.result(rowColumnPairsTest, Duration(60,"minutes"))
+
     println("Calculate predictions")
-    for ((i,set) <- rowColumnPairsTest; j <- set; valueKernelFunction = kf.kernel(d.getRowTest(j), d.getRowTrain(i))){
+    for ((i,set) <- hashMapTest; j <- set; valueKernelFunction = kf.kernel(d.getRowTest(j), d.getRowTrain(i))){
       V(0 until maxQuantile,j.toInt) := V(0 until maxQuantile,j.toInt) + Z(0 until maxQuantile,i.toInt) * valueKernelFunction
     }
 
