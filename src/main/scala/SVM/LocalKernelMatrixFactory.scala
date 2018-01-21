@@ -11,6 +11,7 @@ trait MatrixFactory{
   def getData:Data
   def predictOnTrainingSet(alphas : DenseVector[Double]):DenseVector[Double]
   def predictOnValidationSet(alphas : DenseVector[Double]):DenseVector[Double]
+  def predictOnTestSet(alphas : DenseVector[Double]):DenseVector[Double]
 }
 
 abstract class BaseMatrixFactoryWithMatrices(d: Data, kf: KernelFunction, epsilon: Double) extends BaseMatrixFactory(d, kf, epsilon){
