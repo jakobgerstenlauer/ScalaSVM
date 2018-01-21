@@ -25,7 +25,7 @@ case class ProbeMatrices(d: Data, kf: KernelFunction){
     * @return
     */
   def probeSparsityK(epsilon: Double): Int = {
-    val N = d.getN_train
+    val N = d.getN_Train
     var size2 : Int = N //the diagonal elements are non-sparse!
     //only iterate over the upper diagonal matrix
     for (i <- 0 until N; j <- (i+1) until N if(kf.kernel(d.getRowTrain(i), d.getRowTrain(j)) > epsilon)){
@@ -41,7 +41,7 @@ case class ProbeMatrices(d: Data, kf: KernelFunction){
     */
   def probeSparsityS(epsilon: Double): Int = {
     var size2 : Int = 0
-    val N_train = d.getN_train
+    val N_train = d.getN_Train
     val N_test = d.getN_Validation
     //only iterate over the upper diagonal matrix
     for (i <- 0 until N_test; j <- (i+1) until N_train

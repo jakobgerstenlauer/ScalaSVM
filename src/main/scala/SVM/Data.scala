@@ -1,5 +1,5 @@
 package SVM
-import SVM.DataSetType.{Validation, Train}
+import SVM.DataSetType.{Validation, Train, Test}
 import breeze.linalg._
 import breeze.numerics._
 import org.apache.spark.sql.{Dataset, SparkSession}
@@ -13,11 +13,17 @@ trait Data{
   //Get row with row index (starting with 0) from training set.
   def getRowTrain(rowIndex: Int):DenseVector[Double]
 
+  //Get row with row index (starting with 0) from test set.
+  def getRowTest(rowIndex: Int):DenseVector[Double]
+
   //Get label with row index (starting with 0) from validation set.
   def getLabelValidation (rowIndex: Int): Double
 
   //Get label with row index (starting with 0) from training set.
   def getLabelTrain(rowIndex: Int): Double
+
+  //Get label with row index (starting with 0) from test set.
+  def getLabelTest(rowIndex: Int): Double
 
   //Get vector of labels from validation set.
   def getLabelsValidation : DenseVector[Int]
@@ -25,14 +31,24 @@ trait Data{
   //Get vector of labels from training set.
   def getLabelsTrain : DenseVector[Int]
 
+  //Get vector of labels from test set.
+  def getLabelsTest : DenseVector[Int]
+
   //Was the data set correctly initialized?
   def isDefined : Boolean
-  def getN_train : Int
+  def getN_Train : Int
   def getN_Validation : Int
+  def getN_Test : Int
   def getd : Int
 
   //print distribution of labels in validation and training set
   def tableLabels(): Unit
+
+  def tableLabels(vector: DenseVector[Int], tag: String): Unit = {
+    val positive = vector.map(x => if (x > 0) 1 else 0).reduce(_ + _)
+    val negative = vector.map(x => if (x < 0) 1 else 0).reduce(_ + _)
+    println(tag +": " + positive + "(+)/" + negative + "(-)/" + vector.length + "(total)")
+  }
 }
 
 abstract class basicDataSetEntry{
@@ -46,25 +62,21 @@ abstract class basicDataSetEntry{
   def getD: Int
 }
 
-class SparkDataSet[T <: basicDataSetEntry](dataSetTrain: Dataset[T], dataSetValidation: Dataset[T]) extends Data{
+class SparkDataSet[T <: basicDataSetEntry](dataSetTrain: Dataset[T], dataSetValidation: Dataset[T], dataSetTest: Dataset[T]) extends Data{
 
   def tableLabels(): Unit = {
-
     val z_train = getLabels(Train)
-    val positive_train = z_train.map(x => if(x>0)1 else 0).reduce(_+_)
-    val negative_train = z_train.map(x => if(x<0)1 else 0).reduce(_+_)
-    println("Training: "+positive_train+"(+)/"+negative_train+"(-)/"+z_train.length+"(total)")
-
-    //TODO Add output for test set
     val z_validation = getLabels(Validation)
-    val positive_test = z_validation.map(x => if(x>0)1 else 0).reduce(_+_)
-    val negative_test = z_validation.map(x => if(x<0)1 else 0).reduce(_+_)
-    println("Validation: "+positive_test+"(+)/"+negative_test+"(-)/"+z_validation.length +"(total)")
+    val z_test = getLabels(Test)
+    tableLabels(z_train, "Training")
+    tableLabels(z_validation, "Validation")
+    tableLabels(z_test, "Test")
   }
 
   def getRow(rowIndex: Int, dataSetType: DataSetType.Value): T = {
     if(dataSetType == Validation) return dataSetValidation.filter(x => x.rowNr == rowIndex).first()
     if(dataSetType == Train) dataSetTrain.filter(x => x.rowNr == rowIndex).first()
+    if(dataSetType == Test) dataSetTest.filter(x => x.rowNr == rowIndex).first()
     else throw new Exception("Unsupported data set type!")
   }
 
@@ -74,8 +86,9 @@ class SparkDataSet[T <: basicDataSetEntry](dataSetTrain: Dataset[T], dataSetVali
     //https://stackoverflow.com/questions/39151189/importing-spark-implicits-in-scala#39173501
     val sparkSession = SparkSession.builder.getOrCreate()
     import sparkSession.implicits._
-    if(dataSetType == Validation)return new DenseVector(dataSetValidation.map(x => x.label).collect())
+    if(dataSetType == Validation)new DenseVector(dataSetValidation.map(x => x.label).collect())
     if(dataSetType == Train)new DenseVector(dataSetTrain.map(x => x.label).collect())
+    if(dataSetType == Test)new DenseVector(dataSetTest.map(x => x.label).collect())
     else throw new Exception("Unsupported data set type!")
  }
 
@@ -85,11 +98,17 @@ class SparkDataSet[T <: basicDataSetEntry](dataSetTrain: Dataset[T], dataSetVali
   //Get row with row index (starting with 0) from training set.
   def getRowTrain(rowIndex: Int):DenseVector[Double] = getRow(rowIndex, Train).getPredictors
 
+  //Get row with row index (starting with 0) from test set.
+  def getRowTest(rowIndex: Int):DenseVector[Double] = getRow(rowIndex, Test).getPredictors
+
   //Get label with row index (starting with 0) from validation set.
   def getLabelValidation (rowIndex: Int): Double = getRow(rowIndex, Validation).getLabel
 
   //Get label with row index (starting with 0) from training set.
   def getLabelTrain(rowIndex: Int): Double = getRow(rowIndex, Train).getLabel
+
+  //Get label with row index (starting with 0) from test set.
+  def getLabelTest(rowIndex: Int): Double = getRow(rowIndex, Test).getLabel
 
   //Get vector of labels from validation set.
   def getLabelsValidation : DenseVector[Int] = {
@@ -101,15 +120,24 @@ class SparkDataSet[T <: basicDataSetEntry](dataSetTrain: Dataset[T], dataSetVali
     getLabels(Train)
   }
 
+  //Get vector of labels from test set.
+  def getLabelsTest : DenseVector[Int] = {
+    getLabels(Test)
+  }
+
   //Was the data set correctly initialized?
   def isDefined : Boolean = true
 
-  def getN_train : Int = {
+  def getN_Train : Int = {
     dataSetTrain.count().toInt
   }
 
   def getN_Validation : Int = {
     dataSetValidation.count().toInt
+  }
+
+  def getN_Test : Int = {
+    dataSetTest.count().toInt
   }
 
   def getd : Int = {
@@ -123,19 +151,15 @@ class SparkDataSet[T <: basicDataSetEntry](dataSetTrain: Dataset[T], dataSetVali
   */
 class SimData (val params: DataParams) extends Data {
 
-  def getN_train : Int = params.N_train
+  def getN_Train : Int = params.N_train
   def getN_Validation : Int = params.N_validation
+  def getN_Test : Int = params.N_test
   def getd : Int = params.d
 
   def tableLabels(): Unit = {
-
-    val positive_train = z_train.map(x => if(x>0)1 else 0).reduce(_+_)
-    val negative_train = z_train.map(x => if(x<0)1 else 0).reduce(_+_)
-    println("Training: "+positive_train+"(+)/"+negative_train+"(-)/"+z_train.length+"(total)")
-
-    val positive_test = z_validation.map(x => if(x>0)1 else 0).reduce(_+_)
-    val negative_test = z_validation.map(x => if(x<0)1 else 0).reduce(_+_)
-    println("Validation: "+positive_test+"(+)/"+negative_test+"(-)/"+z_validation.length +"(total)")
+    tableLabels(z_train, "Training")
+    tableLabels(z_validation, "Validation")
+    tableLabels(z_test, "Test")
   }
 
   //Get column with column index (starting with 0) from validation set.
@@ -148,6 +172,11 @@ class SimData (val params: DataParams) extends Data {
       X_train(columnIndex,::).t
   }
 
+  //Get column with column index (starting with 0) from test set.
+  override def getRowTest(columnIndex: Int): DenseVector[Double] = {
+    X_test(columnIndex,::).t
+  }
+
   //Get label with row index (starting with 0) from validation set.
   override def getLabelValidation (rowIndex: Int): Double = {
       z_validation(rowIndex)
@@ -156,6 +185,11 @@ class SimData (val params: DataParams) extends Data {
   //Get label with row index (starting with 0) from training set.
   override def getLabelTrain(rowIndex: Int): Double = {
       z_train(rowIndex)
+  }
+
+  //Get label with row index (starting with 0) from test set.
+  override def getLabelTest(rowIndex: Int): Double = {
+    z_test(rowIndex)
   }
 
   //Get vector of labels from validation set.
@@ -168,6 +202,11 @@ class SimData (val params: DataParams) extends Data {
       z_train
   }
 
+  //Get vector of labels from test set.
+  override def getLabelsTest: DenseVector[Int] = {
+    z_test
+  }
+
   //Was the data set correctly initialized?
   override def isDefined : Boolean = isFilled
 
@@ -176,6 +215,7 @@ class SimData (val params: DataParams) extends Data {
   //empty data matrices for training and validation set
   val X_train: DenseMatrix[Double] = DenseMatrix.zeros[Double](params.N_train, params.d)
   val X_validation: DenseMatrix[Double] = DenseMatrix.zeros[Double](params.N_validation, params.d)
+  val X_test: DenseMatrix[Double] = DenseMatrix.zeros[Double](params.N_validation, params.d)
 
 	//stores the maximum of the square of the euclidean norm
 	//var tau : Double = 0.0
@@ -183,11 +223,13 @@ class SimData (val params: DataParams) extends Data {
 	//empty vectors for the labels of training and validation set
 	var z_train : DenseVector[Int] = DenseVector.zeros[Int](params.N_train)
 	var z_validation : DenseVector[Int] =  DenseVector.zeros[Int](params.N_validation)
+  var z_test : DenseVector[Int] =  DenseVector.zeros[Int](params.N_test)
 
 	override def toString : String = {
 		val sb = new StringBuilder
 		sb.append("Synthetic dataset with "+params.d+" variables.\n")
-		sb.append("Observations: "+ params.N_train +" (training), " + params.N_validation+ "(validation)\n")
+		sb.append("Observations: "+ params.N_train +" (training), " + params.N_validation+ "(validation)"
+      + params.N_test+ "(test)\n")
 		if(isFilled)sb.append("Data was already generated.\n")
 		else sb.append("Data was not yet generated.\n")
 		sb.toString()
@@ -202,7 +244,9 @@ class SimData (val params: DataParams) extends Data {
       //Randomly allocate observations to each class (0 or 1)
       val z : DenseVector[Int] = DenseVector.rand(params.N).map(x=>2*x).map(x=>floor(x)).map(x=>((2*x)-1).toInt)
       z_train = z(0 until params.N_train)
-      z_validation = z(params.N_train until params.N)
+      val NtrainAndVal = params.N_train + params.N_validation
+      z_validation = z(params.N_train until NtrainAndVal)
+      z_test = z(NtrainAndVal until params.N)
 
       val mvn1 = breeze.stats.distributions.MultivariateGaussian(theta1, diag(DenseVector.fill(params.d){1.0}))
       val mvn2 = breeze.stats.distributions.MultivariateGaussian(theta2, diag(DenseVector.fill(params.d){1.0}))
@@ -226,8 +270,11 @@ class SimData (val params: DataParams) extends Data {
           //tau = max(tau, norm)
           X_train(i, ::) := DenseVector(x.toArray).t
         //For the tests set:
-        }else{
+        }
+        if( i < NtrainAndVal){
           X_validation(i - params.N_train, ::) := DenseVector(x.toArray).t
+        }else{
+          X_test(i - NtrainAndVal, ::) := DenseVector(x.toArray).t
         }
       }
       isFilled = true
@@ -247,56 +294,72 @@ class LocalData extends Data{
   var means = DenseVector.zeros[Double](0)
   var stdev = DenseVector.zeros[Double](0)
 
+  var N : Int = 0
+  var N_train : Int = 0
+  var N_validation : Int = 0
+  var N_test : Int = 0
+  var d : Int = 0
 
-  //Get column with column index (starting with 0) from validation set.
-    override def getRowValidation (columnIndex: Int): DenseVector[Double] = {
-      X_validation(columnIndex,::).t
-    }
+  var isFilled = false
+  var validationSetIsFilled = false
+  var trainingSetIsFilled = false
+  var testSetIsFilled = false
 
-    //Get column with column index (starting with 0) from training set.
-    override def getRowTrain(columnIndex: Int): DenseVector[Double] = {
-      X_train(columnIndex,::).t
-    }
+  //empty data matrices for training and validation set
+  var X_train, X_validation, X_test : DenseMatrix[Double] = DenseMatrix.zeros[Double](1, 1)
 
-    //Get label with row index (starting with 0) from validation set.
-    override def getLabelValidation (rowIndex: Int): Double = {
-      z_validation(rowIndex)
-    }
+  //empty vectors for the labels of training and validation set
+  var z_train, z_validation, z_test : DenseVector[Int] = DenseVector.zeros[Int](1)
 
-    //Get label with row index (starting with 0) from training set.
-    override def getLabelTrain(rowIndex: Int): Double = {
-      z_train(rowIndex)
-    }
+  //Get row with row index (starting with 0) from validation set.
+  override def getRowValidation (rowIndex: Int): DenseVector[Double] = {
+    X_validation(rowIndex,::).t
+  }
 
-    //Get vector of labels from validation set.
-    override def getLabelsValidation: DenseVector[Int] = {
-      z_validation
-    }
+  //Get row with row index (starting with 0) from training set.
+  override def getRowTrain(rowIndex: Int): DenseVector[Double] = {
+    X_train(rowIndex,::).t
+  }
 
-    //Get vector of labels from training set.
-    override def getLabelsTrain: DenseVector[Int] = {
-      z_train
-    }
+  //Get row with row index (starting with 0) from test set.
+  override def getRowTest(rowIndex: Int): DenseVector[Double] = {
+    X_test(rowIndex,::).t
+  }
 
-    //Was the data set correctly initialized?
-    override def isDefined : Boolean = isFilled
+  //Get label with row index (starting with 0) from validation set.
+  override def getLabelValidation (rowIndex: Int): Double = {
+    z_validation(rowIndex)
+  }
 
-    var N : Int = 0
-    var N_train : Int = 0
-    var N_validation : Int = 0
-    var d : Int = 0
+  //Get label with row index (starting with 0) from training set.
+  override def getLabelTrain(rowIndex: Int): Double = {
+    z_train(rowIndex)
+  }
 
-    var isFilled = false
-    var validationSetIsFilled = false
-    var trainingSetIsFilled = false
+  //Get label with row index (starting with 0) from test set.
+  override def getLabelTest(rowIndex: Int): Double = {
+    z_test(rowIndex)
+  }
 
-    //empty data matrices for training and validation set
-    var X_train, X_validation : DenseMatrix[Double] = DenseMatrix.zeros[Double](1, 1)
+  //Get vector of labels from validation set.
+  override def getLabelsValidation: DenseVector[Int] = {
+    z_validation
+  }
 
-    //empty vectors for the labels of training and validation set
-    var z_train, z_validation : DenseVector[Int] = DenseVector.zeros[Int](1)
+  //Get vector of labels from training set.
+  override def getLabelsTrain: DenseVector[Int] = {
+    z_train
+  }
 
-    override def toString : String = {
+  //Get vector of labels from training set.
+  override def getLabelsTest: DenseVector[Int] = {
+    z_test
+  }
+
+  //Was the data set correctly initialized?
+  override def isDefined : Boolean = isFilled
+
+  override def toString : String = {
       val sb = new StringBuilder
       sb.append("Empirical dataset from local file system with "+ d+" variables.\n")
       sb.append("Observations: "+ N_train +" (training), " + N_validation+ " (validation)\n")
@@ -358,6 +421,29 @@ class LocalData extends Data{
       isFilled = validationSetIsFilled && trainingSetIsFilled
     }
 
+  def readTestDataSet (path: String, separator: Char, columnIndexClass: Int) : Unit = {
+    val csvReader : CSVReader = new CSVReader(path, separator, columnIndexClass)
+    val (inputs, labels) = csvReader.read()
+    X_test = inputs
+    var testSummary = summary(Test)
+    println("Summary statistics of test data set BEFORE z-transformation with means and standard deviation of the training set:")
+    println("mean:\tvariance:\tstandard deviation:")
+    println(testSummary.t)
+    val N = X_test.rows
+    val Means = tile(means.t, 1, N)
+    val SD = tile(stdev.t, 1, N)
+    X_test = (X_test - Means) / SD
+    testSummary = summary(Test)
+    println("Summary statistics of validation data set AFTER z-transformation with means and standard deviation of the training set:")
+    println("mean:\tvariance:\tstandard deviation:")
+    println(testSummary.t)
+    z_test = labels
+    d = X_test.cols
+    N_test = X_test.rows
+    testSetIsFilled = true
+    isFilled = validationSetIsFilled && trainingSetIsFilled && testSetIsFilled
+  }
+
   /**
     * @param dataSetType
     * @return
@@ -365,6 +451,7 @@ class LocalData extends Data{
   def summary(dataSetType: DataSetType.Value):DenseMatrix[Double]={
     if(dataSetType == Validation) return createSummary(X_validation)
     if(dataSetType == Train) createSummary(X_train)
+    if(dataSetType == Test) createSummary(X_test)
     else throw new Exception("Unsupported data set type!")
   }
 
@@ -372,20 +459,15 @@ class LocalData extends Data{
   def columnVariance(m: DenseMatrix[Double]):DenseVector[Double] = variance(m(::,*)).t
   def columnStandardDeviation(m: DenseMatrix[Double]):DenseVector[Double] = variance(m(::,*)).t.map(x=>sqrt(x))
 
-
   def tableLabels(): Unit = {
-
-    val positive_train = z_train.map(x => if(x>0)1 else 0).reduce(_+_)
-    val negative_train = z_train.map(x => if(x<0)1 else 0).reduce(_+_)
-    println("Training: "+positive_train+"(+)/"+negative_train+"(-)/"+z_train.length+"(total)")
-
-    val positive_test = z_validation.map(x => if(x>0)1 else 0).reduce(_+_)
-    val negative_test = z_validation.map(x => if(x<0)1 else 0).reduce(_+_)
-    println("Validation: "+positive_test+"(+)/"+negative_test+"(-)/"+z_validation.length +"(total)")
+    tableLabels(z_train, "Training")
+    tableLabels(z_validation, "Validation")
+    tableLabels(z_test, "Test")
   }
 
   /**
     * Returns column summary statistics (mean, var, standard deviation) as a matrix.
+    *
     * @param m
     * @return
     */
@@ -397,9 +479,8 @@ class LocalData extends Data{
     summaryM
   }
 
-  override def getN_train: Int = N_train
-
+  override def getN_Train: Int = N_train
   override def getN_Validation: Int = N_validation
-
+  override def getN_Test: Int = N_test
   override def getd: Int = d
 }

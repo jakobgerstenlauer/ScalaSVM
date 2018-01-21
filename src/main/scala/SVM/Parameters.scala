@@ -45,7 +45,7 @@ case class ModelParams(C: Double = 1.0, delta: Double = 0.5) extends Parameters 
  * d: The number of features (i.e. inputs, variables).
  * ratioTrain: The ratio of data used for the training set.
   */
-case class DataParams(N: Int = 1000, d: Int = 5, ratioTrain: Double = 0.5) extends Parameters{
+case class DataParams(N: Int = 1000, d: Int = 5, ratioTrain: Double = 0.5, ratioTest: Double = 0.2) extends Parameters{
 
   assert(N>2)
   assert(d>1)
@@ -59,9 +59,14 @@ case class DataParams(N: Int = 1000, d: Int = 5, ratioTrain: Double = 0.5) exten
    /**
    * Number of observations in the validation set.
    */
-  val N_validation = Math.floor(N * (1.0 - ratioTrain)).toInt
+  val N_validation = Math.floor(N * (1.0 - (ratioTrain+ratioTest))).toInt
 
-  assert(N == N_train + N_validation)
+  /**
+    * Number of observations in the validation set.
+    */
+  val N_test = Math.floor(N * ratioTest).toInt
+
+  assert(N == N_train + N_validation + N_test)
 
   override def toString : String = {
         val sb = new StringBuilder
@@ -69,6 +74,7 @@ case class DataParams(N: Int = 1000, d: Int = 5, ratioTrain: Double = 0.5) exten
         sb.append("Total number of observations: "+N+"\n")
         sb.append("Observations training set: " + N_train + "\n")
         sb.append("Observations validation set: " + N_validation + "\n")
+        sb.append("Observations test set: " + N_test + "\n")
         sb.append("Number of features: " + d + "\n")
         sb.toString()
   }

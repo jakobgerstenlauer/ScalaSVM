@@ -26,7 +26,7 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
   *  @return
   */
   def calculateGradient(alphas : DenseVector[Double]) : DenseVector[Double]  = {
-    val N = d.getN_train
+    val N = d.getN_Train
     val v = DenseVector.fill(N){-1.0}
     for (i <- 0 until N; j <- 0 until N){
       v(i) += alphas(j) * d.getLabelTrain(i) * d.getLabelTrain(j) * kf.kernel(d.getRowTrain(i), d.getRowTrain(j))
@@ -35,7 +35,7 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
   }
 
   def predictOnTrainingSet(alphas : DenseVector[Double]) : DenseVector[Double]  = {
-    val N = d.getN_train
+    val N = d.getN_Train
     val v = DenseVector.fill(N){-1.0}
     for (i <- 0 until N; j <- 0 until N){
       v(i) += alphas(j) * d.getLabelTrain(j) * kf.kernel(d.getRowTrain(i), d.getRowTrain(j))
@@ -44,7 +44,7 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
   }
 
   def predictOnTestSet(alphas : DenseVector[Double]) : DenseVector[Double]  = {
-    val N_train = d.getN_train
+    val N_train = d.getN_Train
     val N_test = d.getN_Validation
     val v = DenseVector.fill(N_test){-1.0}
     for (i <- 0 until N_test; j <- 0 until N_train){

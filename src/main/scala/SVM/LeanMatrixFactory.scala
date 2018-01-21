@@ -22,7 +22,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   val diagonal : DenseVector[Double]= initializeDiagonal()
 
   def initializeDiagonal():DenseVector[Double]={
-    val N = d.getN_train
+    val N = d.getN_Train
     val diagonal = DenseVector.zeros[Double](N)
     for (i <- 0 until N){
       diagonal(i) = kf.kernel(d.getRowTrain(i), d.getRowTrain(i))
@@ -94,7 +94,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   def initializeRowColumnPairs(isCountingSparsity: Boolean): MultiMap[Integer, Integer] = {
     //println("Preparing the hash map for the training set.")
     val map: MultiMap[Integer, Integer] = new HashMap[Integer, MSet[Integer]] with MultiMap[Integer, Integer]
-    val N = d.getN_train
+    val N = d.getN_Train
     var size2 : Int = N
     val maxIterations : Int = (N * N - N) / 2
     println("Number of iterations: "+ maxIterations)
@@ -140,7 +140,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   def initializeRowColumnPairs4Threads(): Future[MultiMap[Integer, Integer]] = {
     val promise = Promise[MultiMap[Integer, Integer]]
 
-    val N = d.getN_train
+    val N = d.getN_Train
     val N1: Int = math.round(0.5 * N).toInt
     val N2: Int = calculateOptMatrixDim(N, N1)
     val N3: Int = calculateOptMatrixDim(N, N2)
@@ -250,7 +250,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     println("Preparing the hash map for the validation set.")
     val map: MultiMap[Integer, Integer] = new HashMap[Integer, MSet[Integer]] with MultiMap[Integer, Integer]
     var size2 : Int = 0
-    val N_train = d.getN_train
+    val N_train = d.getN_Train
     val N_test = d.getN_Validation
     //iterate over all combinations
     for (i <- 0 until N_train; j <- 0 until N_test
@@ -270,7 +270,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val promise = Promise[MultiMap[Integer, Integer]]
 
     println("Preparing the hash map for the validation set.")
-    val N_train = d.getN_train
+    val N_train = d.getN_Train
     val N_val = d.getN_Validation
 
     val N1_train: Int = math.round(0.5 * N_train).toInt
@@ -336,7 +336,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     */
   override def calculateGradient(alphas : DenseVector[Double]) : DenseVector[Double]  = {
     val hashMap = Await.result(rowColumnPairs, Duration(60,"minutes"))
-    val N = d.getN_train
+    val N = d.getN_Train
     val labels: DenseVector[Double] = d.getLabelsTrain.map(x=>x.toDouble)
     val z: DenseVector[Double] = alphas *:* labels
     //for the diagonal:
@@ -350,7 +350,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
 
   override def predictOnTrainingSet(alphas : DenseVector[Double]) : DenseVector[Double]  = {
     val hashMap = Await.result(rowColumnPairs, Duration(60,"minutes"))
-    val N = d.getN_train
+    val N = d.getN_Train
     val z : DenseVector[Double] = alphas *:* d.getLabelsTrain.map(x=>x.toDouble)
     //for the diagonal:
     val v : DenseVector[Double] = z *:* diagonal
@@ -381,7 +381,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     */
   def predictOnValidationSet (alphas : Alphas) : (Int,Int)  = {
     val N_validation = d.getN_Validation
-    val N_train = d.getN_train
+    val N_train = d.getN_Train
     val maxQuantile = 40
     val V = DenseMatrix.zeros[Double](maxQuantile,N_validation)
     val Z = DenseMatrix.zeros[Double](maxQuantile,N_train)
