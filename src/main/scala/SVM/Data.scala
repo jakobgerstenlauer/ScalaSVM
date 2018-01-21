@@ -449,7 +449,7 @@ class LocalData extends Data{
     * @return
     */
   def summary(dataSetType: DataSetType.Value):DenseMatrix[Double]={
-    if(dataSetType == Validation) return createSummary(X_validation)
+    if(dataSetType == Validation) createSummary(X_validation)
     if(dataSetType == Train) createSummary(X_train)
     if(dataSetType == Test) createSummary(X_test)
     else throw new Exception("Unsupported data set type!")
