@@ -17,11 +17,9 @@ class CSVReader(path: String, separator: Char, columnIndexClass: Int) extends Fi
     * Reads a csv data set with the given separator and returns the data matrix and the reponse vector.
     * @return (X,Y) A tuple with the input matrix and the response vector.
     */
-  def read(): (DenseMatrix[Double], DenseVector[Int]) ={
-
+  def read(): (DenseMatrix[Double], DenseVector[Int]) = {
     var maxColumns = 0
     var numLines = 0
-
     try {
       //First, check the number of lines and columns of the data set
       val bufferedSource: BufferedSource = scala.io.Source.fromFile(path)
@@ -34,12 +32,9 @@ class CSVReader(path: String, separator: Char, columnIndexClass: Int) extends Fi
     }catch {
       case e: IOException => { e.printStackTrace(); e.toString }
     }
-
     println("The input file " + path + " has "+ numLines +" lines and "+ maxColumns +" columns.")
-
     val X: DenseMatrix[Double] = DenseMatrix.zeros[Double](numLines, maxColumns - 1)
     val Y: DenseVector[Int] = DenseVector.zeros[Int](numLines)
-
     //Second, read in the whole data set and store the data into separate matrices
     try {
       val bufferedSource2: BufferedSource = scala.io.Source.fromFile(path)
@@ -61,7 +56,6 @@ class CSVReader(path: String, separator: Char, columnIndexClass: Int) extends Fi
     catch {
       case e: IOException => { e.printStackTrace(); e.toString }
     }
-
     (X,Y)
   }
 }

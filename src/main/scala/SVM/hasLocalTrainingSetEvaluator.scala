@@ -17,12 +17,10 @@ trait hasLocalTrainingSetEvaluator extends Algorithm{
     val z = kmf.z.map(x=>x.toDouble)
     assert(K.cols>0, "The number of columns of K is zero.")
     assert(K.rows>0, "The number of rows of K is zero.")
-
 		val A : DenseVector[Double] = alphas.alpha *:* z
     assert(A!=null && K!=null, "One of the input matrices is undefined!")
     assert(A.length>0, "The number of elements of A is zero.")
     assert(A.length==K.rows,"The number of elements of A does not equal the number of rows of S!")
-
     val maxPrintIndex = min(alphas.alpha.length, 10)
     if (ap.isDebug) {
       println("alphas:" + alphas.alpha(0 until maxPrintIndex))

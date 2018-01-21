@@ -27,7 +27,7 @@ object TestKernelMatrixWithoutSpark extends App {
 	println(kernelPar)
 	val gaussianKernel = GaussianKernel(kernelPar)
 	println(gaussianKernel)
-	val N = 200000
+	val N = 100000
   Utility.testJVMArgs(N/2)
 	val dataProperties = DataParams(N = N, d = 10)
 	println(dataProperties)

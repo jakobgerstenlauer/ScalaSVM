@@ -7,9 +7,7 @@ abstract class KernelParameter{
 }
 
 case class GaussianKernelParameter(sigma: Double) extends KernelParameter{
-	override def toString : String = {
-        	"Gaussian kernel parameter sigma "+sigma+". \n"
-	}
+	override def toString : String = "Gaussian kernel parameter sigma "+sigma+". \n"
 }
 
 abstract class KernelFunction{
@@ -19,6 +17,7 @@ abstract class KernelFunction{
 }
 
 case class GaussianKernel(kernelParam : GaussianKernelParameter) extends KernelFunction{
+
 	def kernel(x: DenseVector[Double], y: DenseVector[Double]) : Double ={
 		assert(x.length == y.length, "Incompatible vectors x and y in rbf() function!")
 		assert(kernelParam.sigma>0.0, "Sigma must be positive!")
@@ -27,6 +26,7 @@ case class GaussianKernel(kernelParam : GaussianKernelParameter) extends KernelF
 		val squared_euclidean_distance = sum(squares)
 		exp( -kernelParam.sigma * squared_euclidean_distance)
 	}
+
 	override def toString : String = {
 		val sb = new StringBuilder
 		sb.append("Gaussian kernel: \n")

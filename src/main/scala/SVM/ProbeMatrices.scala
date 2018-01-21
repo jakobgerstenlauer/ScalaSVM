@@ -28,7 +28,7 @@ case class ProbeMatrices(d: Data, kf: KernelFunction){
     val N = d.getN_Train
     var size2 : Int = N //the diagonal elements are non-sparse!
     //only iterate over the upper diagonal matrix
-    for (i <- 0 until N; j <- (i+1) until N if(kf.kernel(d.getRowTrain(i), d.getRowTrain(j)) > epsilon)){
+    for (i <- 0 until N; j <- (i+1) until N if(kf.kernel(d.getRow(Train,i), d.getRow(Train,j)) > epsilon)){
       size2 = size2 + 2
     }
     size2
@@ -45,12 +45,12 @@ case class ProbeMatrices(d: Data, kf: KernelFunction){
     val N_test = d.getN_Validation
     //only iterate over the upper diagonal matrix
     for (i <- 0 until N_test; j <- (i+1) until N_train
-         if(kf.kernel(d.getRowValidation(i), d.getRowTrain(j)) > epsilon)){
+         if(kf.kernel(d.getRow(Validation,i), d.getRow(Train,j)) > epsilon)){
       size2 = size2 + 2
     }
     //iterate over the diagonal
     for (i <- 0 until max(N_test,N_train)
-         if(kf.kernel(d.getRowValidation(i), d.getRowTrain(i)) > epsilon)){
+         if(kf.kernel(d.getRow(Validation,i), d.getRow(Train,i)) > epsilon)){
       size2 = size2 + 1
     }
     size2

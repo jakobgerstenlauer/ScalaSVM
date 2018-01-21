@@ -2,6 +2,7 @@ package SVM
 
 import breeze.linalg._
 import breeze.numerics.signum
+import SVM.DataSetType.{Test, Train, Validation}
 
 abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) extends MatrixFactory {
 
@@ -29,7 +30,7 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
     val N = d.getN_Train
     val v = DenseVector.fill(N){-1.0}
     for (i <- 0 until N; j <- 0 until N){
-      v(i) += alphas(j) * d.getLabelTrain(i) * d.getLabelTrain(j) * kf.kernel(d.getRowTrain(i), d.getRowTrain(j))
+      v(i) += alphas(j) * d.getLabel(Train,i) * d.getLabel(Train,j) * kf.kernel(d.getRow(Train,i), d.getRow(Train,j))
     }
     v
   }
@@ -38,17 +39,17 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
     val N = d.getN_Train
     val v = DenseVector.fill(N){-1.0}
     for (i <- 0 until N; j <- 0 until N){
-      v(i) += alphas(j) * d.getLabelTrain(j) * kf.kernel(d.getRowTrain(i), d.getRowTrain(j))
+      v(i) += alphas(j) * d.getLabel(Train,j) * kf.kernel(d.getRow(Train,i), d.getRow(Train,j))
     }
     signum(v)
   }
 
-  def predictOnTestSet(alphas : DenseVector[Double]) : DenseVector[Double]  = {
+  def predictOnValidationSet (alphas : DenseVector[Double]) : DenseVector[Double]  = {
     val N_train = d.getN_Train
     val N_test = d.getN_Validation
     val v = DenseVector.fill(N_test){-1.0}
     for (i <- 0 until N_test; j <- 0 until N_train){
-      v(i) += alphas(j) * d.getLabelTrain(j) * kf.kernel(d.getRowTrain(j), d.getRowValidation(i))
+      v(i) += alphas(j) * d.getLabel(Train,j) * kf.kernel(d.getRow(Train,j), d.getRow(Validation,i))
     }
     signum(v)
   }

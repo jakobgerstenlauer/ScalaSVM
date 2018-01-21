@@ -2,6 +2,7 @@ package SVM
 
 import breeze.linalg.{DenseVector, _}
 import org.apache.spark.SparkContext
+import SVM.DataSetType.{Test, Train, Validation}
 case class AllMatrixElementsZeroException(message:String) extends Exception(message)
 case class EmptyRowException(message:String) extends Exception(message)
 
@@ -98,8 +99,8 @@ case class SGLocal(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LocalKe
   with hasLocalTrainingSetEvaluator with hasLocalTestSetEvaluator with hasGradientDescent {
 
   def iterate: SGLocal = {
-    val (correct, misclassified) = calculateAccuracy(evaluateOnTrainingSet(alphas, ap, kmf), kmf.getData().getLabelsTrain)
-    val (correctT, misclassifiedT) = calculateAccuracy(evaluateOnTestSet(alphas, ap, kmf), kmf.getData().getLabelsValidation)
+    val (correct, misclassified) = calculateAccuracy(evaluateOnTrainingSet(alphas, ap, kmf), kmf.getData().getLabels(Train))
+    val (correctT, misclassifiedT) = calculateAccuracy(evaluateOnTestSet(alphas, ap, kmf), kmf.getData().getLabels(Validation))
     println(createLog(correct, misclassified, correctT, misclassifiedT, alphas))
     assert(getSparsity < 99.0)
     //Decrease the step size, i.e. learning rate:
@@ -136,8 +137,8 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
 	val matOps : DistributedMatrixOps = new DistributedMatrixOps(sc)
 
 	def iterate: SG = {
-    val (correct, misclassified) = calculateAccuracy(evaluateOnTrainingSet(alphas, ap, kmf, matOps), kmf.getData().getLabelsTrain)
-    val (correctT, misclassifiedT) = calculateAccuracy(evaluateOnTestSet(alphas, ap, kmf, matOps), kmf.getData().getLabelsValidation)
+    val (correct, misclassified) = calculateAccuracy(evaluateOnTrainingSet(alphas, ap, kmf, matOps), kmf.getData().getLabels(Train))
+    val (correctT, misclassifiedT) = calculateAccuracy(evaluateOnTestSet(alphas, ap, kmf, matOps), kmf.getData().getLabels(Validation))
     println(createLog(correct, misclassified, correctT, misclassifiedT, alphas))
     assert(getSparsity < 99.0)
     //Decrease the step size, i.e. learning rate:

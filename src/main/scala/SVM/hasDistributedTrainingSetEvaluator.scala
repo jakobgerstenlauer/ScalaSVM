@@ -14,7 +14,6 @@ trait hasDistributedTrainingSetEvaluator extends Algorithm{
     * matOps: A matrix operations object
     ***/
   def evaluateOnTrainingSet(alphas: Alphas, ap: AlgoParams, kmf: KernelMatrixFactory, matOps: DistributedMatrixOps):DenseVector[Double]= {
-
     //Get the distributed kernel matrix for the test set:
     val K : CoordinateMatrix = kmf.K
     val z = kmf.z.map(x=>x.toDouble)
@@ -42,13 +41,11 @@ trait hasDistributedTrainingSetEvaluator extends Algorithm{
       println("A:")
       A.entries.collect().foreach({ case MatrixEntry(row, column, value) => println("i: "+row+"j: "+column+": "+value)})
     }
-
     val P = matOps.coordinateMatrixMultiply(A, K)
     if(ap.isDebug){
       println("predictions:")
       P.entries.collect().foreach({ case MatrixEntry(row, column, value) => println("i: "+row+"j: "+column+": "+value)})
     }
-
     //Return the predictions
     signum(matOps.collectRowVector(P))
   }

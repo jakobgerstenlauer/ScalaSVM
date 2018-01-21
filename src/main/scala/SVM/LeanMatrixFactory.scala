@@ -9,7 +9,7 @@ import scala.concurrent.{Await, Future, Promise}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success}
-import scala.util.Random
+import SVM.DataSetType.{Test, Train, Validation}
 
 case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) extends BaseMatrixFactory(d, kf, epsilon){
 
@@ -25,7 +25,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val N = d.getN_Train
     val diagonal = DenseVector.zeros[Double](N)
     for (i <- 0 until N){
-      diagonal(i) = kf.kernel(d.getRowTrain(i), d.getRowTrain(i))
+      diagonal(i) = kf.kernel(d.getRow(Train,i), d.getRow(Train,i))
     }
     diagonal
   }
@@ -53,39 +53,6 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     */
   val rowColumnPairsTest : Future[MultiMap[Integer, Integer]] = initializeRowColumnPairsValidation4Threads()
 
-  /* /**
-     * Parallel version that works on stream.
-     * Is not used because the performance is not better and synchronization issues are not solved.
-     * @return
-     */
-   def initializeRowColumnPairs2(): MultiMap[Integer , Integer] = {
-     //FIXME: This MultiMap implementation is build on top of HashMap which is probably not threadsafe!
-     val mmap: MultiMap[Integer, Integer] = new HashMap[Integer, MSet[Integer]] with MultiMap[Integer, Integer]
-
-     val N = d.getN_train
-     //val NumElements = N*N
-
-    //add the diagonal by default without calculating the kernel function
-     for (i <- 0 until N){
-       mmap.addBinding(i,i)
-     }
-
-     val localFunction = (ind: Indices) => {
-       mmap.addBinding(ind.i, ind.j)
-       mmap.addBinding(ind.j, ind.i)
-     }
-
-     val filteredParallelStream =
-     MatrixIndexStream.getMatrixIndexStream(N)
-       .par
-       .filter(x => kf.kernel(d.getRowTrain(x.i), d.getRowTrain(x.j)) > epsilon)
-       //.map(x => localFunction(x))
-
-
-     filteredParallelStream.toArray.foreach(localFunction)
-     mmap
-   }*/
-
   /**
     *
     * @param isCountingSparsity Should the sparsity of the matrix representation be assessed? Involves some overhead.
@@ -99,7 +66,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val maxIterations : Int = (N * N - N) / 2
     println("Number of iterations: "+ maxIterations)
     //only iterate over the upper diagonal matrix
-    for (i <- 0 until N; j <- (i+1) until N; if(kf.kernel(d.getRowTrain(i), d.getRowTrain(j)) > epsilon)){
+    for (i <- 0 until N; j <- (i+1) until N; if(kf.kernel(d.getRow(Train,i), d.getRow(Train,j)) > epsilon)){
       addBindings(map, i, j)
       if(isCountingSparsity) size2 = size2 + 2
     }
@@ -116,7 +83,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
       val map = new HashMap[Integer, MSet[Integer]] with MultiMap[Integer, Integer]
       //iterate over all combinations
       for (i <- Nstart_train until Nstop_train; j <- Nstart_test until Nstop_test
-           if(kf.kernel(d.getRowTrain(i), d.getRowValidation(j)) > epsilon)){
+           if(kf.kernel(d.getRow(Train,i), d.getRow(Validation,j)) > epsilon)){
         addBinding (map, i, j)
       }
       promise.success(map)
@@ -129,7 +96,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     Future{
       val map = new HashMap[Integer, MSet[Integer]] with MultiMap[Integer, Integer]
       //only iterate over the upper diagonal matrix
-      for (i <- Nstart until N; j <- (i+1) until N; if(kf.kernel(d.getRowTrain(i), d.getRowTrain(j)) > epsilon)){
+      for (i <- Nstart until N; j <- (i+1) until N; if(kf.kernel(d.getRow(Train,i), d.getRow(Train,j)) > epsilon)){
         addBindings(map, i, j)
       }
       promise.success(map)
@@ -254,7 +221,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val N_test = d.getN_Validation
     //iterate over all combinations
     for (i <- 0 until N_train; j <- 0 until N_test
-         if(kf.kernel(d.getRowTrain(i), d.getRowValidation(j)) > epsilon)){
+         if(kf.kernel(d.getRow(Train,i), d.getRow(Validation,j)) > epsilon)){
       addBinding (map, i, j)
       if(isCountingSparsity) size2 = size2 + 1
     }
@@ -337,13 +304,13 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   override def calculateGradient(alphas : DenseVector[Double]) : DenseVector[Double]  = {
     val hashMap = Await.result(rowColumnPairs, Duration(60,"minutes"))
     val N = d.getN_Train
-    val labels: DenseVector[Double] = d.getLabelsTrain.map(x=>x.toDouble)
+    val labels: DenseVector[Double] = d.getLabels(Train).map(x=>x.toDouble)
     val z: DenseVector[Double] = alphas *:* labels
     //for the diagonal:
     val v : DenseVector[Double] = z  *:* diagonal *:* labels
     //for the off-diagonal entries:
-    for (i <- 0 until N; labelTrain = d.getLabelTrain(i); rowTrain_i = d.getRowTrain(i); setOfCols <- hashMap.get(i); j<- setOfCols){
-      v(i) += z(j.toInt) * labelTrain * kf.kernel(rowTrain_i, d.getRowTrain(j))
+    for (i <- 0 until N; labelTrain = d.getLabel(Train,i); rowTrain_i = d.getRow(Train,i); setOfCols <- hashMap.get(i); j<- setOfCols){
+      v(i) += z(j.toInt) * labelTrain * kf.kernel(rowTrain_i, d.getRow(Train,j))
     }
     v
   }
@@ -351,24 +318,24 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   override def predictOnTrainingSet(alphas : DenseVector[Double]) : DenseVector[Double]  = {
     val hashMap = Await.result(rowColumnPairs, Duration(60,"minutes"))
     val N = d.getN_Train
-    val z : DenseVector[Double] = alphas *:* d.getLabelsTrain.map(x=>x.toDouble)
+    val z : DenseVector[Double] = alphas *:* d.getLabels(Train).map(x=>x.toDouble)
     //for the diagonal:
     val v : DenseVector[Double] = z *:* diagonal
     //for the off-diagonal entries:
-    for (i <- 0 until N; rowTrain_i = d.getRowTrain(i); setOfCols <- hashMap.get(i); j<- setOfCols){
-      v(i) += z(j.toInt) * kf.kernel(rowTrain_i, d.getRowTrain(j))
+    for (i <- 0 until N; rowTrain_i = d.getRow(Train,i); setOfCols <- hashMap.get(i); j<- setOfCols){
+      v(i) += z(j.toInt) * kf.kernel(rowTrain_i, d.getRow(Train,j))
     }
     signum(v)
   }
 
-  override def predictOnTestSet(alphas : DenseVector[Double]) : DenseVector[Double]  = {
+  override def predictOnValidationSet (alphas : DenseVector[Double]) : DenseVector[Double]  = {
     val hashMap = Await.result(rowColumnPairsTest, Duration(60,"minutes"))
     val N_test = d.getN_Validation
     val v = DenseVector.fill(N_test){0.0}
-    val z : DenseVector[Double] = alphas *:* d.getLabelsTrain.map(x=>x.toDouble)
+    val z : DenseVector[Double] = alphas *:* d.getLabels(Train).map(x=>x.toDouble)
     //logClassDistribution(z)
     for ((i,set) <- hashMap; j <- set){
-      v(j.toInt) = v(j.toInt) + z(i.toInt) * kf.kernel(d.getRowValidation(j), d.getRowTrain(i))
+      v(j.toInt) = v(j.toInt) + z(i.toInt) * kf.kernel(d.getRow(Validation,j), d.getRow(Train,i))
     }
     //logClassDistribution(v)
     signum(v)
@@ -386,7 +353,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val V = DenseMatrix.zeros[Double](maxQuantile,N_validation)
     val Z = DenseMatrix.zeros[Double](maxQuantile,N_train)
     //println("Dimensions of the Z matrix: " +Z.rows + "rows X "+ Z.cols + "columns")
-    val labels = d.getLabelsTrain.map(x=>x.toDouble)
+    val labels = d.getLabels(Train).map(x=>x.toDouble)
     //println("Length labels train: " +labels.length)
     //println("Length alphas: " + alphas.alpha.length)
 
@@ -407,7 +374,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val hashMapTest = Await.result(rowColumnPairsTest, Duration(60,"minutes"))
 
     println("Calculate predictions")
-    for ((i,set) <- hashMapTest; j <- set; valueKernelFunction = kf.kernel(d.getRowValidation(j), d.getRowTrain(i))){
+    for ((i,set) <- hashMapTest; j <- set; valueKernelFunction = kf.kernel(d.getRow(Validation,j), d.getRow(Train,i))){
       V(0 until maxQuantile,j.toInt) := V(0 until maxQuantile,j.toInt) + Z(0 until maxQuantile,i.toInt) * valueKernelFunction
     }
 
@@ -416,7 +383,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     var bestCase = 0
     var bestQuantile = 0
     for(q <- 0 until maxQuantile) {
-      val correctPredictions = calcCorrectPredictions(V(q, ::).t, d.getLabelsValidation)
+      val correctPredictions = calcCorrectPredictions(V(q, ::).t, d.getLabels(Validation))
       if(correctPredictions >= bestCase){
         bestCase = correctPredictions
         bestQuantile = q
@@ -436,6 +403,3 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     println("In vector with length: "+z.length+" there are: "+positiveEntries+" positive and: "+negativeEntries+" negative entries!")
   }
 }
-
-
-
