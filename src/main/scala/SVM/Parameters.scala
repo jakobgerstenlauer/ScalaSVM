@@ -11,7 +11,7 @@ abstract class Parameters
   * @param isDebug Should the algorithm be verbose?
   * @param quantileAlphaClipping Setting sparsity lower quantile of alphas to zero in each iteration. Can be tuned to enforce stronger sparsity.
   */
-case class AlgoParams(maxIter: Int = 100, minDeltaAlpha: Double = 1000 * Double.MinValue, learningRateDecline: Double = 0.95, batchProb: Double = 0.7, epsilon : Double = 0.0001, isDebug: Boolean = false, quantileAlphaClipping: Double = 0.0) extends Parameters{
+case class AlgoParams(maxIter: Int = 100, minDeltaAlpha: Double = 0.0001, learningRateDecline: Double = 0.95, batchProb: Double = 0.7, epsilon : Double = 0.0001, isDebug: Boolean = false, quantileAlphaClipping: Double = 0.0) extends Parameters{
   assert(quantileAlphaClipping>=0 && quantileAlphaClipping<=0.99)
   assert(batchProb>0.0 && batchProb<1.0)
   assert(learningRateDecline <= 1.0 && learningRateDecline > 0.0)

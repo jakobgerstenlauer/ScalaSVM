@@ -48,7 +48,7 @@ object testKernelMatrixWithoutSpark extends App {
 	//val probeMatrices = ProbeMatrices(d, gaussianKernel)
 
 	//Number of non-sparse matrix elements with epsilon = 0.001:
-	val epsilon = 0.0001
+	val epsilon = 0.001
 	//val numElementsS =  probeMatrices.probeSparsity(Test, 0.001)
 	//val numElementsK =  probeMatrices.probeSparsity(Train, 0.001)
   //println("Projected memory requirements for epsilon ="+epsilon+":")

@@ -66,9 +66,9 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
     println("Run gradient descent.")
     //Update the alphas using gradient descent
     val algo = gradientDescent(alphas, ap, ump, kmf)
-    println("Cross validate sparsity.")
+    println("Cross-validate sparsity.")
     val (optimQuantile, correctPredictions) = kmf.predictOnTestSet(algo.alphas)
-    println("Nr of correct predictions for test set: "+correctPredictions +" with sparsity: "+ optimQuantile)
+    println("Nr of correct predictions for test set: "+correctPredictions +"/"+ kmf.getData().getN_test+" with sparsity: "+ optimQuantile)
     algo.copy(alphas= algo.alphas.clipAlphas(0.01 * optimQuantile))
   }
 

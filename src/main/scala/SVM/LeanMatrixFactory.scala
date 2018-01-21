@@ -92,7 +92,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     * @return
     */
   def initializeRowColumnPairs(isCountingSparsity: Boolean): MultiMap[Integer, Integer] = {
-    println("Preparing the hash map for the training set.")
+    //println("Preparing the hash map for the training set.")
     val map: MultiMap[Integer, Integer] = new HashMap[Integer, MSet[Integer]] with MultiMap[Integer, Integer]
     val N = d.getN_train
     var size2 : Int = N
@@ -111,7 +111,6 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   }
 
   def initializeRowColumnPairsTest(Nstart_train: Int, Nstart_test: Int, Nstop_train: Int, Nstop_test: Int): Future[MultiMap[Integer, Integer]] = {
-    println("Preparing the hash map for the training set.")
     val promise = Promise[MultiMap[Integer, Integer]]
     Future{
       val map = new HashMap[Integer, MSet[Integer]] with MultiMap[Integer, Integer]
@@ -126,7 +125,6 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   }
 
   def initializeRowColumnPairs(Nstart: Int, N: Int): Future[MultiMap[Integer, Integer]] = {
-    println("Preparing the hash map for the training set.")
     val promise = Promise[MultiMap[Integer, Integer]]
     Future{
       val map = new HashMap[Integer, MSet[Integer]] with MultiMap[Integer, Integer]
@@ -313,9 +311,6 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
       case Success(mergedHashMap) => promise.success(mergedHashMap); hasHashMapTest = true
       case Failure(t) => println("An error when creating the hash map for the test set: " + t.getMessage)
     }
-/*    val result = Await.result(map, Duration(10,"minutes"))
-    println("Successfully merged hash maps for the test set!")
-    result*/
     promise.future
   }
 
@@ -351,24 +346,6 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
       v(i) += z(j.toInt) * labelTrain * kf.kernel(rowTrain_i, d.getRowTrain(j))
     }
     return v
-
-    /*rowColumnPairs.onComplete({
-      case Success(rowColumnPairs) => {
-        val N = d.getN_train
-        val labels: DenseVector[Double] = d.getLabelsTrain.map(x=>x.toDouble)
-        val z: DenseVector[Double] = alphas *:* labels
-        //for the diagonal:
-        val v : DenseVector[Double] = z  *:* diagonal *:* labels
-        //for the off-diagonal entries:
-        for (i <- 0 until N; labelTrain = d.getLabelTrain(i); rowTrain_i = d.getRowTrain(i); setOfCols <- rowColumnPairs.get(i); j<- setOfCols){
-          v(i) += z(j.toInt) * labelTrain * kf.kernel(rowTrain_i, d.getRowTrain(j))
-        }
-        return v
-      }
-      case Failure(exception) => {
-        //Do something with my error
-      }
-    })*/
   }
 
   override def predictOnTrainingSet(alphas : DenseVector[Double]) : DenseVector[Double]  = {
@@ -404,21 +381,20 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     */
   def predictOnTestSet(alphas : Alphas) : (Int,Int)  = {
     val N_test = d.getN_test
+    val N_train = d.getN_train
     val maxQuantile = 40
     val V = DenseMatrix.zeros[Double](maxQuantile,N_test)
-    val Z = DenseMatrix.zeros[Double](maxQuantile,N_test)
+    val Z = DenseMatrix.zeros[Double](maxQuantile,N_train)
+    //println("Dimensions of the Z matrix: " +Z.rows + "rows X "+ Z.cols + "columns")
     val labels = d.getLabelsTrain.map(x=>x.toDouble)
+    //println("Length labels train: " +labels.length)
+    //println("Length alphas: " + alphas.alpha.length)
 
     println("Calculate Z matrix")
     val qu = DenseVector.ones[Double](maxQuantile)
     for(q <- 0 until maxQuantile; quantile : Double = 0.01 * q) {
       qu(q)= alphas.getQuantile(quantile)
     }
-
-    //println("The quantiles: "+qu)
-    //val ZZ = clip(Z(*,::), qu, 10000.0)
-    //Z(*, ::) := clip(Z(*,::), 0.0, 1.0)
-    //alphas.alpha.clip(a, lower, upper)
 
     def clip(vector : DenseVector[Double], threshold: Double) : DenseVector[Double] = {
       vector.map(x => if (x < threshold) 0 else x)
@@ -427,8 +403,6 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     for(q <- 0 until maxQuantile; quantile : Double = 0.01 * q) {
       Z(q, ::) := (clip(alphas.alpha, qu(q))  *:* labels).t
     }
-
-    //Z(0 until maxQuantile, ::) := Z(0 until maxQuantile, ::).t *:* labels
 
     val hashMapTest = Await.result(rowColumnPairsTest, Duration(60,"minutes"))
 
