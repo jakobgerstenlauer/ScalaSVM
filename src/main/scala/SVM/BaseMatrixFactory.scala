@@ -45,10 +45,10 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
 
   def predictOnTestSet(alphas : DenseVector[Double]) : DenseVector[Double]  = {
     val N_train = d.getN_train
-    val N_test = d.getN_test
+    val N_test = d.getN_Validation
     val v = DenseVector.fill(N_test){-1.0}
     for (i <- 0 until N_test; j <- 0 until N_train){
-      v(i) += alphas(j) * d.getLabelTrain(j) * kf.kernel(d.getRowTrain(j), d.getRowTest(i))
+      v(i) += alphas(j) * d.getLabelTrain(j) * kf.kernel(d.getRowTrain(j), d.getRowValidation(i))
     }
     signum(v)
   }

@@ -29,8 +29,8 @@ object Utility {
     for (arg <- listOfArguments){
       val matchingArgument : Option[String] = integerCacheMax findFirstIn arg
       if(matchingArgument.isDefined){
-        println("The argument IntegerCache.high is defined as "+ matchingArgument.get.toString())
-        val valueMaxInt : Int = (cache findFirstIn matchingArgument.get).get.toString().toInt
+        println("The argument IntegerCache.high is defined as "+ matchingArgument.get.toString)
+        val valueMaxInt : Int = (cache findFirstIn matchingArgument.get).get.toString.toInt
         if(valueMaxInt < intMax) println("Warning!!! The argument IntegerCache.high should be increased to: "+ intMax +" to decrease memory.")
       }
     }

@@ -1,13 +1,5 @@
 package test
-import java.util
-
 import SVM._
-import scala.collection.JavaConverters._
-import scala.util.matching.Regex
-// import what we need
-import java.lang.management.ManagementFactory
-import java.lang.management.RuntimeMXBean
-import SVM.DataSetType.{Test, Train}
 
 //Important flags for the Java virtual machine:
 //Force the JVM to cache Integers up to dimensionality of K and S:
@@ -16,7 +8,7 @@ import SVM.DataSetType.{Test, Train}
 // and memory footprint is significantly reduced! (Flyweight pattern)
 //All flags:
 //-server -XX:+UseConcMarkSweepGC -XX:+CMSIncrementalMode -XX:+CMSIncrementalPacing -XX:CMSIncrementalDutyCycleMin=0 -XX:CMSIncrementalDutyCycle=10 -XX:+UseCMSInitiatingOccupancyOnly - -XX:ThreadStackSize=300 -XX:MaxTenuringThreshold=0 -XX:SurvivorRatio=128 -XX:+UseTLAB -XX:+PrintGCDetails -Xms12288M  -Xmx12288M  -XX:NewSize=3072M  -XX:MaxNewSize=3072M -XX:ParallelGCThreads=4 -Djava.lang.Integer.IntegerCache.high=1000000 -verbose:gc -Xloggc:"/home/jakob/Documents/UPC/master_thesis/jvm/logs"
-object testKernelMatrixWithoutSpark extends App {
+object TestKernelMatrixWithoutSpark extends App {
   /*** Measures the processing time of a given Scala command.
     * Source: http://biercoff.com/easily-measuring-code-execution-time-in-scala/
     * @param block The code block to execute.
@@ -37,7 +29,7 @@ object testKernelMatrixWithoutSpark extends App {
 	println(gaussianKernel)
 	val N = 200000
   Utility.testJVMArgs(N/2)
-	val dataProperties = DataParams(N = N, d = 10, ratioTrain = 0.5)
+	val dataProperties = DataParams(N = N, d = 10)
 	println(dataProperties)
 	val d = new SimData(dataProperties)
 	println(d)
@@ -63,11 +55,11 @@ object testKernelMatrixWithoutSpark extends App {
 //  println("Num elements rowColumnPairsParallel: " + lmf.rowColumnPairsParallel.size)
 	val mp = ModelParams(C = 0.5, delta = 0.05)
 	val alphas = new Alphas(N=N/2, mp)
-	val ap = AlgoParams(maxIter = 30, batchProb = 0.8, minDeltaAlpha = 0.0001, learningRateDecline = 0.5, epsilon = epsilon, isDebug = false, quantileAlphaClipping=0.03)
-	var algo = new NoMatrices(alphas, ap, mp, lmf)
+	val ap = AlgoParams(maxIter = 30, batchProb = 0.8, learningRateDecline = 0.5, epsilon = epsilon, quantileAlphaClipping=0.03)
+	var algo = NoMatrices(alphas, ap, mp, lmf)
 	var numInt = 0
-  while(numInt < ap.maxIter && algo.getSparsity() < 99.0){
-		algo = algo.iterate()
+  while(numInt < ap.maxIter && algo.getSparsity < 99.0){
+		algo = algo.iterate
 		numInt += 1
 	}
  /* Synthetic dataset with 10 variables.

@@ -45,46 +45,46 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     * key: row index of matrix K
     * value: set of non-sparse column indices of matrix K
     */
-  val rowColumnPairs : Future[MultiMap[Integer, Integer]] = initializeRowColumnPairs4Threads();
+  val rowColumnPairs : Future[MultiMap[Integer, Integer]] = initializeRowColumnPairs4Threads()
 
   /**
-    * key: row index of matrix S (index of test instance)
+    * key: row index of matrix S (index of validation instance)
     * value: set of non-sparse column indices of matrix S (index of trainings instance)
     */
-  val rowColumnPairsTest : Future[MultiMap[Integer, Integer]] = initializeRowColumnPairsTest4Threads();
+  val rowColumnPairsTest : Future[MultiMap[Integer, Integer]] = initializeRowColumnPairsValidation4Threads()
 
- /* /**
-    * Parallel version that works on stream.
-    * Is not used because the performance is not better and synchronization issues are not solved.
-    * @return
-    */
-  def initializeRowColumnPairs2(): MultiMap[Integer , Integer] = {
-    //FIXME: This MultiMap implementation is build on top of HashMap which is probably not threadsafe!
-    val mmap: MultiMap[Integer, Integer] = new HashMap[Integer, MSet[Integer]] with MultiMap[Integer, Integer]
+  /* /**
+     * Parallel version that works on stream.
+     * Is not used because the performance is not better and synchronization issues are not solved.
+     * @return
+     */
+   def initializeRowColumnPairs2(): MultiMap[Integer , Integer] = {
+     //FIXME: This MultiMap implementation is build on top of HashMap which is probably not threadsafe!
+     val mmap: MultiMap[Integer, Integer] = new HashMap[Integer, MSet[Integer]] with MultiMap[Integer, Integer]
 
-    val N = d.getN_train
-    //val NumElements = N*N
+     val N = d.getN_train
+     //val NumElements = N*N
 
-   //add the diagonal by default without calculating the kernel function
-    for (i <- 0 until N){
-      mmap.addBinding(i,i)
-    }
+    //add the diagonal by default without calculating the kernel function
+     for (i <- 0 until N){
+       mmap.addBinding(i,i)
+     }
 
-    val localFunction = (ind: Indices) => {
-      mmap.addBinding(ind.i, ind.j)
-      mmap.addBinding(ind.j, ind.i)
-    }
+     val localFunction = (ind: Indices) => {
+       mmap.addBinding(ind.i, ind.j)
+       mmap.addBinding(ind.j, ind.i)
+     }
 
-    val filteredParallelStream =
-    MatrixIndexStream.getMatrixIndexStream(N)
-      .par
-      .filter(x => kf.kernel(d.getRowTrain(x.i), d.getRowTrain(x.j)) > epsilon)
-      //.map(x => localFunction(x))
+     val filteredParallelStream =
+     MatrixIndexStream.getMatrixIndexStream(N)
+       .par
+       .filter(x => kf.kernel(d.getRowTrain(x.i), d.getRowTrain(x.j)) > epsilon)
+       //.map(x => localFunction(x))
 
 
-    filteredParallelStream.toArray.foreach(localFunction)
-    mmap
-  }*/
+     filteredParallelStream.toArray.foreach(localFunction)
+     mmap
+   }*/
 
   /**
     *
@@ -110,13 +110,13 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     map
   }
 
-  def initializeRowColumnPairsTest(Nstart_train: Int, Nstart_test: Int, Nstop_train: Int, Nstop_test: Int): Future[MultiMap[Integer, Integer]] = {
+  def initializeRowColumnPairsValidation (Nstart_train: Int, Nstart_test: Int, Nstop_train: Int, Nstop_test: Int): Future[MultiMap[Integer, Integer]] = {
     val promise = Promise[MultiMap[Integer, Integer]]
     Future{
       val map = new HashMap[Integer, MSet[Integer]] with MultiMap[Integer, Integer]
       //iterate over all combinations
       for (i <- Nstart_train until Nstop_train; j <- Nstart_test until Nstop_test
-           if(kf.kernel(d.getRowTrain(i), d.getRowTest(j)) > epsilon)){
+           if(kf.kernel(d.getRowTrain(i), d.getRowValidation(j)) > epsilon)){
         addBinding (map, i, j)
       }
       promise.success(map)
@@ -240,21 +240,21 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
 
   /**
     * Prepares hash map for the training set.
-    * The hash map stores all elements Training Instance => Set(Test Instance) as Integer=>Set(Integer),
-    * where there is a strog enough (> epsilon) similarity between the training instance and a test instance.
+    * The hash map stores all elements Training Instance => Set(Validation Instance) as Integer=>Set(Integer),
+    * where there is a strog enough (> epsilon) similarity between the training instance and a validation set instance.
     *
     * @param isCountingSparsity
     * @return
     */
-  def initializeRowColumnPairsTest(isCountingSparsity: Boolean): MultiMap[Integer, Integer] = {
-    println("Preparing the hash map for the test set.")
+  def initializeRowColumnPairsValidation(isCountingSparsity: Boolean): MultiMap[Integer, Integer] = {
+    println("Preparing the hash map for the validation set.")
     val map: MultiMap[Integer, Integer] = new HashMap[Integer, MSet[Integer]] with MultiMap[Integer, Integer]
     var size2 : Int = 0
     val N_train = d.getN_train
-    val N_test = d.getN_test
+    val N_test = d.getN_Validation
     //iterate over all combinations
     for (i <- 0 until N_train; j <- 0 until N_test
-         if(kf.kernel(d.getRowTrain(i), d.getRowTest(j)) > epsilon)){
+         if(kf.kernel(d.getRowTrain(i), d.getRowValidation(j)) > epsilon)){
       addBinding (map, i, j)
       if(isCountingSparsity) size2 = size2 + 1
     }
@@ -265,29 +265,29 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     map
   }
 
-  def initializeRowColumnPairsTest4Threads(): Future[MultiMap[Integer, Integer]] = {
+  def initializeRowColumnPairsValidation4Threads (): Future[MultiMap[Integer, Integer]] = {
 
     val promise = Promise[MultiMap[Integer, Integer]]
 
-    println("Preparing the hash map for the test set.")
+    println("Preparing the hash map for the validation set.")
     val N_train = d.getN_train
-    val N_test = d.getN_test
+    val N_val = d.getN_Validation
 
     val N1_train: Int = math.round(0.5 * N_train).toInt
     val N2_train: Int = calculateOptMatrixDim(N_train, N1_train)
     val N3_train: Int = calculateOptMatrixDim(N_train, N2_train)
     val N4_train: Int = N_train
 
-    val N1_test: Int = math.round(0.5 * N_test).toInt
-    val N2_test: Int = calculateOptMatrixDim(N_test, N1_test)
-    val N3_test: Int = calculateOptMatrixDim(N_test, N2_test)
-    val N4_test: Int = N_test
+    val N1_val: Int = math.round(0.5 * N_val).toInt
+    val N2_val: Int = calculateOptMatrixDim(N_val, N1_val)
+    val N3_val: Int = calculateOptMatrixDim(N_val, N2_val)
+    val N4_val: Int = N_val
 
-    val N1_elements : BigInt = BigInt(N1_train) * BigInt(N1_test)
-    val N2_elements : BigInt = BigInt(N2_train) * BigInt(N2_test) - N1_elements
-    val N3_elements : BigInt = BigInt(N3_train) * BigInt(N3_test) - BigInt(N2_test) * BigInt(N2_train)
-    val numElements = BigInt(N_train) * BigInt(N_test)
-    val N4_elements : BigInt = numElements - BigInt(N3_train) * BigInt(N3_test)
+    val N1_elements : BigInt = BigInt(N1_train) * BigInt(N1_val)
+    val N2_elements : BigInt = BigInt(N2_train) * BigInt(N2_val) - N1_elements
+    val N3_elements : BigInt = BigInt(N3_train) * BigInt(N3_val) - BigInt(N2_val) * BigInt(N2_train)
+    val numElements = BigInt(N_train) * BigInt(N_val)
+    val N4_elements : BigInt = numElements - BigInt(N3_train) * BigInt(N3_val)
 
     println("The relative proportion [%] of matrix elements in submatrices is:")
     println("submatrix 1: " + BigInt(100) * N1_elements / numElements +" %")
@@ -295,10 +295,10 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     println("submatrix 3: " + BigInt(100) * N3_elements / numElements +" %")
     println("submatrix 4: " + BigInt(100) * N4_elements / numElements +" %")
 
-    val map1 = initializeRowColumnPairsTest(0, 0, N1_train, N1_test)
-    val map2 = initializeRowColumnPairsTest(N1_train, N1_test, N2_train, N2_test)
-    val map3 = initializeRowColumnPairsTest(N2_train, N2_test, N3_train, N3_test)
-    val map4 = initializeRowColumnPairsTest(N3_train, N3_test, N4_train, N4_test)
+    val map1 = initializeRowColumnPairsValidation(0, 0, N1_train, N1_val)
+    val map2 = initializeRowColumnPairsValidation(N1_train, N1_val, N2_train, N2_val)
+    val map3 = initializeRowColumnPairsValidation(N2_train, N2_val, N3_train, N3_val)
+    val map4 = initializeRowColumnPairsValidation(N3_train, N3_val, N4_train, N4_val)
 
    val map: Future[mutable.MultiMap[Integer, Integer]] = for {
       m1 <- map1
@@ -309,7 +309,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
 
     map onComplete {
       case Success(mergedHashMap) => promise.success(mergedHashMap); hasHashMapTest = true
-      case Failure(t) => println("An error when creating the hash map for the test set: " + t.getMessage)
+      case Failure(t) => println("An error when creating the hash map for the validation set: " + t.getMessage)
     }
     promise.future
   }
@@ -345,7 +345,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     for (i <- 0 until N; labelTrain = d.getLabelTrain(i); rowTrain_i = d.getRowTrain(i); setOfCols <- hashMap.get(i); j<- setOfCols){
       v(i) += z(j.toInt) * labelTrain * kf.kernel(rowTrain_i, d.getRowTrain(j))
     }
-    return v
+    v
   }
 
   override def predictOnTrainingSet(alphas : DenseVector[Double]) : DenseVector[Double]  = {
@@ -363,12 +363,12 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
 
   override def predictOnTestSet(alphas : DenseVector[Double]) : DenseVector[Double]  = {
     val hashMap = Await.result(rowColumnPairsTest, Duration(60,"minutes"))
-    val N_test = d.getN_test
+    val N_test = d.getN_Validation
     val v = DenseVector.fill(N_test){0.0}
     val z : DenseVector[Double] = alphas *:* d.getLabelsTrain.map(x=>x.toDouble)
     //logClassDistribution(z)
     for ((i,set) <- hashMap; j <- set){
-      v(j.toInt) = v(j.toInt) + z(i.toInt) * kf.kernel(d.getRowTest(j), d.getRowTrain(i))
+      v(j.toInt) = v(j.toInt) + z(i.toInt) * kf.kernel(d.getRowValidation(j), d.getRowTrain(i))
     }
     //logClassDistribution(v)
     signum(v)
@@ -379,11 +379,11 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     * @param alphas
     * @return Tuple (optimal sparsity, nr of correct predictions for this quantile):
     */
-  def predictOnTestSet(alphas : Alphas) : (Int,Int)  = {
-    val N_test = d.getN_test
+  def predictOnValidationSet (alphas : Alphas) : (Int,Int)  = {
+    val N_validation = d.getN_Validation
     val N_train = d.getN_train
     val maxQuantile = 40
-    val V = DenseMatrix.zeros[Double](maxQuantile,N_test)
+    val V = DenseMatrix.zeros[Double](maxQuantile,N_validation)
     val Z = DenseMatrix.zeros[Double](maxQuantile,N_train)
     //println("Dimensions of the Z matrix: " +Z.rows + "rows X "+ Z.cols + "columns")
     val labels = d.getLabelsTrain.map(x=>x.toDouble)
@@ -400,14 +400,14 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
       vector.map(x => if (x < threshold) 0 else x)
     }
 
-    for(q <- 0 until maxQuantile; quantile : Double = 0.01 * q) {
+    for(q <- 0 until maxQuantile) {
       Z(q, ::) := (clip(alphas.alpha, qu(q))  *:* labels).t
     }
 
     val hashMapTest = Await.result(rowColumnPairsTest, Duration(60,"minutes"))
 
     println("Calculate predictions")
-    for ((i,set) <- hashMapTest; j <- set; valueKernelFunction = kf.kernel(d.getRowTest(j), d.getRowTrain(i))){
+    for ((i,set) <- hashMapTest; j <- set; valueKernelFunction = kf.kernel(d.getRowValidation(j), d.getRowTrain(i))){
       V(0 until maxQuantile,j.toInt) := V(0 until maxQuantile,j.toInt) + Z(0 until maxQuantile,i.toInt) * valueKernelFunction
     }
 
@@ -416,7 +416,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     var bestCase = 0
     var bestQuantile = 0
     for(q <- 0 until maxQuantile) {
-      val correctPredictions = calcCorrectPredictions(V(q, ::).t, d.getLabelsTest)
+      val correctPredictions = calcCorrectPredictions(V(q, ::).t, d.getLabelsValidation)
       if(correctPredictions >= bestCase){
         bestCase = correctPredictions
         bestQuantile = q

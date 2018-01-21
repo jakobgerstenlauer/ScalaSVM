@@ -52,8 +52,8 @@ case class Alphas(N: Int,
     val x = (N+1) * quantile
     val rank_high : Int = min(Math.ceil(x).toInt,N)
     val rank_low : Int = max(Math.floor(x).toInt,1)
-    if(rank_high==rank_low) return (sortedAlphas(rank_high-1))
-    else return Alphas.mean(sortedAlphas(rank_high-1), sortedAlphas(rank_low-1))
+    if(rank_high==rank_low) (sortedAlphas(rank_high-1))
+    else Alphas.mean(sortedAlphas(rank_high-1), sortedAlphas(rank_low-1))
   }
 
   /**

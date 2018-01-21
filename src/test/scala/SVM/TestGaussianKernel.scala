@@ -6,7 +6,7 @@ import SVM.GaussianKernel
 import breeze.linalg._
 import breeze.numerics._
 
-object testKernel extends App {
+object TestGaussianKernel extends App {
 	val kernelPar = GaussianKernelParameter(1.5)
 	val gaussianKernel = GaussianKernel(kernelPar)
 	val length = 10

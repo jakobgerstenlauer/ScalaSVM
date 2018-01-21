@@ -3,7 +3,7 @@ import SVM.Alphas
 import breeze.linalg._
 import breeze.numerics._
 
-object testAlphas extends App {
+object TestAlphas extends App {
 	val N = 1000
 	val alpha : DenseVector[Double] = DenseVector.rand(N)
 	val alpha_old : DenseVector[Double] = DenseVector.fill(N){0.0}

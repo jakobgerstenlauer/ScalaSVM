@@ -2,7 +2,7 @@ package SVM
 
 object TestLocalData extends App {
 
-  val dataProperties = DataParams(N=19020, d=10, ratioTrain=0.5)
+  val dataProperties = DataParams(N=19020, d=10)
   println(dataProperties)
 
   val d = new LocalData()
@@ -13,6 +13,6 @@ object TestLocalData extends App {
   val pathTest = workingDir + "magic04test.csv"
 
   d.readTrainingDataSet (pathTrain, ',', 10)
-  d.readTestDataSet (pathTest, ',', 10)
+  d.readValidationDataSet (pathTest, ',', 10)
   println(d)
 }

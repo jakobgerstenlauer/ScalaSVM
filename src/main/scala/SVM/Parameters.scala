@@ -41,7 +41,7 @@ case class ModelParams(C: Double = 1.0, delta: Double = 0.5) extends Parameters 
 }
 
   /**
- * N: Number of observations in the artificial test set.
+ * N: Number of observations in the artificial data set.
  * d: The number of features (i.e. inputs, variables).
  * ratioTrain: The ratio of data used for the training set.
   */
@@ -57,20 +57,20 @@ case class DataParams(N: Int = 1000, d: Int = 5, ratioTrain: Double = 0.5) exten
   val N_train = Math.floor(N * ratioTrain).toInt
   
    /**
-   * Number of observations in the test set.  
+   * Number of observations in the validation set.
    */
-  val N_test = Math.floor(N * (1.0 - ratioTrain)).toInt
- 
-  assert(N == N_train + N_test)
+  val N_validation = Math.floor(N * (1.0 - ratioTrain)).toInt
+
+  assert(N == N_train + N_validation)
 
   override def toString : String = {
         val sb = new StringBuilder
         sb.append("Data parameters: \n")
         sb.append("Total number of observations: "+N+"\n")
         sb.append("Observations training set: " + N_train + "\n")
-        sb.append("Observations test set: " + N_test + "\n")
+        sb.append("Observations validation set: " + N_validation + "\n")
         sb.append("Number of features: " + d + "\n")
-        return sb.toString()
+        sb.toString()
   }
 }
 

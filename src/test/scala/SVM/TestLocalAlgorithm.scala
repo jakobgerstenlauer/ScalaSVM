@@ -10,7 +10,7 @@ object TestLocalAlgorithm extends App {
   val pathTest = workingDir + "magic04test.csv"
 
   d.readTrainingDataSet (pathTrain, ',', 11)
-  d.readTestDataSet (pathTest, ',', 11)
+  d.readValidationDataSet (pathTest, ',', 11)
   d.tableLabels()
 
   val epsilon = 0.0001
@@ -19,12 +19,12 @@ object TestLocalAlgorithm extends App {
   val kmf = LeanMatrixFactory(d, gaussianKernel, epsilon)
   val mp = ModelParams(C = 0.5, delta = 0.01)
   val alphas = new Alphas(N=d.N_train, mp)
-  val ap = AlgoParams(maxIter = 100, batchProb = 0.9, learningRateDecline = 0.5,
-    epsilon = epsilon, isDebug = false, quantileAlphaClipping = 0.0)
+  val ap = AlgoParams(batchProb = 0.9, learningRateDecline = 0.5,
+    epsilon = epsilon)
   var algo1 = NoMatrices(alphas, ap, mp, kmf)
   var numInt = 0
   while(numInt < ap.maxIter){
-    algo1 = algo1.iterate()
+    algo1 = algo1.iterate
     numInt += 1
   }
 }

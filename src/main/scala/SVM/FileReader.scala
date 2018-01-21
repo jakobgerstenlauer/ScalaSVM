@@ -32,7 +32,7 @@ class CSVReader(path: String, separator: Char, columnIndexClass: Int) extends Fi
       }
       bufferedSource.close
     }catch {
-      case e: IOException => { e.printStackTrace(); e.toString() }
+      case e: IOException => { e.printStackTrace(); e.toString }
     }
 
     println("The input file " + path + " has "+ numLines +" lines and "+ maxColumns +" columns.")
@@ -59,7 +59,7 @@ class CSVReader(path: String, separator: Char, columnIndexClass: Int) extends Fi
       bufferedSource2.close
     }
     catch {
-      case e: IOException => { e.printStackTrace(); e.toString() }
+      case e: IOException => { e.printStackTrace(); e.toString }
     }
 
     (X,Y)

@@ -1,5 +1,6 @@
 package SVM
 
+//TODO add type Test
 object DataSetType extends Enumeration{
-  val Test, Train, Validation = Value
+  val Validation, Train = Value
 }

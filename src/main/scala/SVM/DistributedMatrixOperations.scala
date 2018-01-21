@@ -35,7 +35,7 @@ class DistributedMatrixOps(sc: SparkContext){
   def collectColumnVector(m: CoordinateMatrix): DenseVector[Double] = {
     assert(m.numCols() == 1, "Coordinate matrix is empty or has more than one column!")
     val rows: Int = m.numRows().toInt
-    var v: DenseVector[Double] = DenseVector.zeros[Double](rows)
+    val v: DenseVector[Double] = DenseVector.zeros[Double](rows)
     m.entries.collect foreach { case MatrixEntry(index, _, value) => fill(v, index.toInt, value) }
     v
   }
@@ -46,7 +46,7 @@ class DistributedMatrixOps(sc: SparkContext){
   def collectRowVector(m: CoordinateMatrix): DenseVector[Double] = {
     assert(m.numRows() == 1, "Coordinate matrix is empty or has more than one row!")
     val columns = m.numCols().toInt
-    var v: DenseVector[Double] = DenseVector.zeros[Double](columns)
+    val v: DenseVector[Double] = DenseVector.zeros[Double](columns)
     m.entries.collect foreach {case MatrixEntry(_, index, value) => fill(v, index.toInt, value) }
     v
   }
