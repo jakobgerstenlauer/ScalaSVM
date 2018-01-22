@@ -51,8 +51,11 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     * key: row index of matrix S (index of validation instance)
     * value: set of non-sparse column indices of matrix S (index of trainings instance)
     */
-  val rowColumnPairsValidation : Future[MultiMap[Integer, Integer]] = initializeRowColumnPairsValidation4Threads()
-
+  val rowColumnPairsValidation1 : Future[MultiMap[Integer, Integer]] = initializeRowColumnPairsValidation4Threads(0)
+  val rowColumnPairsValidation2 : Future[MultiMap[Integer, Integer]] = initializeRowColumnPairsValidation4Threads(1)
+  val rowColumnPairsValidation3 : Future[MultiMap[Integer, Integer]] = initializeRowColumnPairsValidation4Threads(2)
+  val rowColumnPairsValidation4 : Future[MultiMap[Integer, Integer]] = initializeRowColumnPairsValidation4Threads(3)
+  
   /**
     *
     * @param isCountingSparsity Should the sparsity of the matrix representation be assessed? Involves some overhead.
@@ -232,13 +235,19 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     map
   }
 
-  def initializeRowColumnPairsValidation4Threads (): Future[MultiMap[Integer, Integer]] = {
-
+  /**
+    *
+    * @param replicate Replicates of the validation set, must be exactly 0,1,2,3!!!
+    * @return
+    */
+  def initializeRowColumnPairsValidation4Threads (replicate: Int): Future[MultiMap[Integer, Integer]] = {
+    assert(replicate>=0 && replicate<=3, "The 4 replicates of the validation set must be coded as 0,1,2,3!")
     val promise = Promise[MultiMap[Integer, Integer]]
-
-    println("Preparing the hash map for the validation set.")
+    println("Preparing the hash map nr" +(replicate+1)+ "for the validation set.")
     val N_train = d.getN_Train
-    val N_val = d.getN_Validation
+    //The validation set is split into 4 separate (equal sized) validation sets
+    assert(d.getN_Validation % 4 == 0, "The nr of observations in the validation set must be a multiple of 4!")
+    val N_val : Int = d.getN_Validation / 4
 
     val N1_train: Int = math.round(0.5 * N_train).toInt
     val N2_train: Int = calculateOptMatrixDim(N_train, N1_train)
@@ -262,10 +271,13 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     println("submatrix 3: " + BigInt(100) * N3_elements / numElements +" %")
     println("submatrix 4: " + BigInt(100) * N4_elements / numElements +" %")
 
-    val map1 = initializeRowColumnPairsValidation(0, 0, N1_train, N1_val)
-    val map2 = initializeRowColumnPairsValidation(N1_train, N1_val, N2_train, N2_val)
-    val map3 = initializeRowColumnPairsValidation(N2_train, N2_val, N3_train, N3_val)
-    val map4 = initializeRowColumnPairsValidation(N3_train, N3_val, N4_train, N4_val)
+    //For the validation set, I have to add an offset term because I create 4 separate matrices:
+    val offset = N_val * replicate
+
+    val map1 = initializeRowColumnPairsValidation(0,             0+offset, N1_train, N1_val+offset)
+    val map2 = initializeRowColumnPairsValidation(N1_train, N1_val+offset, N2_train, N2_val+offset)
+    val map3 = initializeRowColumnPairsValidation(N2_train, N2_val+offset, N3_train, N3_val+offset)
+    val map4 = initializeRowColumnPairsValidation(N3_train, N3_val+offset, N4_train, N4_val+offset)
 
    val map: Future[mutable.MultiMap[Integer, Integer]] = for {
       m1 <- map1
