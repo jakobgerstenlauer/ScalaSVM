@@ -55,7 +55,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   val rowColumnPairsValidation2 : Future[MultiMap[Integer, Integer]] = initializeRowColumnPairsValidation4Threads(1)
   val rowColumnPairsValidation3 : Future[MultiMap[Integer, Integer]] = initializeRowColumnPairsValidation4Threads(2)
   val rowColumnPairsValidation4 : Future[MultiMap[Integer, Integer]] = initializeRowColumnPairsValidation4Threads(3)
-  
+
   /**
     *
     * @param isCountingSparsity Should the sparsity of the matrix representation be assessed? Involves some overhead.
@@ -144,19 +144,8 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
       case Success(mergedHashMap) => promise.success(mergedHashMap); hasHashMapTraining = true
       case Failure(t) => println("An error when creating the hash map for the training set: " + t.getMessage)
     }
-
-    /*val result = Await.result(map, Duration(10,"minutes"))
-    println("Successfully merged hash maps for the training set!")
-    result*/
     promise.future
   }
-
-  /*def mergeMaps(maps: Seq[mutable.MultiMap[Integer, Integer]]):
-  MultiMap[Integer, Integer] = {
-    maps.reduceLeft ((r, m) => m.foldLeft(r) {
-        case (dict, (k, values)) => for(v <- values) {dict.addBinding(k,v)}
-    })
-  }*/
 
   private def calculateOptMatrixDim (N: Int, N1: Int): Int = {
     val t = BigInt(4) * BigInt(N1) * BigInt(N1) + BigInt(N) * BigInt(N)
@@ -340,10 +329,21 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     signum(v)
   }
 
-  override def predictOnValidationSet (alphas : DenseVector[Double]) : DenseVector[Double]  = {
-    val hashMap = Await.result(rowColumnPairsValidation, Duration(60,"minutes"))
-    val N_test = d.getN_Validation
-    val v = DenseVector.fill(N_test){0.0}
+  private def getHashMapValidation(replicate: Int):Future[MultiMap[Integer, Integer]]={
+    replicate match{
+      case 0 => rowColumnPairsValidation1
+      case 1 => rowColumnPairsValidation2
+      case 2 => rowColumnPairsValidation3
+      case 3 => rowColumnPairsValidation4
+      case _ =>  throw new IllegalArgumentException("Unsupported replicate nr!")
+    }
+  }
+
+  def predictOnValidationSet (alphas : DenseVector[Double], replicate: Int) : DenseVector[Double]  = {
+    val hashMapPromise = getHashMapValidation(replicate)
+    val hashMap = Await.result(hashMapPromise, Duration(60,"minutes"))
+    val N_validation = d.getN_Validation
+    val v = DenseVector.fill(N_validation){0.0}
     val z : DenseVector[Double] = alphas *:* d.getLabels(Train).map(x=>x.toDouble)
     //logClassDistribution(z)
     for ((i,set) <- hashMap; j <- set){
@@ -353,59 +353,93 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     signum(v)
   }
 
+  def predictOnValidationSet (alphas : Alphas, replicate: Int, maxQuantile: Int) : Future[DenseVector[Int]]  = {
+    val promise = Promise[DenseVector[Int]]
+    Future{
+      val hashMapPromise = getHashMapValidation(replicate)
+      val hashMap = Await.result(hashMapPromise, Duration(60,"minutes"))
+      val N_validation = d.getN_Validation
+      val N_train = d.getN_Train
+      val V = DenseMatrix.zeros[Double](maxQuantile+1,N_validation)
+      val Z = DenseMatrix.zeros[Double](maxQuantile+1,N_train)
+      //println("Dimensions of the Z matrix: " +Z.rows + "rows X "+ Z.cols + "columns")
+
+      val labels = d.getLabels(Train).map(x=>x.toDouble)
+      //println("Length labels train: " +labels.length)
+      //println("Length alphas: " + alphas.alpha.length)
+      //println("Calculate Z matrix")
+      val qu = DenseVector.ones[Double](maxQuantile)
+      for(q <- 0 until maxQuantile; quantile : Double = 0.01 * q) {
+        qu(q)= alphas.getQuantile(quantile)
+      }
+
+      def clip(vector : DenseVector[Double], threshold: Double) : DenseVector[Double] = {
+        vector.map(x => if (x < threshold) 0 else x)
+      }
+
+      for(q <- 0 until maxQuantile) {
+        Z(q, ::) := (clip(alphas.alpha, qu(q))  *:* labels).t
+      }
+
+      println("Calculate predictions")
+      for ((i,set) <- hashMap; j <- set; valueKernelFunction = kf.kernel(d.getRow(Validation,j), d.getRow(Train,i))){
+        V(0 to maxQuantile,j.toInt) := V(0 to maxQuantile,j.toInt) + Z(0 to maxQuantile,i.toInt) * valueKernelFunction
+      }
+
+      val correctPredictions = DenseVector.zeros[Int](maxQuantile+1)
+      for(q <- 0 to maxQuantile) {
+        correctPredictions(q) = calcCorrectPredictions(V(q, ::).t, d.getLabels(Validation))
+      }
+      promise.success(correctPredictions)
+    }
+    promise.future
+  }
+
   /**
     *
     * @param alphas
     * @return Tuple (optimal sparsity, nr of correct predictions for this quantile):
     */
-  def predictOnValidationSet (alphas : Alphas) : (Int,Int)  = {
-    val N_validation = d.getN_Validation
-    val N_train = d.getN_Train
-    val maxQuantile = 40
-    val V = DenseMatrix.zeros[Double](maxQuantile,N_validation)
-    val Z = DenseMatrix.zeros[Double](maxQuantile,N_train)
-    //println("Dimensions of the Z matrix: " +Z.rows + "rows X "+ Z.cols + "columns")
-    val labels = d.getLabels(Train).map(x=>x.toDouble)
-    //println("Length labels train: " +labels.length)
-    //println("Length alphas: " + alphas.alpha.length)
+  def predictOnValidationSet (alphas : Alphas) : Future[(Int,Int)] = {
+    val promise = Promise[(Int,Int)]
+    val maxQuantile = 99
+    //Merge the results of the four threads by simply summing the vectors
+    val futureSumCorrectPredictions: Future[DenseVector[Int]] = for {
+      p1 <- predictOnValidationSet(alphas.copy(), 0, maxQuantile)
+      p2 <- predictOnValidationSet(alphas.copy(), 1, maxQuantile)
+      p3 <- predictOnValidationSet(alphas.copy(), 2, maxQuantile)
+      p4 <- predictOnValidationSet(alphas.copy(), 3, maxQuantile)
+    } yield (p1 + p2 + p3 + p4)
 
-    println("Calculate Z matrix")
-    val qu = DenseVector.ones[Double](maxQuantile)
-    for(q <- 0 until maxQuantile; quantile : Double = 0.01 * q) {
-      qu(q)= alphas.getQuantile(quantile)
-    }
+    println("Waiting for results of four threads running predictOnValidationSet().")
 
-    def clip(vector : DenseVector[Double], threshold: Double) : DenseVector[Double] = {
-      vector.map(x => if (x < threshold) 0 else x)
-    }
-
-    for(q <- 0 until maxQuantile) {
-      Z(q, ::) := (clip(alphas.alpha, qu(q))  *:* labels).t
-    }
-
-    val hashMapTest = Await.result(rowColumnPairsValidation, Duration(60,"minutes"))
-
-    println("Calculate predictions")
-    for ((i,set) <- hashMapTest; j <- set; valueKernelFunction = kf.kernel(d.getRow(Validation,j), d.getRow(Train,i))){
-      V(0 until maxQuantile,j.toInt) := V(0 until maxQuantile,j.toInt) + Z(0 until maxQuantile,i.toInt) * valueKernelFunction
-    }
-
-    println("Determine the optimal sparsity")
-    //determine the optimal sparsity
-    var bestCase = 0
-    var bestQuantile = 0
-    for(q <- 0 until maxQuantile) {
-      val correctPredictions = calcCorrectPredictions(V(q, ::).t, d.getLabels(Validation))
-      if(correctPredictions >= bestCase){
-        bestCase = correctPredictions
-        bestQuantile = q
+    futureSumCorrectPredictions onComplete {
+      case Success(correctPredictions) => {
+        println("Determine the optimal sparsity")
+        //determine the optimal sparsity measured as the sum of correct predictions over all 4 validation subsets
+        var bestCase = 0
+        var bestQuantile = 0
+        for(q <- 0 until maxQuantile) {
+          val sumCorrectPredictions = correctPredictions(q)
+          if(sumCorrectPredictions >= bestCase){
+            bestCase = sumCorrectPredictions
+            bestQuantile = q
+          }
+        }
+        assert((bestQuantile<=99) && (bestQuantile>=0),"Invalid quantile: "+bestQuantile)
+        promise.success((bestQuantile, bestCase))
+      }
+      case Failure(t) => {
+        println("An error occurred when trying to calculate the correct predictions for all quantiles and validation subsets!"
+          + t.getMessage)
+        promise.failure(t.getCause)
       }
     }
-    assert((bestQuantile<=99) && (bestQuantile>=0),"Invalid quantile: "+bestQuantile)
-    (bestQuantile, bestCase)
+    promise.future
   }
 
   def calcCorrectPredictions(v0: DenseVector[Double], labels: DenseVector[Int]) : Int={
+    assert(v0.length == labels.length)
     (signum(v0) *:* labels.map(x => x.toDouble) ).map(x=>if(x>0) 1 else 0).reduce(_+_)
   }
 

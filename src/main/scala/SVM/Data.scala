@@ -91,9 +91,9 @@ abstract class LData extends Data {
   //Get column with column index (starting with 0) from validation set.
   override def getRow (dataSetType: DataSetType.Value, columnIndex: Int): DenseVector[Double] = {
     dataSetType match{
-      case Validation => X_validation(columnIndex, ::).t
-      case Train => X_train(columnIndex, ::).t
-      case Test => X_test(columnIndex, ::).t
+      case Validation => X_validation(columnIndex, ::).t.copy
+      case Train => X_train(columnIndex, ::).t.copy
+      case Test => X_test(columnIndex, ::).t.copy
       case _ =>  throw new IllegalArgumentException("Unsupported data set type!")
     }
   }
@@ -109,9 +109,9 @@ abstract class LData extends Data {
 
   override def getLabels (dataSetType: DataSetType.Value): DenseVector[Int] = {
     dataSetType match{
-      case Validation => z_validation
-      case Train => z_train
-      case Test => z_test
+      case Validation => z_validation.copy
+      case Train => z_train.copy
+      case Test => z_test.copy
       case _ =>  throw new IllegalArgumentException("Unsupported data set type!")
     }
   }

@@ -3,6 +3,9 @@ package SVM
 import breeze.linalg.{DenseVector, _}
 import org.apache.spark.SparkContext
 import SVM.DataSetType.{Test, Train, Validation}
+
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future, Promise}
 case class AllMatrixElementsZeroException(message:String) extends Exception(message)
 case class EmptyRowException(message:String) extends Exception(message)
 
@@ -59,7 +62,6 @@ abstract class Algorithm(alphas: Alphas){
 case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LeanMatrixFactory) extends Algorithm(alphas) with hasGradientDescent {
 
   def iterate: NoMatrices = {
-
     if(alphas.getDeltaL1 < ap.minDeltaAlpha)return this
     assert(getSparsity < 99.0)
     //Decrease the step size, i.e. learning rate:
@@ -68,7 +70,8 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
     //Update the alphas using gradient descent
     val algo = gradientDescent(alphas, ap, ump, kmf)
     println("Cross-validate sparsity.")
-    val (optimQuantile, correctPredictions) = kmf.predictOnValidationSet(algo.alphas)
+    //(optimQuantile, correctPredictions)
+    val (optimQuantile, correctPredictions) = Await.result(kmf.predictOnValidationSet(algo.alphas), Duration(60,"minutes"))
     println("Nr of correct predictions for validation set: "+correctPredictions +"/"+ kmf.getData().getN_Validation+" with sparsity: "+ optimQuantile)
     algo.copy(alphas= algo.alphas.clipAlphas(0.01 * optimQuantile))
   }
