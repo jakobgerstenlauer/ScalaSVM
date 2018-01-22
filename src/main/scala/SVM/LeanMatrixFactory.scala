@@ -14,7 +14,7 @@ import SVM.DataSetType.{Test, Train, Validation}
 case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) extends BaseMatrixFactory(d, kf, epsilon){
 
   private var hasHashMapTraining = false
-  private var hasHashMapTest = false
+  private var hasHashMapValidation = false
 
   /**
     * Cached diagonal of K, i.e. the kernel matrix of the training set.
@@ -51,7 +51,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     * key: row index of matrix S (index of validation instance)
     * value: set of non-sparse column indices of matrix S (index of trainings instance)
     */
-  val rowColumnPairsTest : Future[MultiMap[Integer, Integer]] = initializeRowColumnPairsValidation4Threads()
+  val rowColumnPairsValidation : Future[MultiMap[Integer, Integer]] = initializeRowColumnPairsValidation4Threads()
 
   /**
     *
@@ -275,7 +275,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     } yield (mergeMaps(Seq(m1,m2,m3,m4)))
 
     map onComplete {
-      case Success(mergedHashMap) => promise.success(mergedHashMap); hasHashMapTest = true
+      case Success(mergedHashMap) => promise.success(mergedHashMap); hasHashMapValidation = true
       case Failure(t) => println("An error when creating the hash map for the validation set: " + t.getMessage)
     }
     promise.future
@@ -329,7 +329,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   }
 
   override def predictOnValidationSet (alphas : DenseVector[Double]) : DenseVector[Double]  = {
-    val hashMap = Await.result(rowColumnPairsTest, Duration(60,"minutes"))
+    val hashMap = Await.result(rowColumnPairsValidation, Duration(60,"minutes"))
     val N_test = d.getN_Validation
     val v = DenseVector.fill(N_test){0.0}
     val z : DenseVector[Double] = alphas *:* d.getLabels(Train).map(x=>x.toDouble)
@@ -371,7 +371,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
       Z(q, ::) := (clip(alphas.alpha, qu(q))  *:* labels).t
     }
 
-    val hashMapTest = Await.result(rowColumnPairsTest, Duration(60,"minutes"))
+    val hashMapTest = Await.result(rowColumnPairsValidation, Duration(60,"minutes"))
 
     println("Calculate predictions")
     for ((i,set) <- hashMapTest; j <- set; valueKernelFunction = kf.kernel(d.getRow(Validation,j), d.getRow(Train,i))){
