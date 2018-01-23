@@ -1,5 +1,8 @@
 package SVM
 
+import scala.collection.mutable.ListBuffer
+import scala.concurrent.Future
+
 object TestLocalAlgorithm extends App {
 
   val d = new LocalData()
@@ -21,7 +24,7 @@ object TestLocalAlgorithm extends App {
   val alphas = new Alphas(N=d.N_train, mp)
   val ap = AlgoParams(batchProb = 0.9, learningRateDecline = 0.5,
     epsilon = epsilon)
-  var algo1 = NoMatrices(alphas, ap, mp, kmf)
+  var algo1 = NoMatrices(alphas, ap, mp, kmf, new ListBuffer[Future[Int]])
   var numInt = 0
   while(numInt < ap.maxIter){
     algo1 = algo1.iterate

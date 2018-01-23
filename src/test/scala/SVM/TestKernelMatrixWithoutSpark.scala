@@ -1,6 +1,10 @@
 package test
 import SVM._
 
+import scala.collection.mutable.ListBuffer
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future}
+
 //Important flags for the Java virtual machine:
 //Force the JVM to cache Integers up to dimensionality of K and S:
 //-Djava.lang.Integer.IntegerCache.high=50000
@@ -27,7 +31,7 @@ object TestKernelMatrixWithoutSpark extends App {
 	println(kernelPar)
 	val gaussianKernel = GaussianKernel(kernelPar)
 	println(gaussianKernel)
-	val N = 10000
+	val N = 100000
   Utility.testJVMArgs(N/2)
 	val dataProperties = DataParams(N = N, d = 10)
 	println(dataProperties)
@@ -38,7 +42,6 @@ object TestKernelMatrixWithoutSpark extends App {
 
   //First find a value for epsilon that is manageable:
 	//val probeMatrices = ProbeMatrices(d, gaussianKernel)
-
 	//Number of non-sparse matrix elements with epsilon = 0.001:
 	val epsilon = 0.001
 	//val numElementsS =  probeMatrices.probeSparsity(Test, 0.001)
@@ -50,18 +53,22 @@ object TestKernelMatrixWithoutSpark extends App {
   //println("Training matrix S: "+numElementsS/intsPerKB+"kB:")
 
   val lmf = LeanMatrixFactory(d, gaussianKernel, epsilon)
-//  println("Are the two hash maps identical? "+ lmf.rowColumnPairs == lmf.rowColumnPairsParallel)
-//  println("Num elements rowColumnPairs: " + lmf.rowColumnPairs.size)
-//  println("Num elements rowColumnPairsParallel: " + lmf.rowColumnPairsParallel.size)
 	val mp = ModelParams(C = 0.5, delta = 0.05)
 	val alphas = new Alphas(N=N/2, mp)
 	val ap = AlgoParams(maxIter = 30, batchProb = 0.8, learningRateDecline = 0.5, epsilon = epsilon, quantileAlphaClipping=0.03)
-	var algo = NoMatrices(alphas, ap, mp, lmf)
+	var algo = NoMatrices(alphas, ap, mp, lmf, new ListBuffer[Future[Int]])
 	var numInt = 0
   while(numInt < ap.maxIter && algo.getSparsity < 99.0){
 		algo = algo.iterate
 		numInt += 1
 	}
+	val testSetAccuracy : Future[Int] = algo.predictOnTestSet()
+	Await.result(testSetAccuracy, Duration(60,"minutes"))
+
+
+
+
+
  /* Synthetic dataset with 10 variables.
   Observations: 50000 (training), 50000(test)
   Data was already generated.

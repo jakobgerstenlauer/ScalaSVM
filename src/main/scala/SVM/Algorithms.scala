@@ -2,12 +2,13 @@ package SVM
 
 import breeze.linalg.{DenseVector, _}
 import org.apache.spark.SparkContext
-import SVM.DataSetType.{Test, Train, Validation}
-
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, Future, Promise}
+import SVM.DataSetType.{Train, Validation}
+import scala.collection.mutable.{ListBuffer}
+import scala.concurrent.{Future, Promise}
+import scala.util.{Success,Failure}
 case class AllMatrixElementsZeroException(message:String) extends Exception(message)
 case class EmptyRowException(message:String) extends Exception(message)
+import scala.concurrent.ExecutionContext.Implicits.global
 
 abstract class Algorithm(alphas: Alphas){
 
@@ -59,21 +60,48 @@ abstract class Algorithm(alphas: Alphas){
   * @param mp Properties of the model
   * @param kmf A KernelMatrixFactory for local matrices.N
   */
-case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LeanMatrixFactory) extends Algorithm(alphas) with hasGradientDescent {
+case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LeanMatrixFactory, optimalSparsityFuture : ListBuffer[Future[Int]]) extends Algorithm(alphas) with hasGradientDescent {
+
+  def predictOnTestSet() : Future[Int] = {
+
+    val promise = Promise[Int]
+
+    //Turn the ListBuffer into a List
+    val listOfFutures : List[Future[Int]] = optimalSparsityFuture.toList
+
+    //List[Future[Int]] => Future[List[Int]]
+    val futureList : Future[List[Int]] = Future.sequence(listOfFutures)
+
+    //Wait for cross-validation results to choose the optimal level of sparsity:
+    futureList onComplete {
+      case Success(res) => {
+        println(res)
+        assert(res.size>0)
+        val sum : Int = res.sum
+        print("sum: "+sum)
+        val count = res.size
+        println(" count: "+sum)
+        val optSparsity = 0.01 *(sum.toDouble/count.toDouble)
+        println("Based on cross-validation, the optimal sparsity is: "+optSparsity)
+        alphas.clipAlphas(optSparsity)
+        println("Predict on the test set.")
+        val promisedTestResults : Future[Int] = kmf.predictOnTestSet(alphas)
+        promise.completeWith(promisedTestResults)
+      }
+      case Failure(ex) => println(ex)
+    }
+    promise.future
+  }
 
   def iterate: NoMatrices = {
     if(alphas.getDeltaL1 < ap.minDeltaAlpha)return this
     assert(getSparsity < 99.0)
     //Decrease the step size, i.e. learning rate:
     val ump = mp.updateDelta(ap)
-    println("Run gradient descent.")
     //Update the alphas using gradient descent
     val algo = gradientDescent(alphas, ap, ump, kmf)
-    println("Cross-validate sparsity.")
-    //(optimQuantile, correctPredictions)
-    val (optimQuantile, correctPredictions) = Await.result(kmf.predictOnValidationSet(algo.alphas), Duration(60,"minutes"))
-    println("Nr of correct predictions for validation set: "+correctPredictions +"/"+ kmf.getData().getN_Validation+" with sparsity: "+ optimQuantile)
-    algo.copy(alphas= algo.alphas.clipAlphas(0.01 * optimQuantile))
+    optimalSparsityFuture.append(kmf.predictOnValidationSet(algo.alphas))
+    algo.copy(optimalSparsityFuture=optimalSparsityFuture)
   }
 
   /**
