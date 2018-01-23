@@ -12,7 +12,6 @@ import scala.util.{Failure, Success}
 import SVM.DataSetType.{Test, Train, Validation}
 
 case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) extends BaseMatrixFactory(d, kf, epsilon){
-
   /**
     * Cached diagonal of K, i.e. the kernel matrix of the training set.
     */
@@ -457,8 +456,8 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     * @param alphas
     * @return Tuple (optimal sparsity, nr of correct predictions for this quantile):
     */
-  def predictOnValidationSet (alphas : Alphas) : Future[Int] = {
-    val promise = Promise[Int]
+  def predictOnValidationSet (alphas : Alphas, iteration: Int) : Future[(Int,Int,Int)] = {
+    val promise = Promise[(Int,Int,Int)]
     val maxQuantile = 99
 
     val predict1 = predictOnValidationSet(alphas.copy(), 0, maxQuantile)
@@ -491,7 +490,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
         }
         assert((bestQuantile<=99) && (bestQuantile>=0),"Invalid quantile: "+bestQuantile)
         println("Accuracy validation set: "+bestCase +"/"+ getData().getN_Validation+" with sparsity: "+ bestQuantile)
-        promise.success(bestQuantile)
+        promise.success((bestQuantile,bestCase, iteration))
       }
       case Failure(t) => {
         println("An error occurred when trying to calculate the correct predictions for all quantiles and validation subsets!"

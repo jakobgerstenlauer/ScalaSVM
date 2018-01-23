@@ -17,7 +17,7 @@ object TestSG extends App {
   var algo1 = SGLocal(alphas, ap, mp, lkmf)
   var numInt = 0
   while(numInt < ap.maxIter){
-      algo1 = algo1.iterate
+      algo1 = algo1.iterate(numInt)
       numInt += 1
   }
 }

@@ -3,9 +3,11 @@ package SVM
 import breeze.linalg.{DenseVector, _}
 import org.apache.spark.SparkContext
 import SVM.DataSetType.{Train, Validation}
-import scala.collection.mutable.{ListBuffer}
+
+import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.{Future, Promise}
-import scala.util.{Success,Failure}
+import scala.util.{Failure, Success}
 case class AllMatrixElementsZeroException(message:String) extends Exception(message)
 case class EmptyRowException(message:String) extends Exception(message)
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -16,7 +18,7 @@ abstract class Algorithm(alphas: Alphas){
     * Performs one iteration of the algorithm and returns the updated algorithm.
     * @return updated algorithm object.
     */
-  def iterate : Algorithm
+  def iterate(iteration: Int) : Algorithm
 
   /**
     * Calculates the number of correctly and incorrectly classified instances as tuple.
@@ -60,29 +62,30 @@ abstract class Algorithm(alphas: Alphas){
   * @param mp Properties of the model
   * @param kmf A KernelMatrixFactory for local matrices.N
   */
-case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LeanMatrixFactory, optimalSparsityFuture : ListBuffer[Future[Int]]) extends Algorithm(alphas) with hasGradientDescent {
+case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LeanMatrixFactory, optimalSparsityFuture : ListBuffer[Future[(Int,Int,Int)]]) extends Algorithm(alphas) with hasGradientDescent {
+
+  /**
+    * Stores the alphas after each iteration of the algorithm (key: iteration, value: Alpha after gradient descent)
+    */
+  val alphaMap = new mutable.HashMap[Int,Alphas]()
 
   def predictOnTestSet() : Future[Int] = {
-
     val promise = Promise[Int]
-
     //Turn the ListBuffer into a List
-    val listOfFutures : List[Future[Int]] = optimalSparsityFuture.toList
-
+    val listOfFutures : List[Future[(Int,Int,Int)]] = optimalSparsityFuture.toList
     //List[Future[Int]] => Future[List[Int]]
-    val futureList : Future[List[Int]] = Future.sequence(listOfFutures)
-
+    val futureList : Future[List[(Int,Int,Int)]] = Future.sequence(listOfFutures)
     //Wait for cross-validation results to choose the optimal level of sparsity:
     futureList onComplete {
-      case Success(res) => {
-        assert(res.size>0)
-        val sum : Int = res.sum
-        val count = res.size
-        val optSparsity = 0.01 *(sum.toDouble/count.toDouble)
-        println("Based on cross-validation, the optimal sparsity is: "+optSparsity)
-        alphas.clipAlphas(optSparsity)
+      case Success(list) => {
+        //Find the optimal iteration and associated sparsity and accuracy
+        val (optSparsity, maxAccuracy, optIteration) = list.foldRight((0,0,0))((a,b) => if(a._2 <= b._2) b else a)
+        println("Based on cross-validation, the optimal sparsity of: "+ optSparsity +" with max correct predictions: "+ maxAccuracy+" was achieved in iteration: "+ optIteration)
+        //Get the alphas for this optimal iteration
+        val optAlphas : Alphas = alphaMap.getOrElse(optIteration, alphas)
+        optAlphas.clipAlphas(0.01 * optSparsity)
         println("Predict on the test set.")
-        val promisedTestResults : Future[Int] = kmf.predictOnTestSet(alphas)
+        val promisedTestResults : Future[Int] = kmf.predictOnTestSet(optAlphas)
         promise.completeWith(promisedTestResults)
       }
       case Failure(ex) => println(ex)
@@ -90,14 +93,14 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
     promise.future
   }
 
-  def iterate: NoMatrices = {
+  def iterate(iteration: Int): NoMatrices = {
     if(alphas.getDeltaL1 < ap.minDeltaAlpha)return this
     assert(getSparsity < 99.0)
     //Decrease the step size, i.e. learning rate:
     val ump = mp.updateDelta(ap)
     //Update the alphas using gradient descent
-    val algo = gradientDescent(alphas, ap, ump, kmf)
-    optimalSparsityFuture.append(kmf.predictOnValidationSet(algo.alphas))
+    val algo = gradientDescent(alphas, ap, ump, kmf, iteration)
+    optimalSparsityFuture.append(kmf.predictOnValidationSet(algo.alphas, iteration))
     algo.copy(optimalSparsityFuture=optimalSparsityFuture)
   }
 
@@ -110,8 +113,9 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
     * @param kmf A MatrixFactory object.
     * @return An updated instance of the algorithm.
     */
-  def gradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LeanMatrixFactory): NoMatrices = {
+  def gradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LeanMatrixFactory, iteration: Int): NoMatrices = {
     val stochasticUpdate = calculateGradientDescent (alphas, ap, mp, kmf)
+    alphaMap.put(iteration, alphas.copy(alpha = stochasticUpdate))
     copy(alphas = alphas.copy(alpha = stochasticUpdate).updateAlphaAsConjugateGradient())
   }
 }
@@ -126,7 +130,7 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
 case class SGLocal(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: LocalKernelMatrixFactory) extends Algorithm(alphas)
   with hasLocalTrainingSetEvaluator with hasLocalTestSetEvaluator with hasGradientDescent {
 
-  def iterate: SGLocal = {
+  def iterate(iteration: Int): SGLocal = {
     val (correct, misclassified) = calculateAccuracy(evaluateOnTrainingSet(alphas, ap, kmf), kmf.getData().getLabels(Train))
     val (correctT, misclassifiedT) = calculateAccuracy(evaluateOnTestSet(alphas, ap, kmf), kmf.getData().getLabels(Validation))
     println(createLog(correct, misclassified, correctT, misclassifiedT, alphas))
@@ -164,7 +168,7 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
   with hasDistributedTestSetEvaluator with hasDistributedTrainingSetEvaluator with hasGradientDescent {
 	val matOps : DistributedMatrixOps = new DistributedMatrixOps(sc)
 
-	def iterate: SG = {
+	def iterate(iteration: Int): SG = {
     val (correct, misclassified) = calculateAccuracy(evaluateOnTrainingSet(alphas, ap, kmf, matOps), kmf.getData().getLabels(Train))
     val (correctT, misclassifiedT) = calculateAccuracy(evaluateOnTestSet(alphas, ap, kmf, matOps), kmf.getData().getLabels(Validation))
     println(createLog(correct, misclassified, correctT, misclassifiedT, alphas))

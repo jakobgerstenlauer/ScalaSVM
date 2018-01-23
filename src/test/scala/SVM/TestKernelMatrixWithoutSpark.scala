@@ -1,6 +1,7 @@
 package test
 import SVM._
 
+import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
@@ -31,7 +32,7 @@ object TestKernelMatrixWithoutSpark extends App {
 	println(kernelPar)
 	val gaussianKernel = GaussianKernel(kernelPar)
 	println(gaussianKernel)
-	val N = 50000
+	val N = 200000
   Utility.testJVMArgs(N/2)
 	val dataProperties = DataParams(N = N, d = 10)
 	println(dataProperties)
@@ -56,10 +57,10 @@ object TestKernelMatrixWithoutSpark extends App {
 	val mp = ModelParams(C = 0.5, delta = 0.05)
 	val alphas = new Alphas(N=N/2, mp)
 	val ap = AlgoParams(maxIter = 30, batchProb = 0.8, learningRateDecline = 0.5, epsilon = epsilon, quantileAlphaClipping=0.03)
-	var algo = NoMatrices(alphas, ap, mp, lmf, new ListBuffer[Future[Int]])
+	var algo = NoMatrices(alphas, ap, mp, lmf, new ListBuffer[Future[(Int,Int,Int)]])
 	var numInt = 0
-  while(numInt < ap.maxIter && algo.getSparsity < 99.0){
-		algo = algo.iterate
+	while(numInt < ap.maxIter && algo.getSparsity < 99.0){
+		algo = algo.iterate(numInt)
 		numInt += 1
 	}
 	val testSetAccuracy : Future[Int] = algo.predictOnTestSet()
