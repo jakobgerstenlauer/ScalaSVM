@@ -75,12 +75,9 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
     //Wait for cross-validation results to choose the optimal level of sparsity:
     futureList onComplete {
       case Success(res) => {
-        println(res)
         assert(res.size>0)
         val sum : Int = res.sum
-        print("sum: "+sum)
         val count = res.size
-        println(" count: "+sum)
         val optSparsity = 0.01 *(sum.toDouble/count.toDouble)
         println("Based on cross-validation, the optimal sparsity is: "+optSparsity)
         alphas.clipAlphas(optSparsity)

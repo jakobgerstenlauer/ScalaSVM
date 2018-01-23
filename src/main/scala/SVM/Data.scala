@@ -148,7 +148,7 @@ class SimData (val params: DataParams) extends LData {
 	override def toString : String = {
 		val sb = new StringBuilder
 		sb.append("Synthetic dataset with "+params.d+" variables.\n")
-		sb.append("Observations: "+ params.N_train +" (training), " + params.N_validation+ "(validation)"
+		sb.append("Observations: "+ params.N_train +" (training), " + params.N_validation+ "(validation), "
       + params.N_test+ "(test)\n")
 		if(isFilled)sb.append("Data was already generated.\n")
 		else sb.append("Data was not yet generated.\n")

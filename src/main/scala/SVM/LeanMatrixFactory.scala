@@ -13,10 +13,6 @@ import SVM.DataSetType.{Test, Train, Validation}
 
 case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) extends BaseMatrixFactory(d, kf, epsilon){
 
-  private var hasHashMapTraining = false
-  private var hasHashMapValidation = false
-  private var hasHashMapTest = false
-
   /**
     * Cached diagonal of K, i.e. the kernel matrix of the training set.
     */
@@ -29,17 +25,6 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
       diagonal(i) = kf.kernel(d.getRow(Train,i), d.getRow(Train,i))
     }
     diagonal
-  }
-
-  //Measures execution time of a block of code and prints it to std out.
-  //Usage: time{code}
-  //http://biercoff.com/easily-measuring-code-execution-time-in-scala/
-  def time[R](block: => R): R = {
-    val t0 = System.nanoTime()
-    val result = block    // call-by-name
-    val t1 = System.nanoTime()
-    println("Elapsed time: " + (t1 - t0) + "ns")
-    result
   }
 
   /**
@@ -72,7 +57,6 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     * @return
     */
   def initializeRowColumnPairs(isCountingSparsity: Boolean): MultiMap[Integer, Integer] = {
-    //println("Preparing the hash map for the training set.")
     val map: MultiMap[Integer, Integer] = new HashMap[Integer, MSet[Integer]] with MultiMap[Integer, Integer]
     val N = d.getN_Train
     var size2 : Int = N
@@ -119,25 +103,22 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
 
   def initializeRowColumnPairs4Threads(): Future[MultiMap[Integer, Integer]] = {
     val promise = Promise[MultiMap[Integer, Integer]]
-
     val N = d.getN_Train
     val N1: Int = math.round(0.5 * N).toInt
     val N2: Int = calculateOptMatrixDim(N, N1)
     val N3: Int = calculateOptMatrixDim(N, N2)
     val N4: Int = N
-
+    /*
     val N1_elements : BigInt = BigInt(N1) * BigInt(N1)
+    val numElements = BigInt(N) * BigInt(N)
     val N2_elements : BigInt = BigInt(N2) * BigInt(N2) - N1_elements
     val N3_elements : BigInt = BigInt(N3) * BigInt(N3) - BigInt(N2) * BigInt(N2)
-    val numElements = BigInt(N) * BigInt(N)
     val N4_elements : BigInt = numElements - BigInt(N3) * BigInt(N3)
-
     println("The relative proportion [%] of matrix elements in submatrices is:")
     println("submatrix 1: " + BigInt(100) * N1_elements / numElements +" %")
     println("submatrix 2: " + BigInt(100) * N2_elements / numElements +" %")
     println("submatrix 3: " + BigInt(100) * N3_elements / numElements +" %")
-    println("submatrix 4: " + BigInt(100) * N4_elements / numElements +" %")
-
+    println("submatrix 4: " + BigInt(100) * N4_elements / numElements +" %")*/
     val map1 = initializeRowColumnPairs(0, N1)
     val map2 = initializeRowColumnPairs(N1, N2)
     val map3 = initializeRowColumnPairs(N2, N3)
@@ -151,7 +132,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     } yield (mergeMaps(Seq(m1,m2,m3,m4)))
 
     map onComplete {
-      case Success(mergedHashMap) => promise.success(mergedHashMap); hasHashMapTraining = true
+      case Success(mergedHashMap) => promise.success(mergedHashMap);
       case Failure(t) => println("An error when creating the hash map for the training set: " + t.getMessage)
     }
     promise.future
@@ -216,7 +197,6 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     * @return
     */
   def initializeRowColumnPairsValidation(isCountingSparsity: Boolean): MultiMap[Integer, Integer] = {
-    println("Preparing the hash map for the validation set.")
     val map: MultiMap[Integer, Integer] = new HashMap[Integer, MSet[Integer]] with MultiMap[Integer, Integer]
     var size2 : Int = 0
     val N_train = d.getN_Train
@@ -242,43 +222,38 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   def initializeRowColumnPairsValidation4Threads (replicate: Int): Future[MultiMap[Integer, Integer]] = {
     assert(replicate>=0 && replicate<=3, "The 4 replicates of the validation set must be coded as 0,1,2,3!")
     val promise = Promise[MultiMap[Integer, Integer]]
-    println("Preparing the hash map nr" +(replicate+1)+ "for the validation set.")
     val N_train = d.getN_Train
     //The validation set is split into 4 separate (equal sized) validation sets
     assert(d.getN_Validation % 4 == 0, "The nr of observations in the validation set must be a multiple of 4!")
     val N_val : Int = d.getN_Validation / 4
-
     val N1_train: Int = math.round(0.5 * N_train).toInt
     val N2_train: Int = calculateOptMatrixDim(N_train, N1_train)
     val N3_train: Int = calculateOptMatrixDim(N_train, N2_train)
     val N4_train: Int = N_train
-
     val N1_val: Int = math.round(0.5 * N_val).toInt
     val N2_val: Int = calculateOptMatrixDim(N_val, N1_val)
     val N3_val: Int = calculateOptMatrixDim(N_val, N2_val)
     val N4_val: Int = N_val
 
-    val N1_elements : BigInt = BigInt(N1_train) * BigInt(N1_val)
+    /*val N1_elements : BigInt = BigInt(N1_train) * BigInt(N1_val)
     val N2_elements : BigInt = BigInt(N2_train) * BigInt(N2_val) - N1_elements
     val N3_elements : BigInt = BigInt(N3_train) * BigInt(N3_val) - BigInt(N2_val) * BigInt(N2_train)
     val numElements = BigInt(N_train) * BigInt(N_val)
     val N4_elements : BigInt = numElements - BigInt(N3_train) * BigInt(N3_val)
-
     println("The relative proportion [%] of matrix elements in submatrices is:")
     println("submatrix 1: " + BigInt(100) * N1_elements / numElements +" %")
     println("submatrix 2: " + BigInt(100) * N2_elements / numElements +" %")
     println("submatrix 3: " + BigInt(100) * N3_elements / numElements +" %")
-    println("submatrix 4: " + BigInt(100) * N4_elements / numElements +" %")
+    println("submatrix 4: " + BigInt(100) * N4_elements / numElements +" %")*/
 
     //For the validation set, I have to add an offset term because I create 4 separate matrices:
     val offset = N_val * replicate
-
     val map1 = initializeRowColumnPairs(0,             0+offset, N1_train, N1_val+offset, Validation)
     val map2 = initializeRowColumnPairs(N1_train, N1_val+offset, N2_train, N2_val+offset, Validation)
     val map3 = initializeRowColumnPairs(N2_train, N2_val+offset, N3_train, N3_val+offset, Validation)
     val map4 = initializeRowColumnPairs(N3_train, N3_val+offset, N4_train, N4_val+offset, Validation)
 
-   val map: Future[mutable.MultiMap[Integer, Integer]] = for {
+    val map: Future[mutable.MultiMap[Integer, Integer]] = for {
       m1 <- map1
       m2 <- map2
       m3 <- map3
@@ -286,7 +261,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     } yield (mergeMaps(Seq(m1,m2,m3,m4)))
 
     map onComplete {
-      case Success(mergedHashMap) => promise.success(mergedHashMap); hasHashMapValidation = true
+      case Success(mergedHashMap) => promise.success(mergedHashMap);
       case Failure(t) => println("An error when creating the hash map for the validation set: " + t.getMessage)
     }
     promise.future
@@ -300,7 +275,6 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   def initializeRowColumnPairsTest4Threads (replicate: Int): Future[MultiMap[Integer, Integer]] = {
     assert(replicate>=0 && replicate<=3, "The 4 replicates of the validation set must be coded as 0,1,2,3!")
     val promise = Promise[MultiMap[Integer, Integer]]
-    println("Preparing the hash map nr" +(replicate+1)+ "for the test set.")
     val N_train = d.getN_Train
     //The test set is split into 4 separate (equal sized) validation sets
     assert(d.getN_Test % 4 == 0, "The nr of observations in the test set must be a multiple of 4!")
@@ -315,18 +289,17 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val N2_test: Int = calculateOptMatrixDim(N_test, N1_test)
     val N3_test: Int = calculateOptMatrixDim(N_test, N2_test)
     val N4_test: Int = N_test
-
+    /*
     val N1_elements : BigInt = BigInt(N1_train) * BigInt(N1_test)
     val N2_elements : BigInt = BigInt(N2_train) * BigInt(N2_test) - N1_elements
     val N3_elements : BigInt = BigInt(N3_train) * BigInt(N3_test) - BigInt(N2_test) * BigInt(N2_train)
     val numElements = BigInt(N_train) * BigInt(N_test)
     val N4_elements : BigInt = numElements - BigInt(N3_train) * BigInt(N3_test)
-
     println("The relative proportion [%] of matrix elements in submatrices is:")
     println("submatrix 1: " + BigInt(100) * N1_elements / numElements +" %")
     println("submatrix 2: " + BigInt(100) * N2_elements / numElements +" %")
     println("submatrix 3: " + BigInt(100) * N3_elements / numElements +" %")
-    println("submatrix 4: " + BigInt(100) * N4_elements / numElements +" %")
+    println("submatrix 4: " + BigInt(100) * N4_elements / numElements +" %")*/
 
     //For the validation set, I have to add an offset term because I create 4 separate matrices:
     val offset = N_test * replicate
@@ -344,7 +317,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     } yield (mergeMaps(Seq(m1,m2,m3,m4)))
 
     map onComplete {
-      case Success(mergedHashMap) => promise.success(mergedHashMap); hasHashMapTest = true
+      case Success(mergedHashMap) => promise.success(mergedHashMap);
       case Failure(t) => println("An error when creating the hash map for the validation set: " + t.getMessage)
     }
     promise.future
@@ -517,7 +490,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
           }
         }
         assert((bestQuantile<=99) && (bestQuantile>=0),"Invalid quantile: "+bestQuantile)
-        println("Nr of correct predictions for validation set: "+bestCase +"/"+ getData().getN_Validation+" with sparsity: "+ bestQuantile)
+        println("Accuracy validation set: "+bestCase +"/"+ getData().getN_Validation+" with sparsity: "+ bestQuantile)
         promise.success(bestQuantile)
       }
       case Failure(t) => {
