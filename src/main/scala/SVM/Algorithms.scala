@@ -78,6 +78,8 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
     //Wait for cross-validation results to choose the optimal level of sparsity:
     futureList onComplete {
       case Success(list) => {
+        //Free memory of validation set HashMaps
+        kmf.freeValidationHashMaps()
         //Find the optimal iteration and associated sparsity and accuracy
         val (optSparsity, maxAccuracy, optIteration) = list.foldRight((0,0,0))((a,b) => if(a._2 <= b._2) b else a)
         println("Based on cross-validation, the optimal sparsity of: "+ optSparsity +" with max correct predictions: "+ maxAccuracy+" was achieved in iteration: "+ optIteration)

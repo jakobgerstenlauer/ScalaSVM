@@ -41,6 +41,22 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   val rowColumnPairsValidation3 : Future[MultiMap[Integer, Integer]] = initializeRowColumnPairsValidation4Threads(2)
   val rowColumnPairsValidation4 : Future[MultiMap[Integer, Integer]] = initializeRowColumnPairsValidation4Threads(3)
 
+
+  def hashMapNirvana(map: Future[MultiMap[Integer, Integer]]):Unit={
+    map onComplete {
+      case Success(m) => m.empty; m.finalize()
+      case Failure(t) => println("An error when creating the hash map for the training set: " + t.getMessage)
+    }
+    map.finalize()
+  }
+
+  def freeValidationHashMaps() : Unit = {
+    hashMapNirvana(rowColumnPairsValidation1)
+    hashMapNirvana(rowColumnPairsValidation2)
+    hashMapNirvana(rowColumnPairsValidation3)
+    hashMapNirvana(rowColumnPairsValidation4)
+  }
+
   /**
     * key: row index of matrix S (index of validation instance)
     * value: set of non-sparse column indices of matrix S (index of trainings instance)
