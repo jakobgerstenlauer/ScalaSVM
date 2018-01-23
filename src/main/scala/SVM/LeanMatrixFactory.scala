@@ -44,10 +44,9 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
 
   def hashMapNirvana(map: Future[MultiMap[Integer, Integer]]):Unit={
     map onComplete {
-      case Success(m) => m.empty; m.finalize()
+      case Success(m) => m.empty
       case Failure(t) => println("An error when creating the hash map for the training set: " + t.getMessage)
     }
-    map.finalize()
   }
 
   def freeValidationHashMaps() : Unit = {

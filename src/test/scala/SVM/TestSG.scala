@@ -9,7 +9,7 @@ object TestSG extends App {
   val dataProperties = DataParams(N=N, d=10)
   val d = new SimData(dataProperties)
   d.simulate()
-  val epsilon = 0.00001
+  val epsilon = 0.0001
   val lkmf = LocalKernelMatrixFactory(d, gaussianKernel, epsilon)
   val mp = ModelParams(C = 10.0, delta = 0.1)
   val alphas = new Alphas(N=(0.5*N).toInt, mp)
