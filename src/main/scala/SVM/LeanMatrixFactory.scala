@@ -11,6 +11,10 @@ import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success}
 import SVM.DataSetType.{Test, Train, Validation}
 
+object LeanMatrixFactory{
+  val maxDuration = Duration(12*60,"minutes")
+}
+
 case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) extends BaseMatrixFactory(d, kf, epsilon){
   /**
     * Cached diagonal of K, i.e. the kernel matrix of the training set.
@@ -357,7 +361,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     *  @return
     */
   override def calculateGradient(alphas : DenseVector[Double]) : DenseVector[Double]  = {
-    val hashMap = Await.result(rowColumnPairs, Duration(60,"minutes"))
+    val hashMap = Await.result(rowColumnPairs, LeanMatrixFactory.maxDuration)
     val N = d.getN_Train
     val labels: DenseVector[Double] = d.getLabels(Train).map(x=>x.toDouble)
     val z: DenseVector[Double] = alphas *:* labels
@@ -371,7 +375,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   }
 
   override def predictOnTrainingSet(alphas : DenseVector[Double]) : DenseVector[Double]  = {
-    val hashMap = Await.result(rowColumnPairs, Duration(60,"minutes"))
+    val hashMap = Await.result(rowColumnPairs, LeanMatrixFactory.maxDuration)
     val N = d.getN_Train
     val z : DenseVector[Double] = alphas *:* d.getLabels(Train).map(x=>x.toDouble)
     //for the diagonal:
@@ -405,7 +409,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
 
   def predictOnValidationSet (alphas : DenseVector[Double], replicate: Int) : DenseVector[Double]  = {
     val hashMapPromise = getHashMapValidation(replicate)
-    val hashMap = Await.result(hashMapPromise, Duration(60,"minutes"))
+    val hashMap = Await.result(hashMapPromise, LeanMatrixFactory.maxDuration)
     val N_validation = d.getN_Validation
     val v = DenseVector.fill(N_validation){0.0}
     val z : DenseVector[Double] = alphas *:* d.getLabels(Train).map(x=>x.toDouble)
@@ -421,7 +425,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val promise = Promise[DenseVector[Int]]
     Future{
       val hashMapPromise = getHashMapValidation(replicate)
-      val hashMap = Await.result(hashMapPromise, Duration(60,"minutes"))
+      val hashMap = Await.result(hashMapPromise, LeanMatrixFactory.maxDuration)
       val N_validation = d.getN_Validation
       val N_train = d.getN_Train
       val V = DenseMatrix.zeros[Double](maxQuantile+1,N_validation)
@@ -453,7 +457,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val promise = Promise[Int]
     Future{
       val hashMapPromise = getHashMapTest(replicate)
-      val hashMap = Await.result(hashMapPromise, Duration(60,"minutes"))
+      val hashMap = Await.result(hashMapPromise, LeanMatrixFactory.maxDuration)
       val N_test = d.getN_Test
       val N_train = d.getN_Train
       val v = DenseVector.fill(N_test){0.0}
@@ -547,7 +551,6 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
         promise.failure(t.getCause)
       }
     }
-    //Await.result(futureSumCorrectPredictions, Duration(60,"minutes"))
     promise.future
   }
 
