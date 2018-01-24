@@ -45,13 +45,16 @@ case class ModelParams(C: Double = 1.0, delta: Double = 0.5) extends Parameters 
  * d: The number of features (i.e. inputs, variables).
  * ratioTrain: The ratio of data used for the training set.
   */
-case class DataParams(N: Int = 1000, d: Int = 5, ratioTrain: Double = 0.5, ratioTest: Double = 0.2) extends Parameters{
+case class DataParams(N: Int = 1000, d: Int = 5, ratioTrain: Double = 0.5, ratioTest: Double = 0.1) extends Parameters{
 
   assert(N>2)
   assert(d>1)
   assert(ratioTrain>0.0 && ratioTrain<1.0)
- 
-  /**
+  assert(N*ratioTest%4==0,"Nr of instances in test set must be a multiple of four!")
+  assert(N*(1-ratioTest-ratioTrain)%4==0,"Nr of instances in validation set must be a multiple of four!")
+
+
+    /**
    * Number of observations in the training set.  
    */
   val N_train = Math.floor(N * ratioTrain).toInt
