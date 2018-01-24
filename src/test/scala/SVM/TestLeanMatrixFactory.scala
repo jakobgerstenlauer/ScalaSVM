@@ -10,7 +10,7 @@ class TestLeanMatrixFactory extends FunSuite{
   test("Algo must run locally with simulated data."){
 	val kernelPar = GaussianKernelParameter(1.0)
 	val gaussianKernel = GaussianKernel(kernelPar)
-	val N = 10
+	val N = 100
 	val d = new SimData(DataParams(N = N, d = 10))
 	d.simulate()
 	val epsilon = 0.001
