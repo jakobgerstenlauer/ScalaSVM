@@ -23,7 +23,6 @@ object Alphas{
     */
   val minMomentum : Double = 0.00
   def mean (d: Double, d1: Double): Double = 0.5 * (d + d1)
-  val epsilon = 0.0001
 }
 
 /**
@@ -71,7 +70,7 @@ case class Alphas(N: Int,
     * If the norm of the old alphas is smaller epsilon it returns the sum of absolute values of the new alphas.
     * @return
     */
-  def getDeltaL1 : Double = if(sum(abs(alphaOld)) > Alphas.epsilon) sum(abs(alpha - alphaOld)) / sum(abs(alphaOld)) else sum(abs(alphaOld))
+  def getDeltaL1 : Double = sum(abs(alpha - alphaOld))
 
   def updateAlphaAsConjugateGradient() : Alphas = {
     val diff : DenseVector[Double] = alpha - alphaOld

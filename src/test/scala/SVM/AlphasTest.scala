@@ -47,7 +47,7 @@ class AlphasTest extends FunSuite{
   test("getDelta() must return 10."){
     val N = 10
     val alpha : DenseVector[Double] = DenseVector.fill(N){1.0}
-    val alpha_old : DenseVector[Double] = DenseVector.fill(N){0.0}
+    val alpha_old : DenseVector[Double] = DenseVector.fill(N){2.0}
     val alphas = Alphas(N, alpha, alpha_old)
     assert(alphas.getDeltaL1 == 10.0)
   }
