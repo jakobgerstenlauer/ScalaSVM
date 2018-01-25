@@ -110,8 +110,6 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
             val promisedTestResults : Future[Int] = kmf.predictOnTestSetAUC(optAlphas)
             promise.completeWith(promisedTestResults)
           }
-
-
         }
 
       }

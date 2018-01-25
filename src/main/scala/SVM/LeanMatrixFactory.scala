@@ -500,8 +500,8 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     r / rankMax
   }
 
-  private def predictOnTestSet (alphas : Alphas, replicate: Int) : Future[Int]  = {
-    val promise = Promise[Int]
+  private def predictOnTestSet (alphas : Alphas, replicate: Int) : Future[DenseVector[Double]]  = {
+    val promise = Promise[DenseVector[Double]]
     Future{
       val hashMapPromise = getHashMapTest(replicate)
       val hashMap = Await.result(hashMapPromise, LeanMatrixFactory.maxDuration)
@@ -512,15 +512,14 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
       for ((i,set) <- hashMap; j <- set; valueKernelFunction = kf.kernel(d.getRow(Test,j), d.getRow(Train,i))){
         v(j.toInt) = v(j.toInt) + z(i.toInt) * valueKernelFunction
       }
-      val correctPredictions = calcCorrectPredictions(signum(v), d.getLabels(Test))
-      promise.success(correctPredictions)
+      promise.success(v)
     }
     promise.future
   }
 
-  private def predictOnTestSet (alphas : Alphas, replicate: Int, threshold: Double) : Future[Int]  = {
+  private def predictOnTestSet (alphas : Alphas, replicate: Int, threshold: Double) : Future[DenseVector[Double]]  = {
     assert(threshold>0.0 && threshold<1.0)
-    val promise = Promise[Int]
+    val promise = Promise[DenseVector[Double]]
     Future{
       val hashMapPromise = getHashMapTest(replicate)
       val hashMap = Await.result(hashMapPromise, LeanMatrixFactory.maxDuration)
@@ -531,9 +530,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
       for ((i,set) <- hashMap; j <- set; valueKernelFunction = kf.kernel(d.getRow(Test,j), d.getRow(Train,i))){
         v(j.toInt) = v(j.toInt) + z(i.toInt) * valueKernelFunction
       }
-      val predictions = getQuantiles(v).map(x=>if(x>threshold) -1.0 else +1.0)
-      val correctPredictions = calcCorrectPredictions(predictions, d.getLabels(Test))
-      promise.success(correctPredictions)
+      promise.success(v)
     }
     promise.future
   }
@@ -545,8 +542,8 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     * @param replicate
     * @return
     */
-  private def predictOnTestSetAUC (alphas : Alphas, replicate: Int) : Future[DenseVector[Int]]  = {
-    val promise = Promise[DenseVector[Int]]
+  private def predictOnTestSetAUC (alphas : Alphas, replicate: Int) : Future[DenseVector[Double]]  = {
+    val promise = Promise[DenseVector[Double]]
     Future{
       val hashMapPromise = getHashMapTest(replicate)
       val hashMap = Await.result(hashMapPromise, LeanMatrixFactory.maxDuration)
@@ -554,20 +551,10 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
       val N_train = d.getN_Train
       val v = DenseVector.fill(N_test){0.0}
       val z : DenseVector[Double] = alphas.alpha *:* d.getLabels(Train).map(x=>x.toDouble)
-
       for ((i,set) <- hashMap; j <- set; valueKernelFunction = kf.kernel(d.getRow(Test,j), d.getRow(Train,i))){
         v(j.toInt) = v(j.toInt) + z(i.toInt) * valueKernelFunction
       }
-
-      val quantiles = getQuantiles(v)
-      val correctPredictions = DenseVector.zeros[Int](99)
-
-      for(threshold <- 1 to 99){
-        val cutOff : Double = threshold/100.0
-        val predictions = quantiles.map(x=>if(x>cutOff) -1.0 else +1.0)
-        correctPredictions(threshold) = calcCorrectPredictions(predictions, d.getLabels(Test))
-      }
-      promise.success(correctPredictions)
+      promise.success(v)
     }
     promise.future
   }
@@ -634,15 +621,16 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val predict4 = predictOnTestSet(alphas.copy(), 3)
 
     //Merge the results of the four threads by simply summing the vectors
-    val futureSumCorrectPredictions: Future[Int] = for {
+    val v: Future[DenseVector[Double]] = for {
       p1 <- predict1
       p2 <- predict2
       p3 <- predict3
       p4 <- predict4
     } yield (p1 + p2 + p3 + p4)
 
-    futureSumCorrectPredictions onComplete {
-      case Success(correctPredictions) => {
+    v onComplete {
+      case Success(v) => {
+        val correctPredictions = calcCorrectPredictions(signum(v), d.getLabels(Test))
         println("Nr of correct predictions for test set: "+correctPredictions +"/"+ getData().getN_Test)
         promise.success(correctPredictions)
       }
@@ -669,15 +657,17 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val predict4 = predictOnTestSet(alphas.copy(), 3, threshold)
 
     //Merge the results of the four threads by simply summing the vectors
-    val futureSumCorrectPredictions: Future[Int] = for {
+    val v: Future[DenseVector[Double]] = for {
       p1 <- predict1
       p2 <- predict2
       p3 <- predict3
       p4 <- predict4
     } yield (p1 + p2 + p3 + p4)
 
-    futureSumCorrectPredictions onComplete {
-      case Success(correctPredictions) => {
+    v onComplete {
+      case Success(v) => {
+        val predictions = getQuantiles(v).map(x=>if(x>threshold) -1.0 else +1.0)
+        val correctPredictions = calcCorrectPredictions(predictions, d.getLabels(Test))
         println("Nr of correct predictions for test set: "+correctPredictions +"/"+ getData().getN_Test)
         promise.success(correctPredictions)
       }
@@ -703,15 +693,22 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val predict4 = predictOnTestSetAUC(alphas.copy(), 3)
 
     //Merge the results of the four threads by simply summing the vectors
-    val futureSumCorrectPredictions: Future[DenseVector[Int]] = for {
+    val v: Future[DenseVector[Double]] = for {
       p1 <- predict1
       p2 <- predict2
       p3 <- predict3
       p4 <- predict4
     } yield (p1 + p2 + p3 + p4)
 
-    futureSumCorrectPredictions onComplete {
-      case Success(correctPredictions) => {
+    v onComplete {
+      case Success(v) => {
+        val quantiles = getQuantiles(v)
+        val correctPredictions = DenseVector.zeros[Int](99)
+        for(threshold <- 1 to 99){
+          val cutOff : Double = threshold/100.0
+          val predictions = quantiles.map(x=>if(x>cutOff) -1.0 else +1.0)
+          correctPredictions(threshold) = calcCorrectPredictions(predictions, d.getLabels(Test))
+        }
         println("Nr of correct predictions for test set and all percentiles: ")
         for(threshold <- 1 to 99){
           println("Percentile:"+threshold+" accuracy on test set:"+correctPredictions(threshold)+
