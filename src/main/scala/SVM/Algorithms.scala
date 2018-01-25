@@ -12,6 +12,16 @@ case class AllMatrixElementsZeroException(message:String) extends Exception(mess
 case class EmptyRowException(message:String) extends Exception(message)
 import scala.concurrent.ExecutionContext.Implicits.global
 
+/**
+  * How should the scores s of the SVM be used to classify?
+  * STANDARD: signum(s)
+  * THRESHOLD: if(s > quantile(s)) -1 else +1
+  * AUC: Calculate the accuracy for all percentiles 1 to 99 of the SVM scores.
+  */
+object PredictionMethod extends Enumeration{
+  val STANDARD, THRESHOLD, AUC = Value
+}
+
 abstract class Algorithm(alphas: Alphas){
 
   /**
@@ -69,7 +79,7 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
     */
   val alphaMap = new mutable.HashMap[Int,Alphas]()
 
-  def predictOnTestSet() : Future[Int] = {
+  def predictOnTestSet(predictionMethod: PredictionMethod.Value, threshold: Double = 0.5) : Future[Int] = {
     val promise = Promise[Int]
     //Turn the ListBuffer into a List
     val listOfFutures : List[Future[(Int,Int,Int)]] = optimalSparsityFuture.toList
@@ -87,8 +97,23 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
         val optAlphas : Alphas = alphaMap.getOrElse(optIteration, alphas)
         optAlphas.clipAlphas(0.01 * optSparsity)
         println("Predict on the test set.")
-        val promisedTestResults : Future[Int] = kmf.predictOnTestSet(optAlphas)
-        promise.completeWith(promisedTestResults)
+        predictionMethod match {
+          case PredictionMethod.STANDARD => {
+            val promisedTestResults : Future[Int] = kmf.predictOnTestSet(optAlphas)
+            promise.completeWith(promisedTestResults)
+          }
+          case PredictionMethod.THRESHOLD => {
+            val promisedTestResults : Future[Int] = kmf.predictOnTestSet(optAlphas, threshold)
+            promise.completeWith(promisedTestResults)
+          }
+          case PredictionMethod.AUC => {
+            val promisedTestResults : Future[Int] = kmf.predictOnTestSetAUC(optAlphas)
+            promise.completeWith(promisedTestResults)
+          }
+
+
+        }
+
       }
       case Failure(ex) => println(ex)
     }

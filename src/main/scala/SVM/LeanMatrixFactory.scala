@@ -453,6 +453,53 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     promise.future
   }
 
+  /**
+    * Calculates ranks for a vector.
+    * If there are ties, the respective elements are assigned the same rank.
+    * An example:
+    * val x2 = DenseVector(1.0,1.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0)
+    * findRank(x2)
+    * > DenseVector(9.0, 9.0, 9.0, 8.0, 7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0)
+    * @param x
+    * @return
+    */
+  def getRank(x: DenseVector[Double]) : DenseVector[Double] = {
+    //val r = DenseVector.zeros(score.length)
+    val ranks = DenseVector((0 until x.length).toList.sortWith( (left, right) => x(left) > x(right)).toArray)
+    var j=0
+    val r=DenseVector.zeros[Double](x.length)
+    for(i <- 0 until x.length){
+      if (x(ranks(i)) != x(ranks(j)) ){
+        j=i
+      }
+      r(ranks(i))=j
+    }
+    r
+  }
+
+  /**
+    * Calculates first the ranks for a vector and then divides all ranks by the maximum rank.
+    * If there are ties, the respective elements are assigned the same rank.
+    * @param x
+    * @return
+    */
+  def getQuantiles(x: DenseVector[Double]) : DenseVector[Double] = {
+    //val r = DenseVector.zeros(score.length)
+    val ranks = DenseVector((0 until x.length).toList.sortWith( (left, right) => x(left) > x(right)).toArray)
+    var j=0
+    var rankMax : Double = 0.0
+    val r=DenseVector.zeros[Double](x.length)
+    for(i <- 0 until x.length){
+      if (x(ranks(i)) != x(ranks(j)) ){
+        j=i
+        rankMax=i
+      }
+      r(ranks(i))=j
+    }
+    assert(rankMax>0)
+    r / rankMax
+  }
+
   private def predictOnTestSet (alphas : Alphas, replicate: Int) : Future[Int]  = {
     val promise = Promise[Int]
     Future{
@@ -466,6 +513,60 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
         v(j.toInt) = v(j.toInt) + z(i.toInt) * valueKernelFunction
       }
       val correctPredictions = calcCorrectPredictions(signum(v), d.getLabels(Test))
+      promise.success(correctPredictions)
+    }
+    promise.future
+  }
+
+  private def predictOnTestSet (alphas : Alphas, replicate: Int, threshold: Double) : Future[Int]  = {
+    assert(threshold>0.0 && threshold<1.0)
+    val promise = Promise[Int]
+    Future{
+      val hashMapPromise = getHashMapTest(replicate)
+      val hashMap = Await.result(hashMapPromise, LeanMatrixFactory.maxDuration)
+      val N_test = d.getN_Test
+      val N_train = d.getN_Train
+      val v = DenseVector.fill(N_test){0.0}
+      val z : DenseVector[Double] = alphas.alpha *:* d.getLabels(Train).map(x=>x.toDouble)
+      for ((i,set) <- hashMap; j <- set; valueKernelFunction = kf.kernel(d.getRow(Test,j), d.getRow(Train,i))){
+        v(j.toInt) = v(j.toInt) + z(i.toInt) * valueKernelFunction
+      }
+      val predictions = getQuantiles(v).map(x=>if(x>threshold) -1.0 else +1.0)
+      val correctPredictions = calcCorrectPredictions(predictions, d.getLabels(Test))
+      promise.success(correctPredictions)
+    }
+    promise.future
+  }
+
+
+  /**
+    * Iterates over all percentiles of the distribution of SVM scores and calculates the accuracy
+    * @param alphas
+    * @param replicate
+    * @return
+    */
+  private def predictOnTestSetAUC (alphas : Alphas, replicate: Int) : Future[DenseVector[Int]]  = {
+    val promise = Promise[DenseVector[Int]]
+    Future{
+      val hashMapPromise = getHashMapTest(replicate)
+      val hashMap = Await.result(hashMapPromise, LeanMatrixFactory.maxDuration)
+      val N_test = d.getN_Test
+      val N_train = d.getN_Train
+      val v = DenseVector.fill(N_test){0.0}
+      val z : DenseVector[Double] = alphas.alpha *:* d.getLabels(Train).map(x=>x.toDouble)
+
+      for ((i,set) <- hashMap; j <- set; valueKernelFunction = kf.kernel(d.getRow(Test,j), d.getRow(Train,i))){
+        v(j.toInt) = v(j.toInt) + z(i.toInt) * valueKernelFunction
+      }
+
+      val quantiles = getQuantiles(v)
+      val correctPredictions = DenseVector.zeros[Int](99)
+
+      for(threshold <- 1 to 99){
+        val cutOff : Double = threshold/100.0
+        val predictions = quantiles.map(x=>if(x>cutOff) -1.0 else +1.0)
+        correctPredictions(threshold) = calcCorrectPredictions(predictions, d.getLabels(Test))
+      }
       promise.success(correctPredictions)
     }
     promise.future
@@ -544,6 +645,79 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
       case Success(correctPredictions) => {
         println("Nr of correct predictions for test set: "+correctPredictions +"/"+ getData().getN_Test)
         promise.success(correctPredictions)
+      }
+      case Failure(t) => {
+        println("An error occurred when trying to calculate the correct predictions for the test set!"
+          + t.getMessage)
+        promise.failure(t.getCause)
+      }
+    }
+    promise.future
+  }
+
+  /**
+    *
+    * @param alphas
+    * @return Tuple (optimal sparsity, nr of correct predictions for this quantile):
+    */
+  def predictOnTestSet (alphas : Alphas, threshold: Double) : Future[Int] = {
+    assert(threshold>0 && threshold<1.0)
+    val promise = Promise[Int]
+    val predict1 = predictOnTestSet(alphas.copy(), 0, threshold)
+    val predict2 = predictOnTestSet(alphas.copy(), 1, threshold)
+    val predict3 = predictOnTestSet(alphas.copy(), 2, threshold)
+    val predict4 = predictOnTestSet(alphas.copy(), 3, threshold)
+
+    //Merge the results of the four threads by simply summing the vectors
+    val futureSumCorrectPredictions: Future[Int] = for {
+      p1 <- predict1
+      p2 <- predict2
+      p3 <- predict3
+      p4 <- predict4
+    } yield (p1 + p2 + p3 + p4)
+
+    futureSumCorrectPredictions onComplete {
+      case Success(correctPredictions) => {
+        println("Nr of correct predictions for test set: "+correctPredictions +"/"+ getData().getN_Test)
+        promise.success(correctPredictions)
+      }
+      case Failure(t) => {
+        println("An error occurred when trying to calculate the correct predictions for the test set!"
+          + t.getMessage)
+        promise.failure(t.getCause)
+      }
+    }
+    promise.future
+  }
+
+  /**
+    *
+    * @param alphas
+    * @return Tuple (optimal sparsity, nr of correct predictions for this quantile):
+    */
+  def predictOnTestSetAUC (alphas : Alphas) : Future[Int] = {
+    val promise = Promise[Int]
+    val predict1 = predictOnTestSetAUC(alphas.copy(), 0)
+    val predict2 = predictOnTestSetAUC(alphas.copy(), 1)
+    val predict3 = predictOnTestSetAUC(alphas.copy(), 2)
+    val predict4 = predictOnTestSetAUC(alphas.copy(), 3)
+
+    //Merge the results of the four threads by simply summing the vectors
+    val futureSumCorrectPredictions: Future[DenseVector[Int]] = for {
+      p1 <- predict1
+      p2 <- predict2
+      p3 <- predict3
+      p4 <- predict4
+    } yield (p1 + p2 + p3 + p4)
+
+    futureSumCorrectPredictions onComplete {
+      case Success(correctPredictions) => {
+        println("Nr of correct predictions for test set and all percentiles: ")
+        for(threshold <- 1 to 99){
+          println("Percentile:"+threshold+" accuracy on test set:"+correctPredictions(threshold)+
+            "/"+ getData().getN_Test)
+        }
+        promise.success(correctPredictions.reduce((a,b)=>max(a,b)))
       }
       case Failure(t) => {
         println("An error occurred when trying to calculate the correct predictions for the test set!"
