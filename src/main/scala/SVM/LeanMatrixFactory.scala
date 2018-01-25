@@ -631,7 +631,11 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     v onComplete {
       case Success(v) => {
         val correctPredictions = calcCorrectPredictions(signum(v), d.getLabels(Test))
+        val correctPredictionsClass1 = calcCorrectPredictionsClass1(signum(v), d.getLabels(Test))
+        val correctPredictionsClass2 = calcCorrectPredictionsClass2(signum(v), d.getLabels(Test))
         println("Nr of correct predictions for test set: "+correctPredictions +"/"+ getData().getN_Test)
+        println("Nr of correct predictions for class 1 (+1) in test set: "+correctPredictionsClass1 +"/"+ getData().getN_Test)
+        println("Nr of correct predictions for class 2 (-1) test set: "+correctPredictionsClass2 +"/"+ getData().getN_Test)
         promise.success(correctPredictions)
       }
       case Failure(t) => {
@@ -668,7 +672,11 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
       case Success(v) => {
         val predictions = getQuantiles(v).map(x=>if(x>threshold) -1.0 else +1.0)
         val correctPredictions = calcCorrectPredictions(predictions, d.getLabels(Test))
+        val correctPredictionsClass1 = calcCorrectPredictionsClass1(signum(v), d.getLabels(Test))
+        val correctPredictionsClass2 = calcCorrectPredictionsClass2(signum(v), d.getLabels(Test))
         println("Nr of correct predictions for test set: "+correctPredictions +"/"+ getData().getN_Test)
+        println("Nr of correct predictions for class 1 (+1) in test set: "+correctPredictionsClass1 +"/"+ getData().getN_Test)
+        println("Nr of correct predictions for class 2 (-1) test set: "+correctPredictionsClass2 +"/"+ getData().getN_Test)
         promise.success(correctPredictions)
       }
       case Failure(t) => {
@@ -704,15 +712,22 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
       case Success(v) => {
         val quantiles = getQuantiles(v)
         val correctPredictions = DenseVector.zeros[Int](99)
-        for(threshold <- 1 to 99){
+        val correctPredictionsClass1 = DenseVector.zeros[Int](99)
+        val correctPredictionsClass2 = DenseVector.zeros[Int](99)
+        for(threshold <- 0 until 99){
           val cutOff : Double = threshold/100.0
           val predictions = quantiles.map(x=>if(x>cutOff) -1.0 else +1.0)
           correctPredictions(threshold) = calcCorrectPredictions(predictions, d.getLabels(Test))
+          correctPredictionsClass1(threshold) = calcCorrectPredictionsClass1(predictions, d.getLabels(Test))
+          correctPredictionsClass2(threshold) = calcCorrectPredictionsClass2(predictions, d.getLabels(Test))
         }
         println("Nr of correct predictions for test set and all percentiles: ")
         for(threshold <- 1 to 99){
-          println("Percentile:"+threshold+" accuracy on test set:"+correctPredictions(threshold)+
-            "/"+ getData().getN_Test)
+          println(threshold+"%:"
+            +correctPredictionsClass1(threshold-1)+"(+)"
+            +correctPredictionsClass2(threshold-1)+"(-)"
+            +correctPredictions(threshold-1)
+            +"/"+ getData().getN_Test)
         }
         promise.success(correctPredictions.reduce((a,b)=>max(a,b)))
       }
@@ -728,6 +743,31 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   def calcCorrectPredictions(v0: DenseVector[Double], labels: DenseVector[Int]) : Int={
     assert(v0.length == labels.length)
     (signum(v0) *:* labels.map(x => x.toDouble) ).map(x=>if(x>0) 1 else 0).reduce(_+_)
+  }
+
+  /**
+    * How often has class 1 (with label +1 been correctly classified?)
+    * @param v0
+    * @param labels
+    * @return
+    */
+  def calcCorrectPredictionsClass1(v0: DenseVector[Double], labels: DenseVector[Int]) : Int={
+    assert(v0.length == labels.length)
+    val class1 = labels.map(x => x.toDouble).map(x=>if(x>0) 1 else 0).map(x => x.toDouble)
+    (signum(v0) *:* class1).map(x=>if(x>0) 1 else 0).reduce(_+_)
+  }
+
+
+  /**
+    * How often has class 2 (with label -1 been correctly classified?)
+    * @param v0
+    * @param labels
+    * @return
+    */
+  def calcCorrectPredictionsClass2(v0: DenseVector[Double], labels: DenseVector[Int]) : Int={
+    assert(v0.length == labels.length)
+    val class2 = labels.map(x => x.toDouble).map(x=>if(x<0) -1 else 0).map(x => x.toDouble)
+    (signum(v0) *:* class2).map(x=>if(x>0) 1 else 0).reduce(_+_)
   }
 
   private def logClassDistribution (z: DenseVector[Double]) = {

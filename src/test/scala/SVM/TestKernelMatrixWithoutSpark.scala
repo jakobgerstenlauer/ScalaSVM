@@ -63,7 +63,7 @@ object TestKernelMatrixWithoutSpark extends App {
 		algo = algo.iterate(numInt)
 		numInt += 1
 	}
-	val testSetAccuracy : Future[Int] = algo.predictOnTestSet(PredictionMethod.THRESHOLD, 0.4)
+	val testSetAccuracy : Future[Int] = algo.predictOnTestSet(PredictionMethod.AUC)
 	Await.result(testSetAccuracy, Duration(60,"minutes"))
  /* Synthetic dataset with 10 variables.
   Observations: 50000 (training), 50000(test)

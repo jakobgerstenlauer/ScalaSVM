@@ -95,7 +95,7 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
         println("Based on cross-validation, the optimal sparsity of: "+ optSparsity +" with max correct predictions: "+ maxAccuracy+" was achieved in iteration: "+ optIteration)
         //Get the alphas for this optimal iteration
         val optAlphas : Alphas = alphaMap.getOrElse(optIteration, alphas)
-        optAlphas.clipAlphas(0.01 * optSparsity)
+        if(optSparsity > 0.0) optAlphas.clipAlphas(0.01 * optSparsity)
         println("Predict on the test set.")
         predictionMethod match {
           case PredictionMethod.STANDARD => {
