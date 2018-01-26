@@ -32,7 +32,7 @@ object TestKernelMatrixWithoutSpark extends App {
 	println(kernelPar)
 	val gaussianKernel = GaussianKernel(kernelPar)
 	println(gaussianKernel)
-	val N = 40000
+	val N = 200000
   Utility.testJVMArgs(N/2)
 	val dataProperties = DataParams(N = N, d = 10)
 	println(dataProperties)
@@ -44,7 +44,7 @@ object TestKernelMatrixWithoutSpark extends App {
   //First find a value for epsilon that is manageable:
 	//val probeMatrices = ProbeMatrices(d, gaussianKernel)
 	//Number of non-sparse matrix elements with epsilon = 0.001:
-	val epsilon = 0.01
+	val epsilon = 0.0001
 	//val numElementsS =  probeMatrices.probeSparsity(Test, 0.001)
 	//val numElementsK =  probeMatrices.probeSparsity(Train, 0.001)
   //println("Projected memory requirements for epsilon ="+epsilon+":")
@@ -64,7 +64,7 @@ object TestKernelMatrixWithoutSpark extends App {
 		numInt += 1
 	}
 	val testSetAccuracy : Future[Int] = algo.predictOnTestSet(PredictionMethod.AUC)
-	Await.result(testSetAccuracy, Duration(60,"minutes"))
+	Await.result(testSetAccuracy, LeanMatrixFactory.maxDuration)
  /* Synthetic dataset with 10 variables.
   Observations: 50000 (training), 50000(test)
   Data was already generated.

@@ -111,7 +111,6 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
             promise.completeWith(promisedTestResults)
           }
         }
-
       }
       case Failure(ex) => println(ex)
     }
