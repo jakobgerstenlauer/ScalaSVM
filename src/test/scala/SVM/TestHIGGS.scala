@@ -20,7 +20,7 @@ object TestHIGGS extends App {
   d.readValidationDataSet(pathValidation, ',', 11, transformLabel)
   d.tableLabels()
 
-  val epsilon = 0.01
+  val epsilon = 0.0001
   val kernelPar = GaussianKernelParameter(1.0)
   val gaussianKernel = GaussianKernel(kernelPar)
   val kmf = LeanMatrixFactory(d, gaussianKernel, epsilon)

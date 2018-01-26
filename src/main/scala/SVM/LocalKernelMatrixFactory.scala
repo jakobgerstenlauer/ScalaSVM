@@ -74,4 +74,3 @@ case class LocalKernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double
     K
   }
 }
-

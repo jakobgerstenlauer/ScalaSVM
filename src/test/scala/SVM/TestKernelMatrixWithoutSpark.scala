@@ -12,7 +12,7 @@ import scala.concurrent.{Await, Future}
 //This way duplicate integers in the HashMaps are cached
 // and memory footprint is significantly reduced! (Flyweight pattern)
 //All flags:
-//-server -XX:+UseConcMarkSweepGC -XX:+CMSIncrementalMode -XX:+CMSIncrementalPacing -XX:CMSIncrementalDutyCycleMin=0 -XX:CMSIncrementalDutyCycle=10 -XX:+UseCMSInitiatingOccupancyOnly - -XX:ThreadStackSize=300 -XX:MaxTenuringThreshold=0 -XX:SurvivorRatio=128 -XX:+UseTLAB -XX:+PrintGCDetails -Xms12288M  -Xmx12288M  -XX:NewSize=3072M  -XX:MaxNewSize=3072M -XX:ParallelGCThreads=4 -Djava.lang.Integer.IntegerCache.high=1000000 -verbose:gc -Xloggc:"/home/jakob/Documents/UPC/master_thesis/jvm/logs"
+//-server -XX:+UseConcMarkSweepGC -XX:+CMSIncrementalMode -XX:+CMSIncrementalPacing -XX:CMSIncrementalDutyCycleMin=0 -XX:CMSIncrementalDutyCycle=10 -XX:+UseCMSInitiatingOccupancyOnly -XX:ThreadStackSize=300 -XX:MaxTenuringThreshold=0 -XX:SurvivorRatio=128 -XX:+UseTLAB -XX:+PrintGCDetails -Xms12288M  -Xmx12288M  -XX:NewSize=3072M  -XX:MaxNewSize=3072M -XX:ParallelGCThreads=4 -Djava.lang.Integer.IntegerCache.high=1000000 -verbose:gc -Xloggc:"/home/jakob/Documents/UPC/master_thesis/jvm/logs"
 object TestKernelMatrixWithoutSpark extends App {
   /*** Measures the processing time of a given Scala command.
     * Source: http://biercoff.com/easily-measuring-code-execution-time-in-scala/
