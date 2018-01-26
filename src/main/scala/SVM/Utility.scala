@@ -1,6 +1,7 @@
 package SVM
 
 import java.lang.management.ManagementFactory
+
 import scala.collection.JavaConverters._
 import scala.util.matching.Regex
 

@@ -1,26 +1,26 @@
 package SVM
 
-import test.TestKernelMatrixWithoutSpark.{N, d, epsilon, gaussianKernel}
-
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.{Await, Future}
 
-object TestLocalAlgorithm extends App {
+object TestHIGGS extends App {
 
   val d = new LocalData()
   println(d)
 
-  val workingDir = "/home/jakob/workspace_scala/Dist_Online_SVM/data/MagicGamma/"
-  val pathTrain = workingDir + "magic04train.csv"
-  val pathValidation = workingDir + "magic04validation.csv"
-  val pathTest = workingDir + "magic04test.csv"
+  val workingDir = "/home/jakob/workspace_scala/Dist_Online_SVM/data/HIGGS/"
+  val pathTrain = workingDir + "higgsTrain.csv"
+  val pathValidation = workingDir + "higgsValidation.csv"
+  val pathTest = workingDir + "higgsTest.csv"
 
-  d.readTrainingDataSet (pathTrain, ',', 11)
-  d.readTestDataSet (pathTest, ',', 11)
-  d.readValidationDataSet(pathValidation, ',', 11)
+  //I have to define a transform function because the label codes do not correspond to the default (+1 for signal and -1 for noise)
+  val transformLabel = (x:Double) => if(x<=0) -1 else +1
+  d.readTrainingDataSet (pathTrain, ',', 11, transformLabel)
+  d.readTestDataSet (pathTest, ',', 11, transformLabel)
+  d.readValidationDataSet(pathValidation, ',', 11, transformLabel)
   d.tableLabels()
 
-  val epsilon = 0.0001
+  val epsilon = 0.01
   val kernelPar = GaussianKernelParameter(1.0)
   val gaussianKernel = GaussianKernel(kernelPar)
   val kmf = LeanMatrixFactory(d, gaussianKernel, epsilon)

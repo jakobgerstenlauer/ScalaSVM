@@ -117,6 +117,7 @@ abstract class LData extends Data {
   }
 
   def tableLabels(): Unit = {
+    println("Distribution of the labels in all subsets:")
     tableLabels(z_train, "Training")
     tableLabels(z_validation, "Validation")
     tableLabels(z_test, "Test")
@@ -229,9 +230,9 @@ class LocalData extends LData{
     sb.toString()
   }
 
-  def readTrainingDataSet (path: String, separator: Char, columnIndexClass: Int) : Unit = {
+  def readTrainingDataSet (path: String, separator: Char, columnIndexClass: Int, transformLabel: Double => Int = (x:Double)=>if(x>0) 1 else -1) : Unit = {
     val csvReader : CSVReader = new CSVReader(path, separator, columnIndexClass)
-    val (inputs, labels) = csvReader.read()
+    val (inputs, labels) = csvReader.read(transformLabel)
     X_train = inputs
     trainSummary = summary(Train)
     println("Summary statistics of train data set before z-transformation:")
@@ -246,7 +247,7 @@ class LocalData extends LData{
     X_train = (X_train - Means) / SD
     trainSummary = summary(Train)
     println("Summary statistics of train data set AFTER z-transformation:")
-    println("mean:\tvariance:\tstandard deviation:")
+    println("mean:\t\tvariance:\tstandard deviation:")
     println(trainSummary.t)
     z_train = labels
     d = X_train.cols
@@ -255,13 +256,13 @@ class LocalData extends LData{
     isFilled = validationSetIsFilled && trainingSetIsFilled
   }
 
-  def readValidationDataSet (path: String, separator: Char, columnIndexClass: Int) : Unit = {
+  def readValidationDataSet (path: String, separator: Char, columnIndexClass: Int, transformLabel: Double => Int = (x:Double)=>if(x>0) 1 else -1) : Unit = {
     val csvReader : CSVReader = new CSVReader(path, separator, columnIndexClass)
-    val (inputs, labels) = csvReader.read()
+    val (inputs, labels) = csvReader.read(transformLabel)
     X_validation = inputs
     var testSummary = summary(Validation)
     println("Summary statistics of validation data set BEFORE z-transformation with means and standard deviation of the training set:")
-    println("mean:\tvariance:\tstandard deviation:")
+    println("mean:\t\tvariance:\tstandard deviation:")
     println(testSummary.t)
     val N = X_validation.rows
     //val means_test = columnMeans(X_test)
@@ -273,7 +274,7 @@ class LocalData extends LData{
     X_validation = (X_validation - Means) / SD
     testSummary = summary(Validation)
     println("Summary statistics of validation data set AFTER z-transformation with means and standard deviation of the training set:")
-    println("mean:\tvariance:\tstandard deviation:")
+    println("mean:\t\tvariance:\tstandard deviation:")
     println(testSummary.t)
     z_validation = labels
     d = X_validation.cols
@@ -282,21 +283,21 @@ class LocalData extends LData{
     isFilled = validationSetIsFilled && trainingSetIsFilled
   }
 
-  def readTestDataSet (path: String, separator: Char, columnIndexClass: Int) : Unit = {
+  def readTestDataSet (path: String, separator: Char, columnIndexClass: Int, transformLabel: Double => Int = (x:Double)=>if(x>0) 1 else -1) : Unit = {
     val csvReader : CSVReader = new CSVReader(path, separator, columnIndexClass)
-    val (inputs, labels) = csvReader.read()
+    val (inputs, labels) = csvReader.read(transformLabel)
     X_test = inputs
     var testSummary = summary(Test)
     println("Summary statistics of test data set BEFORE z-transformation with means and standard deviation of the training set:")
-    println("mean:\tvariance:\tstandard deviation:")
+    println("mean:\t\tvariance:\tstandard deviation:")
     println(testSummary.t)
     val N = X_test.rows
     val Means = tile(means.t, 1, N)
     val SD = tile(stdev.t, 1, N)
     X_test = (X_test - Means) / SD
     testSummary = summary(Test)
-    println("Summary statistics of validation data set AFTER z-transformation with means and standard deviation of the training set:")
-    println("mean:\tvariance:\tstandard deviation:")
+    println("Summary statistics of test data set AFTER z-transformation with means and standard deviation of the training set:")
+    println("mean:\t\tvariance:\tstandard deviation:")
     println(testSummary.t)
     z_test = labels
     d = X_test.cols

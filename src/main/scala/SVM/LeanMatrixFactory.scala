@@ -688,6 +688,9 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     promise.future
   }
 
+  //https://stackoverflow.com/questions/11106886/scala-doubles-and-precision
+  def roundAt(p: Int)(n: Double): Double = { val s = math pow (10, p); (math round n * s) / s }
+
   /**
     *
     * @param alphas
@@ -712,22 +715,35 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
       case Success(v) => {
         val quantiles = getQuantiles(v)
         val correctPredictions = DenseVector.zeros[Int](99)
-        val correctPredictionsClass1 = DenseVector.zeros[Int](99)
-        val correctPredictionsClass2 = DenseVector.zeros[Int](99)
+        val truePositives = DenseVector.zeros[Int](99)
+        val falsePositives = DenseVector.zeros[Int](99)
         for(threshold <- 0 until 99){
           val cutOff : Double = threshold/100.0
           val predictions = quantiles.map(x=>if(x>cutOff) -1.0 else +1.0)
           correctPredictions(threshold) = calcCorrectPredictions(predictions, d.getLabels(Test))
-          correctPredictionsClass1(threshold) = calcCorrectPredictionsClass1(predictions, d.getLabels(Test))
-          correctPredictionsClass2(threshold) = calcCorrectPredictionsClass2(predictions, d.getLabels(Test))
+          truePositives(threshold) = calcCorrectPredictionsClass1(predictions, d.getLabels(Test))
+          falsePositives(threshold) = calcInCorrectPredictionsClass1(predictions, d.getLabels(Test))
         }
-        println("Nr of correct predictions for test set and all percentiles: ")
+        val numPositive : Double = d.getLabels(Train).map(x=>if(x>0)1 else 0).reduce(_+_).toDouble
+        println("True (+) and false(-) positive rate, Q=+/sqrt(-), and total accuracy (A) for the test set and all percentiles: ")
+        println("%\t+\t\t-\tQ\tA")
+
         for(threshold <- 1 to 99){
-          println(threshold+"%:"
-            +correctPredictionsClass1(threshold-1)+"(+)"
-            +correctPredictionsClass2(threshold-1)+"(-)"
-            +correctPredictions(threshold-1)
-            +"/"+ getData().getN_Test)
+          val truePositiveRate  = truePositives(threshold-1) / numPositive
+          val falsePositiveRate = falsePositives(threshold-1) / numPositive
+          val q = if (truePositiveRate>0 && falsePositiveRate>0) truePositiveRate / Math.sqrt(falsePositiveRate) else 0.0
+          val accuracy = correctPredictions(threshold-1) / d.getN_Train.toDouble
+          if(falsePositiveRate==0.0){
+            println(threshold+"\t"
+              +roundAt(3)(truePositiveRate)+"\t\t0.0\tNAN\t"
+              +roundAt(3)(accuracy))
+          }else {
+            println(threshold + "\t"
+              + roundAt(3)(truePositiveRate) + "\t"
+              + roundAt(3)(falsePositiveRate) + "\t"
+              + roundAt(3)(q) + "\t"
+              + roundAt(3)(accuracy))
+          }
         }
         promise.success(correctPredictions.reduce((a,b)=>max(a,b)))
       }
@@ -746,7 +762,11 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   }
 
   /**
+    * Calculate the "true positive rate".
+    * Here it is assumed that the class with label +1 is the class representing the "signal",
+    * or a positive case in medicine.
     * How often has class 1 (with label +1 been correctly classified?)
+    *
     * @param v0
     * @param labels
     * @return
@@ -757,6 +777,18 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     (signum(v0) *:* class1).map(x=>if(x>0) 1 else 0).reduce(_+_)
   }
 
+  /**
+    * Calculates the false positive rate.
+    * @param v0
+    * @param labels
+    * @return
+    */
+  def calcInCorrectPredictionsClass1(v0: DenseVector[Double], labels: DenseVector[Int]) : Int={
+    assert(v0.length == labels.length)
+    //If 1: it is class 2 (label: -1) else the value is 0
+    val class2 = labels.map(x => x.toDouble).map(x=>if(x<0) 1 else 0).map(x => x.toDouble)
+    (signum(v0) *:* class2).map(x=>if(x>0) 1 else 0).reduce(_+_)
+  }
 
   /**
     * How often has class 2 (with label -1 been correctly classified?)

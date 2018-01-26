@@ -17,7 +17,7 @@ class CSVReader(path: String, separator: Char, columnIndexClass: Int) extends Fi
     * Reads a csv data set with the given separator and returns the data matrix and the reponse vector.
     * @return (X,Y) A tuple with the input matrix and the response vector.
     */
-  def read(): (DenseMatrix[Double], DenseVector[Int]) = {
+  def read(transformLabel: Double => Int = (x:Double)=>if(x>0) 1 else -1): (DenseMatrix[Double], DenseVector[Int]) = {
     var maxColumns = 0
     var numLines = 0
     try {
@@ -43,7 +43,7 @@ class CSVReader(path: String, separator: Char, columnIndexClass: Int) extends Fi
         var yHasPassed = false
         for(column <- 0 until maxColumns){
           if(column == columnIndexClass){
-            Y(count)=array(column).toInt
+            Y(count)=transformLabel(array(column).toInt)
             yHasPassed = true
           } else{
             val index : Int = if(yHasPassed) column-1 else column
