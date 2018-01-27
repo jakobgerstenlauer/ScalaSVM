@@ -51,12 +51,13 @@ case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc:
 
   def initKernelMatrix(dataType : SVM.DataSetType.Value) : CoordinateMatrix  = {
     assert(d.isDefined, "The input data is not defined!")
-    val listOfMatrixEntries =  for (i <- 0 until d.getN_Train; j <- 0 until d.getN_Train;
+    val numCols = d.getN(dataType)
+    val listOfMatrixEntries =  for (i <- 0 until d.getN_Train; j <- 0 until numCols;
                                     value = kf.kernel(d.getRow(Train,i), d.getRow(dataType,j))
                                     if value > epsilon) yield MatrixEntry(i, j, value)
     // Create an RDD of matrix entries ignoring all matrix entries which are smaller than epsilon.
     val entries: RDD[MatrixEntry] = sc.parallelize(listOfMatrixEntries)
-    new CoordinateMatrix(entries, d.getN_Train, d.getN_Train)
+    new CoordinateMatrix(entries, d.getN_Train, numCols)
   }
 
   def evaluate(alphas: Alphas, ap: AlgoParams, kmf: KernelMatrixFactory, matOps: DistributedMatrixOps, dataType: SVM.DataSetType.Value):DenseVector[Double]= {
