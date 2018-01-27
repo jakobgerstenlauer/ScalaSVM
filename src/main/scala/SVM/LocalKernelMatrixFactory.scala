@@ -57,7 +57,9 @@ case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc:
                                     if value > epsilon) yield MatrixEntry(i, j, value)
     // Create an RDD of matrix entries ignoring all matrix entries which are smaller than epsilon.
     val entries: RDD[MatrixEntry] = sc.parallelize(listOfMatrixEntries)
-    new CoordinateMatrix(entries, d.getN_Train, numCols)
+    val m = new CoordinateMatrix(entries, d.getN_Train, numCols)
+    println("Kernel matrix of type "+dataType.toString()+" has rows: "+ m.numRows() +" and columns: "+ m.numCols())
+    m
   }
 
   def evaluate(alphas: Alphas, ap: AlgoParams, kmf: KernelMatrixFactory, matOps: DistributedMatrixOps, dataType: SVM.DataSetType.Value):DenseVector[Double]= {
@@ -66,7 +68,8 @@ case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc:
     assert(K.numCols()>0, "The number of columns of the kernel matrix is zero.")
     assert(K.numRows()>0, "The number of rows of the kernel matrix is zero.")
     val z = kmf.z.map(x=>x.toDouble)
-    assert(K.numCols()==z.length,"The number of columns of the kernel matrix does not equal the length of the vector of labels!")
+    assert(K.numCols()==z.length,"The number of columns "+K.numCols()
+      +"of the kernel matrix does not equal the length "+z.length+" of the vector of labels!")
     val epsilon = max(min(ap.epsilon, min(alphas.alpha)), 0.000001)
     val A = matOps.distributeRowVector(alphas.alpha *:* z, epsilon)
     assert(z!=null && A!=null && K!=null, "One of the input matrices is undefined!")
