@@ -71,7 +71,7 @@ class DistributedMatrixOps(sc: SparkContext){
       .map({ case (_, ((i, v), (k, w))) => ((i, k), v * w) })
       .reduceByKey(_ + _)
       .map({ case ((i, k), sum) => MatrixEntry(i, k, sum) })
-    new CoordinateMatrix(productEntries,leftMatrix.numRows(),leftMatrix.numCols())
+    new CoordinateMatrix(productEntries,leftMatrix.numRows(),rightMatrix.numCols())
   }
 
   def coordinateMatrixSignumAndMultiply(leftMatrix: CoordinateMatrix, rightVector: CoordinateMatrix): CoordinateMatrix = {
