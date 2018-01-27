@@ -18,6 +18,4 @@ object TestKernelMatrix extends App {
 	val sparkContext = new SparkContext(conf)
 	val epsilon = 0.0001 
 	val fac = KernelMatrixFactory(d, gaussianKernel, epsilon, sparkContext)
-	val K = fac.K
-	val S = fac.S
 }

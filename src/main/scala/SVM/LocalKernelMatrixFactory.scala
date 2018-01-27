@@ -5,6 +5,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
 import org.apache.spark.rdd.RDD
 import SVM.DataSetType.{Test, Train, Validation}
+import breeze.numerics.signum
 
 trait MatrixFactory{
   def calculateGradient(alpha: DenseVector[Double]):DenseVector[Double]
@@ -15,62 +16,64 @@ trait MatrixFactory{
 }
 
 abstract class BaseMatrixFactoryWithMatrices(d: Data, kf: KernelFunction, epsilon: Double) extends BaseMatrixFactory(d, kf, epsilon){
-  val z : DenseVector[Int] = initTargetTraining()
-  val z_validation : DenseVector[Int] = initTargetValidation()
-
-  private def initTargetTraining() : DenseVector[Int] = {
+  val z : DenseVector[Int] = initTarget(Train)
+  val z_validation : DenseVector[Int] = initTarget(Validation)
+  val z_test : DenseVector[Int] = initTarget(Test)
+  private def initTarget(dataType : SVM.DataSetType.Value) : DenseVector[Int] = {
     assert(d.isDefined, "The input data is not defined!")
-    d.getLabels(Train)
-  }
-
-  private def initTargetValidation() : DenseVector[Int] = {
-    assert(d.isDefined, "The input data is not defined!")
-    d.getLabels(Validation)
+    d.getLabels(dataType)
   }
 }
 
 case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc: SparkContext) extends BaseMatrixFactoryWithMatrices(d, kf, epsilon) {
+  /**
+    * Kernel matrix for training set
+    */
+  val K  = initKernelMatrix(Train)
 
-  val K  = initKernelMatrixTraining()
-  val S  = initKernelMatrixValidation()
+  /**
+    * Kernel matrix for validation set
+    */
+  val V  = initKernelMatrix(Validation)
 
-  def initKernelMatrixTraining() : CoordinateMatrix  = {
+  /**
+    * Kernel matrix for test set
+    */
+  val T  = initKernelMatrix(Test)
+
+  def getKernelMatrix(dataType : SVM.DataSetType.Value): CoordinateMatrix = {
+    dataType match {
+      case Train => this.K
+      case Validation => this.V
+      case Test => this.T
+    }
+  }
+
+  def initKernelMatrix(dataType : SVM.DataSetType.Value) : CoordinateMatrix  = {
     assert(d.isDefined, "The input data is not defined!")
     val listOfMatrixEntries =  for (i <- 0 until d.getN_Train; j <- 0 until d.getN_Train;
-                                    value = kf.kernel(d.getRow(Train,i), d.getRow(Train,j))
+                                    value = kf.kernel(d.getRow(Train,i), d.getRow(dataType,j))
                                     if value > epsilon) yield MatrixEntry(i, j, value)
     // Create an RDD of matrix entries ignoring all matrix entries which are smaller than epsilon.
     val entries: RDD[MatrixEntry] = sc.parallelize(listOfMatrixEntries)
     new CoordinateMatrix(entries, d.getN_Train, d.getN_Train)
   }
 
-  def initKernelMatrixValidation () : CoordinateMatrix = {
-    assert(d.isDefined, "The input data is not defined!")
-    val listOfMatrixEntries =  for (i <- 0 until d.getN_Train; j <- 0 until d.getN_Validation;
-                                    value = kf.kernel(d.getRow(Train,i), d.getRow(Validation,j))
-                                    if value > epsilon) yield MatrixEntry(i, j, value)
-    // Create an RDD of matrix entries ignoring all matrix entries which are smaller than epsilon.
-    val entries: RDD[MatrixEntry] = sc.parallelize(listOfMatrixEntries)
-    new CoordinateMatrix(entries, d.getN_Train, d.getN_Validation)
-  }
-}
-
-case class LocalKernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) extends BaseMatrixFactoryWithMatrices(d, kf, epsilon){
-
-  val K  = initKernelMatrixTraining()
-  val S  = initKernelMatrixValidation()
-
-  def initKernelMatrixTraining() : DenseMatrix[Double]  = {
-    assert(d.isDefined, "The input data is not defined!")
-    val K : DenseMatrix[Double] = DenseMatrix.zeros[Double](d.getN_Train, d.getN_Train)
-    for (i <- 0 until d.getN_Train; j <- 0 until d.getN_Train; value = kf.kernel(d.getRow(Train,i), d.getRow(Train,j))) K(i, j)=value
-    K
-  }
-
-  def initKernelMatrixValidation () : DenseMatrix[Double]  = {
-    assert(d.isDefined, "The input data is not defined!")
-    val K : DenseMatrix[Double] = DenseMatrix.zeros[Double](d.getN_Train, d.getN_Validation)
-    for (i <- 0 until d.getN_Train; j <- 0 until d.getN_Validation; value = kf.kernel(d.getRow(Train,i), d.getRow(Validation,j))) K(i, j)=value
-    K
+  def evaluate(alphas: Alphas, ap: AlgoParams, kmf: KernelMatrixFactory, matOps: DistributedMatrixOps, dataType: SVM.DataSetType.Value):DenseVector[Double]= {
+    //Get the distributed kernel matrix for the given typ of data set:
+    val K : CoordinateMatrix = kmf.getKernelMatrix(dataType)
+    assert(K.numCols()>0, "The number of columns of the kernel matrix is zero.")
+    assert(K.numRows()>0, "The number of rows of the kernel matrix is zero.")
+    val z = kmf.z.map(x=>x.toDouble)
+    assert(K.numCols()==z.length,"The number of columns of the kernel matrix does not equal the length of the vector of labels!")
+    val epsilon = max(min(ap.epsilon, min(alphas.alpha)), 0.000001)
+    val A = matOps.distributeRowVector(alphas.alpha *:* z, epsilon)
+    assert(z!=null && A!=null && K!=null, "One of the input matrices is undefined!")
+    assert(A.numCols()>0, "The number of columns of A is zero.")
+    assert(A.numRows()>0, "The number of rows of A is zero.")
+    assert(A.numCols()==K.numRows(),"The number of columns of A does not equal the number of rows of the kernel matrix!")
+    val P = matOps.coordinateMatrixMultiply(A, K)
+    //Return the predictions
+    signum(matOps.collectRowVector(P))
   }
 }
