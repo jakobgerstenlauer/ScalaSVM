@@ -11,6 +11,7 @@ trait Data{
   def getLabels(dataSetType: DataSetType.Value) : DenseVector[Int]
   //Was the data set correctly initialized?
   def isDefined : Boolean
+  def getN(dataSetType: DataSetType.Value): Int
   def getN_Train : Int
   def getN_Validation : Int
   def getN_Test : Int
@@ -74,6 +75,15 @@ class SparkDataSet[T <: basicDataSetEntry](dataSetTrain: Dataset[T], dataSetVali
   def getN_Validation : Int = dataSetValidation.count().toInt
   def getN_Test : Int = dataSetTest.count().toInt
   def getd : Int = dataSetValidation.first().getD
+
+  override def getN (dataSetType: DataSetType.Value): Int = {
+    dataSetType match{
+    case Validation => dataSetValidation.count().toInt
+    case Train => dataSetTrain.count().toInt
+    case Test => dataSetTest.count().toInt
+    case _ =>  throw new IllegalArgumentException("Unsupported data set type!")
+  }
+  }
 }
 
 abstract class LData extends Data {
@@ -129,10 +139,6 @@ abstract class LData extends Data {
   * @param params
   */
 class SimData (val params: DataParams) extends LData {
-  def getN_Train : Int = params.N_train
-  def getN_Validation : Int = params.N_validation
-  def getN_Test : Int = params.N_test
-  def getd : Int = params.d
 
   //Was the data set correctly initialized?
   override def isDefined : Boolean = isFilled
@@ -145,6 +151,19 @@ class SimData (val params: DataParams) extends LData {
 	var z_train : DenseVector[Int] = DenseVector.zeros[Int](params.N_train)
 	var z_validation : DenseVector[Int] =  DenseVector.zeros[Int](params.N_validation)
   var z_test : DenseVector[Int] =  DenseVector.zeros[Int](params.N_test)
+
+
+  def getN_Train : Int = params.N_train
+  def getN_Validation : Int = params.N_validation
+  def getN_Test : Int = params.N_test
+  def getd : Int = params.d
+
+  override def getN (dataSetType: DataSetType.Value): Int = dataSetType match{
+      case Validation => params.N_validation
+      case Train => params.N_train
+      case Test => params.N_test
+      case _ =>  throw new IllegalArgumentException("Unsupported data set type!")
+    }
 
 	override def toString : String = {
 		val sb = new StringBuilder
@@ -330,4 +349,10 @@ class LocalData extends LData{
   override def getN_Validation: Int = N_validation
   override def getN_Test: Int = N_test
   override def getd: Int = d
+  override def getN (dataSetType: DataSetType.Value): Int = dataSetType match{
+    case Validation => N_validation
+    case Train => N_train
+    case Test => N_test
+    case _ =>  throw new IllegalArgumentException("Unsupported data set type!")
+  }
 }
