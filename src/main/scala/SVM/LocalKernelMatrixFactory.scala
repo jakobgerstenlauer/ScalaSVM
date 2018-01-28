@@ -32,9 +32,7 @@ case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc:
   /**
     * Kernel matrix for training set
     */
-  val TupleTrain  = initKernelMatrixAndMap(Train)
-  val K = TupleTrain._1
-  val rowColumnPairsTrain = TupleTrain._2
+  val rowColumnPairsTrain = initKernelMatrixAndMap(Train)
 
   /**
     * Kernel matrix for validation set
@@ -48,24 +46,19 @@ case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc:
 
   def getKernelMatrix(dataType : SVM.DataSetType.Value): CoordinateMatrix = {
     dataType match {
-      case Train => this.K
       case Validation => this.V
       case Test => this.T
     }
   }
 
-  def initKernelMatrixAndMap(dataType : SVM.DataSetType.Value) : (CoordinateMatrix, MultiMap[Integer, Integer]) = {
+  def initKernelMatrixAndMap(dataType : SVM.DataSetType.Value) : MultiMap[Integer, Integer] = {
     assert(d.isDefined, "The input data is not defined!")
     val numCols = d.getN(dataType)
     val map = new HashMap[Integer, MSet[Integer]] with MultiMap[Integer, Integer]
     val listOfMatrixEntries =  for (i <- 0 until d.getN_Train; j <- 0 until numCols;
                                     value = kf.kernel(d.getRow(Train,i), d.getRow(dataType,j))
-                                    if value > epsilon) yield {addBindings(map, i, j);MatrixEntry(i, j, value)}
-    // Create an RDD of matrix entries ignoring all matrix entries which are smaller than epsilon.
-    val entries: RDD[MatrixEntry] = sc.parallelize(listOfMatrixEntries)
-    val m = new CoordinateMatrix(entries, d.getN_Train, numCols)
-    println("Kernel matrix of type "+dataType.toString()+" has rows: "+ m.numRows() +" and columns: "+ m.numCols())
-    (m, map)
+                                    if value > epsilon) addBindings(map, i, j)
+    map
   }
 
   def initKernelMatrix(dataType : SVM.DataSetType.Value) : CoordinateMatrix = {
