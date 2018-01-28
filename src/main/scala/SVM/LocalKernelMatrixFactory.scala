@@ -7,6 +7,9 @@ import org.apache.spark.rdd.RDD
 import SVM.DataSetType.{Test, Train, Validation}
 import breeze.numerics.signum
 
+import scala.collection.mutable
+import scala.collection.mutable.{HashMap, MultiMap, Set => MSet}
+
 trait MatrixFactory{
   def calculateGradient(alpha: DenseVector[Double]):DenseVector[Double]
   def getData:Data
@@ -29,12 +32,14 @@ case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc:
   /**
     * Kernel matrix for training set
     */
-  val K  = initKernelMatrix(Train)
+  val TupleTrain  = initKernelMatrixAndMap(Train)
+  val K = TupleTrain._1
+  val rowColumnPairsTrain = TupleTrain._2
 
   /**
     * Kernel matrix for validation set
     */
-  val V  = initKernelMatrix(Validation)
+  val V = initKernelMatrix(Validation)
 
   /**
     * Kernel matrix for test set
@@ -49,7 +54,21 @@ case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc:
     }
   }
 
-  def initKernelMatrix(dataType : SVM.DataSetType.Value) : CoordinateMatrix  = {
+  def initKernelMatrixAndMap(dataType : SVM.DataSetType.Value) : (CoordinateMatrix, MultiMap[Integer, Integer]) = {
+    assert(d.isDefined, "The input data is not defined!")
+    val numCols = d.getN(dataType)
+    val map = new HashMap[Integer, MSet[Integer]] with MultiMap[Integer, Integer]
+    val listOfMatrixEntries =  for (i <- 0 until d.getN_Train; j <- 0 until numCols;
+                                    value = kf.kernel(d.getRow(Train,i), d.getRow(dataType,j))
+                                    if value > epsilon) yield {addBindings(map, i, j);MatrixEntry(i, j, value)}
+    // Create an RDD of matrix entries ignoring all matrix entries which are smaller than epsilon.
+    val entries: RDD[MatrixEntry] = sc.parallelize(listOfMatrixEntries)
+    val m = new CoordinateMatrix(entries, d.getN_Train, numCols)
+    println("Kernel matrix of type "+dataType.toString()+" has rows: "+ m.numRows() +" and columns: "+ m.numCols())
+    (m, map)
+  }
+
+  def initKernelMatrix(dataType : SVM.DataSetType.Value) : CoordinateMatrix = {
     assert(d.isDefined, "The input data is not defined!")
     val numCols = d.getN(dataType)
     val listOfMatrixEntries =  for (i <- 0 until d.getN_Train; j <- 0 until numCols;
@@ -60,6 +79,33 @@ case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc:
     val m = new CoordinateMatrix(entries, d.getN_Train, numCols)
     println("Kernel matrix of type "+dataType.toString()+" has rows: "+ m.numRows() +" and columns: "+ m.numCols())
     m
+  }
+
+  /**
+    * The matrices K and S are
+    * @param map
+    * @param i
+    * @param j
+    * @return
+    */
+  private def addBindings (map: mutable.MultiMap[Integer, Integer], i: Int, j: Int) = {
+    val i_ = Integer.valueOf(i)
+    val j_ = Integer.valueOf(j)
+    map.addBinding(i_, j_)
+    map.addBinding(j_, i_)
+  }
+
+  /**
+    * The matrices K and S are
+    * @param map
+    * @param i
+    * @param j
+    * @return
+    */
+  private def addBinding (map: mutable.MultiMap[Integer, Integer], i: Int, j: Int) = {
+    val i_ = Integer.valueOf(i)
+    val j_ = Integer.valueOf(j)
+    map.addBinding(i_, j_)
   }
 
   def evaluate(alphas: Alphas, ap: AlgoParams, kmf: KernelMatrixFactory, matOps: DistributedMatrixOps, dataType: SVM.DataSetType.Value):DenseVector[Double]= {
@@ -82,5 +128,18 @@ case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc:
     //println("Result matrix with rows: "+P.numRows()+ "and columns: "+P.numCols() + ".")
     //Return the predictions
     signum(matOps.collectRowVector(P))
+  }
+
+  override def calculateGradient(alphas : DenseVector[Double]) : DenseVector[Double]  = {
+    val hashMap = rowColumnPairsTrain
+    val N = d.getN_Train
+    val labels: DenseVector[Double] = d.getLabels(Train).map(x=>x.toDouble)
+    val z: DenseVector[Double] = alphas *:* labels
+    //for the diagonal:
+    val v = DenseVector.zeros[Double](N)
+    for (i <- 0 until N; labelTrain = d.getLabel(Train,i); rowTrain_i = d.getRow(Train,i); setOfCols <- hashMap.get(i); j<- setOfCols){
+      v(i) += z(j.toInt) * labelTrain * kf.kernel(rowTrain_i, d.getRow(Train,j))
+    }
+    v
   }
 }
