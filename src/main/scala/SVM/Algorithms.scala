@@ -58,6 +58,11 @@ abstract class Algorithm(alphas: Alphas){
       ",Sparsity:"+printSparsity()
   }
 
+  def createLog(correctT : Int, misclassifiedT : Int, alphas : Alphas):String={
+      ",Validation:"+printAccuracy(correctT,misclassifiedT)+
+      ",Sparsity:"+printSparsity()
+  }
+
   /**
     * Get the sparsity of the algorithm.
     * @return Sparsity between 0 (0%) and 100 (100%)
@@ -156,9 +161,10 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
 	val matOps : DistributedMatrixOps = new DistributedMatrixOps(sc)
 
 	def iterate(iteration: Int): SG = {
-    val (correct, misclassified) = calculateAccuracy(kmf.evaluate(alphas, ap, kmf, matOps, Train), kmf.getData().getLabels(Train))
+    //val (correct, misclassified) = calculateAccuracy(kmf.evaluate(alphas, ap, kmf, matOps, Train), kmf.getData().getLabels(Train))
     val (correctT, misclassifiedT) = calculateAccuracy(kmf.evaluate(alphas, ap, kmf, matOps, Validation), kmf.getData().getLabels(Validation))
-    println(createLog(correct, misclassified, correctT, misclassifiedT, alphas))
+    //println(createLog(correct, misclassified, correctT, misclassifiedT, alphas))
+    println(createLog(correctT, misclassifiedT, alphas))
     assert(getSparsity < 99.0)
     //Decrease the step size, i.e. learning rate:
 		val ump = mp.updateDelta(ap)
