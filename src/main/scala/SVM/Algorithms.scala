@@ -59,8 +59,8 @@ abstract class Algorithm(alphas: Alphas){
   }
 
   def createLog(correctT : Int, misclassifiedT : Int, alphas : Alphas):String={
-      ",Validation:"+printAccuracy(correctT,misclassifiedT)+
-      ",Sparsity:"+printSparsity()
+      "Accuracy validation set:"+printAccuracy(correctT,misclassifiedT)+
+      ",with sparsity:"+printSparsity()
   }
 
   /**
