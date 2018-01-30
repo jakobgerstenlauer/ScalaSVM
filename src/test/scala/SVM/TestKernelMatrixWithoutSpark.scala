@@ -32,7 +32,7 @@ object TestKernelMatrixWithoutSpark extends App {
 	println(kernelPar)
 	val gaussianKernel = GaussianKernel(kernelPar)
 	println(gaussianKernel)
-	val N = 200000
+	val N = 40000
   Utility.testJVMArgs(N/2)
 	val dataProperties = DataParams(N = N, d = 10)
 	println(dataProperties)
@@ -63,8 +63,15 @@ object TestKernelMatrixWithoutSpark extends App {
 		algo = algo.iterate(numInt)
 		numInt += 1
 	}
-	val testSetAccuracy : Future[Int] = algo.predictOnTestSet(PredictionMethod.AUC)
-	Await.result(testSetAccuracy, LeanMatrixFactory.maxDuration)
+	val testSetAccuracy0 : Future[Int] = algo.predictOnTestSet(PredictionMethod.AUC)
+	Await.result(testSetAccuracy0, LeanMatrixFactory.maxDuration)
+
+	val testSetAccuracy1 : Future[Int] = algo.predictOnTestSet(PredictionMethod.STANDARD)
+	Await.result(testSetAccuracy1, LeanMatrixFactory.maxDuration)
+
+	val testSetAccuracy2 : Future[Int] = algo.predictOnTestSet(PredictionMethod.THRESHOLD)
+	Await.result(testSetAccuracy2, LeanMatrixFactory.maxDuration)
+
  /* Synthetic dataset with 10 variables.
   Observations: 50000 (training), 50000(test)
   Data was already generated.

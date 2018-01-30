@@ -24,8 +24,8 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   def initializeDiagonal():DenseVector[Double]={
     val N = d.getN_Train
     val diagonal = DenseVector.zeros[Double](N)
-    for (i <- 0 until N){
-      diagonal(i) = kf.kernel(d.getRow(Train,i), d.getRow(Train,i))
+    for (i <- 0 until N; x = d.getRow(Train,i)){
+      diagonal(i) = kf.kernel(x, x)
     }
     diagonal
   }
@@ -92,6 +92,16 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     map
   }
 
+  /**
+    *
+    * This function is intended for the non-symmetric matrices of the validation and the test set.
+    * @param Nstart_train
+    * @param Nstart_test
+    * @param Nstop_train
+    * @param Nstop_test
+    * @param dataSetType
+    * @return
+    */
   def initializeRowColumnPairs(Nstart_train: Int, Nstart_test: Int, Nstop_train: Int, Nstop_test: Int, dataSetType: DataSetType.Value): Future[MultiMap[Integer, Integer]] = {
     val promise = Promise[MultiMap[Integer, Integer]]
     Future{
@@ -106,6 +116,12 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     promise.future
   }
 
+  /**
+    * This function is intended for the symmetric training set matrix.
+    * @param Nstart
+    * @param N
+    * @return
+    */
   def initializeRowColumnPairs(Nstart: Int, N: Int): Future[MultiMap[Integer, Integer]] = {
     val promise = Promise[MultiMap[Integer, Integer]]
     Future{
@@ -361,17 +377,59 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     *  @return
     */
   override def calculateGradient(alphas : DenseVector[Double]) : DenseVector[Double]  = {
-    val hashMap = Await.result(rowColumnPairs, LeanMatrixFactory.maxDuration)
-    val N = d.getN_Train
-    val labels: DenseVector[Double] = d.getLabels(Train).map(x=>x.toDouble)
-    val z: DenseVector[Double] = alphas *:* labels
-    //for the diagonal:
-    val v : DenseVector[Double] = z  *:* diagonal *:* labels
-    //for the off-diagonal entries:
-    for (i <- 0 until N; labelTrain = d.getLabel(Train,i); rowTrain_i = d.getRow(Train,i); setOfCols <- hashMap.get(i); j<- setOfCols){
-      v(i) += z(j.toInt) * labelTrain * kf.kernel(rowTrain_i, d.getRow(Train,j))
+    val promise = Promise[DenseVector[Double]]
+    Future {
+      val hashMap = Await.result(rowColumnPairs, LeanMatrixFactory.maxDuration)
+      val N = d.getN_Train
+      val labels: DenseVector[Double] = d.getLabels(Train).map(x => x.toDouble)
+      val z: DenseVector[Double] = alphas *:* labels
+
+      val N1:Int = N/4
+      val N2:Int = N/2
+      val N3:Int = 3*(N/4)
+
+      val gradient1 = calculateGradient(0, N1, N, hashMap, z)
+      val gradient2 = calculateGradient(N1, N2, N, hashMap, z)
+      val gradient3 = calculateGradient(N2, N3, N, hashMap, z)
+      val gradient4 = calculateGradient(N3, N, N, hashMap, z)
+
+      //Merge the results of the four threads by simply summing the vectors
+      val futureSumGradients: Future[DenseVector[Double]] = for {
+        p1 <- gradient1
+        p2 <- gradient2
+        p3 <- gradient3
+        p4 <- gradient4
+      } yield (p1 + p2 + p3 + p4)
+
+      //for the diagonal:
+      val v: DenseVector[Double] = z *:* diagonal *:* labels
+
+      futureSumGradients onComplete {
+        case Success(sumGradients) => {
+          promise.success(sumGradients + v)
+        }
+        case Failure(t) => {
+          println("An error occurred when trying to calculate the sum of gradients!"
+            + t.getMessage)
+          promise.failure(t.getCause)
+        }
+      }
     }
-    v
+    Await.result(promise.future, LeanMatrixFactory.maxDuration)
+  }
+
+
+  def calculateGradient(N_start : Int, N_stop : Int, N: Int, hashMap : MultiMap[Integer, Integer], z: DenseVector[Double]): Future[DenseVector[Double]]  = {
+    val promise = Promise[DenseVector[Double]]
+    Future{
+      val v = DenseVector.zeros[Double](N)
+      //for the off-diagonal entries:
+      for (i <- N_start until N_stop; labelTrain = d.getLabel(Train,i); rowTrain_i = d.getRow(Train,i); setOfCols <- hashMap.get(i); j<- setOfCols){
+        v(i) += z(j.toInt) * labelTrain * kf.kernel(rowTrain_i, d.getRow(Train,j))
+      }
+      promise.success(v)
+    }
+    promise.future
   }
 
   override def predictOnTrainingSet(alphas : DenseVector[Double]) : DenseVector[Double]  = {
@@ -732,7 +790,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
           val truePositiveRate  = truePositives(threshold-1) / numPositive
           val falsePositiveRate = falsePositives(threshold-1) / numPositive
           val q = if (truePositiveRate>0 && falsePositiveRate>0) truePositiveRate / Math.sqrt(falsePositiveRate) else 0.0
-          val accuracy = correctPredictions(threshold-1) / d.getN_Train.toDouble
+          val accuracy = correctPredictions(threshold-1) / d.getN_Test.toDouble
           if(falsePositiveRate==0.0){
             println(threshold+"\t"
               +roundAt(3)(truePositiveRate)+"\t\t0.0\tNAN\t"
