@@ -567,11 +567,9 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     r / rankMax
   }
 
-  private def predictOnTestSet (alphas : Alphas, replicate: Int) : Future[DenseVector[Double]]  = {
+  private def predictOnTestSet (alphas : Alphas, hashMap: MultiMap[Integer, Integer]) : Future[DenseVector[Double]]  = {
     val promise = Promise[DenseVector[Double]]
     Future{
-      val hashMapPromise = getHashMap(Test,replicate)
-      val hashMap = Await.result(hashMapPromise, LeanMatrixFactory.maxDuration)
       val N_test = d.getN_Test
       val N_train = d.getN_Train
       val v = DenseVector.fill(N_test){0.0}
@@ -584,47 +582,6 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     promise.future
   }
 
-  private def predictOnTestSet (alphas : Alphas, replicate: Int, threshold: Double) : Future[DenseVector[Double]]  = {
-    assert(threshold>0.0 && threshold<1.0)
-    val promise = Promise[DenseVector[Double]]
-    Future{
-      val hashMapPromise = getHashMap(Test, replicate)
-      val hashMap = Await.result(hashMapPromise, LeanMatrixFactory.maxDuration)
-      val N_test = d.getN_Test
-      val N_train = d.getN_Train
-      val v = DenseVector.fill(N_test){0.0}
-      val z : DenseVector[Double] = alphas.alpha *:* d.getLabels(Train).map(x=>x.toDouble)
-      for ((i,set) <- hashMap; j <- set; valueKernelFunction = kf.kernel(d.getRow(Test,j), d.getRow(Train,i))){
-        v(j.toInt) = v(j.toInt) + z(i.toInt) * valueKernelFunction
-      }
-      promise.success(v)
-    }
-    promise.future
-  }
-
-
-  /**
-    * Iterates over all percentiles of the distribution of SVM scores and calculates the accuracy
-    * @param alphas
-    * @param replicate
-    * @return
-    */
-  private def predictOnTestSetAUC (alphas : Alphas, replicate: Int) : Future[DenseVector[Double]]  = {
-    val promise = Promise[DenseVector[Double]]
-    Future{
-      val hashMapPromise = getHashMap(Test, replicate)
-      val hashMap = Await.result(hashMapPromise, LeanMatrixFactory.maxDuration)
-      val N_test = d.getN_Test
-      val N_train = d.getN_Train
-      val v = DenseVector.fill(N_test){0.0}
-      val z : DenseVector[Double] = alphas.alpha *:* d.getLabels(Train).map(x=>x.toDouble)
-      for ((i,set) <- hashMap; j <- set; valueKernelFunction = kf.kernel(d.getRow(Test,j), d.getRow(Train,i))){
-        v(j.toInt) = v(j.toInt) + z(i.toInt) * valueKernelFunction
-      }
-      promise.success(v)
-    }
-    promise.future
-  }
   /**
     *
     * @param alphas
@@ -675,38 +632,71 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     promise.future
   }
 
+  private def predictOnTestSet (alphas : Alphas, hashMap: MultiMap[Integer,Integer], threshold: Double) : Future[DenseVector[Double]]  = {
+    assert(threshold>0.0 && threshold<1.0)
+    val promise = Promise[DenseVector[Double]]
+    Future{
+      val N_test = d.getN_Test
+      val N_train = d.getN_Train
+      val v = DenseVector.fill(N_test){0.0}
+      val z : DenseVector[Double] = alphas.alpha *:* d.getLabels(Train).map(x=>x.toDouble)
+      for ((i,set) <- hashMap; j <- set; valueKernelFunction = kf.kernel(d.getRow(Test,j), d.getRow(Train,i))){
+        v(j.toInt) = v(j.toInt) + z(i.toInt) * valueKernelFunction
+      }
+      promise.success(v)
+    }
+    promise.future
+  }
+
   /**
     *
     * @param alphas
     * @return Tuple (optimal sparsity, nr of correct predictions for this quantile):
     */
-  def predictOnTestSet (alphas : Alphas) : Future[Int] = {
+  def predictOnTestSet (alphas : Alphas, threshold: Double) : Future[Int] = {
+    assert(threshold > 0 && threshold < 1.0)
     val promise = Promise[Int]
-    val predict1 = predictOnTestSet(alphas.copy(), 0)
-    val predict2 = predictOnTestSet(alphas.copy(), 1)
-    val predict3 = predictOnTestSet(alphas.copy(), 2)
-    val predict4 = predictOnTestSet(alphas.copy(), 3)
+    //Here the futures for the four hash maps for the test set replicates
+    //are combined into a single future.
+    val combinedFuture: Future[(mutable.MultiMap[Integer, Integer], mutable.MultiMap[Integer, Integer], mutable.MultiMap[Integer, Integer], mutable.MultiMap[Integer, Integer])] = extractHashMapPromisesTest
 
-    //Merge the results of the four threads by simply summing the vectors
-    val v: Future[DenseVector[Double]] = for {
-      p1 <- predict1
-      p2 <- predict2
-      p3 <- predict3
-      p4 <- predict4
-    } yield (p1 + p2 + p3 + p4)
+    //Once all hash maps have been created.
+    combinedFuture onComplete{
+      case Success(maps) =>{
 
-    v onComplete {
-      case Success(v) => {
-        val correctPredictions = calcCorrectPredictions(signum(v), d.getLabels(Test))
-        val correctPredictionsClass1 = calcCorrectPredictionsClass1(signum(v), d.getLabels(Test))
-        val correctPredictionsClass2 = calcCorrectPredictionsClass2(signum(v), d.getLabels(Test))
-        println("Nr of correct predictions for test set: "+correctPredictions +"/"+ getData().getN_Test)
-        println("Nr of correct predictions for class 1 (+1) in test set: "+correctPredictionsClass1 +"/"+ getData().getN_Test)
-        println("Nr of correct predictions for class 2 (-1) test set: "+correctPredictionsClass2 +"/"+ getData().getN_Test)
-        promise.success(correctPredictions)
+        val predict1 = predictOnTestSet(alphas.copy(), maps._1, threshold)
+        val predict2 = predictOnTestSet(alphas.copy(), maps._2, threshold)
+        val predict3 = predictOnTestSet(alphas.copy(), maps._3, threshold)
+        val predict4 = predictOnTestSet(alphas.copy(), maps._4, threshold)
+
+        //Merge the results of the four threads by simply summing the vectors
+        val v: Future[DenseVector[Double]] = for {
+          p1 <- predict1
+          p2 <- predict2
+          p3 <- predict3
+          p4 <- predict4
+        } yield (p1 + p2 + p3 + p4)
+
+        v onComplete {//Once all predictions have been calculated.
+          case Success(v) => {
+            val predictions = getQuantiles(v).map(x => if (x > threshold) -1.0 else +1.0)
+            val correctPredictions = calcCorrectPredictions(predictions, d.getLabels(Test))
+            val correctPredictionsClass1 = calcCorrectPredictionsClass1(signum(v), d.getLabels(Test))
+            val correctPredictionsClass2 = calcCorrectPredictionsClass2(signum(v), d.getLabels(Test))
+            println("Nr of correct predictions for test set: " + correctPredictions + "/" + getData().getN_Test)
+            println("Nr of correct predictions for class 1 (+1) in test set: " + correctPredictionsClass1 + "/" + getData().getN_Test)
+            println("Nr of correct predictions for class 2 (-1) test set: " + correctPredictionsClass2 + "/" + getData().getN_Test)
+            promise.success(correctPredictions)
+          }
+          case Failure(t) => {
+            println("An error occurred when trying to calculate the correct predictions for the test set!"
+              + t.getMessage)
+            promise.failure(t.getCause)
+          }
+        }
       }
       case Failure(t) => {
-        println("An error occurred when trying to calculate the correct predictions for the test set!"
+        println("An error occurred when trying to create the hash maps for the four test set replicates!"
           + t.getMessage)
         promise.failure(t.getCause)
       }
@@ -719,35 +709,48 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     * @param alphas
     * @return Tuple (optimal sparsity, nr of correct predictions for this quantile):
     */
-  def predictOnTestSet (alphas : Alphas, threshold: Double) : Future[Int] = {
-    assert(threshold>0 && threshold<1.0)
+  def predictOnTestSet (alphas : Alphas) : Future[Int] = {
     val promise = Promise[Int]
-    val predict1 = predictOnTestSet(alphas.copy(), 0, threshold)
-    val predict2 = predictOnTestSet(alphas.copy(), 1, threshold)
-    val predict3 = predictOnTestSet(alphas.copy(), 2, threshold)
-    val predict4 = predictOnTestSet(alphas.copy(), 3, threshold)
+    //Here the futures for the four hash maps for the test set replicates
+    //are combined into a single future.
+    val combinedFuture: Future[(mutable.MultiMap[Integer, Integer], mutable.MultiMap[Integer, Integer], mutable.MultiMap[Integer, Integer], mutable.MultiMap[Integer, Integer])] = extractHashMapPromisesTest
 
-    //Merge the results of the four threads by simply summing the vectors
-    val v: Future[DenseVector[Double]] = for {
-      p1 <- predict1
-      p2 <- predict2
-      p3 <- predict3
-      p4 <- predict4
-    } yield (p1 + p2 + p3 + p4)
+    //Once all hash maps have been created.
+    combinedFuture onComplete{
+      case Success(maps) =>{
 
-    v onComplete {
-      case Success(v) => {
-        val predictions = getQuantiles(v).map(x=>if(x>threshold) -1.0 else +1.0)
-        val correctPredictions = calcCorrectPredictions(predictions, d.getLabels(Test))
-        val correctPredictionsClass1 = calcCorrectPredictionsClass1(signum(v), d.getLabels(Test))
-        val correctPredictionsClass2 = calcCorrectPredictionsClass2(signum(v), d.getLabels(Test))
-        println("Nr of correct predictions for test set: "+correctPredictions +"/"+ getData().getN_Test)
-        println("Nr of correct predictions for class 1 (+1) in test set: "+correctPredictionsClass1 +"/"+ getData().getN_Test)
-        println("Nr of correct predictions for class 2 (-1) test set: "+correctPredictionsClass2 +"/"+ getData().getN_Test)
-        promise.success(correctPredictions)
+        val predict1 = predictOnTestSet(alphas.copy(), maps._1)
+        val predict2 = predictOnTestSet(alphas.copy(), maps._2)
+        val predict3 = predictOnTestSet(alphas.copy(), maps._3)
+        val predict4 = predictOnTestSet(alphas.copy(), maps._4)
+
+        //Merge the results of the four threads by simply summing the vectors
+        val v: Future[DenseVector[Double]] = for {
+          p1 <- predict1
+          p2 <- predict2
+          p3 <- predict3
+          p4 <- predict4
+        } yield (p1 + p2 + p3 + p4)
+
+        v onComplete {//Once all predictions have been calculated.
+          case Success(v) => {
+            val correctPredictions = calcCorrectPredictions(signum(v), d.getLabels(Test))
+            val correctPredictionsClass1 = calcCorrectPredictionsClass1(signum(v), d.getLabels(Test))
+            val correctPredictionsClass2 = calcCorrectPredictionsClass2(signum(v), d.getLabels(Test))
+            println("Nr of correct predictions for test set: "+correctPredictions +"/"+ getData().getN_Test)
+            println("Nr of correct predictions for class 1 (+1) in test set: "+correctPredictionsClass1 +"/"+ getData().getN_Test)
+            println("Nr of correct predictions for class 2 (-1) test set: "+correctPredictionsClass2 +"/"+ getData().getN_Test)
+            promise.success(correctPredictions)
+          }
+          case Failure(t) => {
+            println("An error occurred when trying to calculate the correct predictions for the test set!"
+              + t.getMessage)
+            promise.failure(t.getCause)
+          }
+        }
       }
       case Failure(t) => {
-        println("An error occurred when trying to calculate the correct predictions for the test set!"
+        println("An error occurred when trying to create the hash maps for the four test set replicates!"
           + t.getMessage)
         promise.failure(t.getCause)
       }
@@ -765,57 +768,69 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     */
   def predictOnTestSetAUC (alphas : Alphas) : Future[Int] = {
     val promise = Promise[Int]
-    val predict1 = predictOnTestSetAUC(alphas.copy(), 0)
-    val predict2 = predictOnTestSetAUC(alphas.copy(), 1)
-    val predict3 = predictOnTestSetAUC(alphas.copy(), 2)
-    val predict4 = predictOnTestSetAUC(alphas.copy(), 3)
 
-    //Merge the results of the four threads by simply summing the vectors
-    val v: Future[DenseVector[Double]] = for {
-      p1 <- predict1
-      p2 <- predict2
-      p3 <- predict3
-      p4 <- predict4
-    } yield (p1 + p2 + p3 + p4)
+    val combinedFuture: Future[(mutable.MultiMap[Integer, Integer], mutable.MultiMap[Integer, Integer], mutable.MultiMap[Integer, Integer], mutable.MultiMap[Integer, Integer])] = extractHashMapPromisesTest
 
-    v onComplete {
-      case Success(v) => {
-        val quantiles = getQuantiles(v)
-        val correctPredictions = DenseVector.zeros[Int](99)
-        val truePositives = DenseVector.zeros[Int](99)
-        val falsePositives = DenseVector.zeros[Int](99)
-        for(threshold <- 0 until 99){
-          val cutOff : Double = threshold/100.0
-          val predictions = quantiles.map(x=>if(x>cutOff) -1.0 else +1.0)
-          correctPredictions(threshold) = calcCorrectPredictions(predictions, d.getLabels(Test))
-          truePositives(threshold) = calcCorrectPredictionsClass1(predictions, d.getLabels(Test))
-          falsePositives(threshold) = calcInCorrectPredictionsClass1(predictions, d.getLabels(Test))
-        }
-        val numPositive : Double = d.getLabels(Train).map(x=>if(x>0)1 else 0).reduce(_+_).toDouble
-        println("True (+) and false(-) positive rate, Q=+/sqrt(-), and total accuracy (A) for the test set and all percentiles: ")
-        println("%\t+\t\t-\tQ\tA")
+    combinedFuture onComplete{
+      case Success(maps) =>{
+        val predict1 = predictOnTestSet(alphas.copy(), maps._1)
+        val predict2 = predictOnTestSet(alphas.copy(), maps._2)
+        val predict3 = predictOnTestSet(alphas.copy(), maps._3)
+        val predict4 = predictOnTestSet(alphas.copy(), maps._4)
 
-        for(threshold <- 1 to 99){
-          val truePositiveRate  = truePositives(threshold-1) / numPositive
-          val falsePositiveRate = falsePositives(threshold-1) / numPositive
-          val q = if (truePositiveRate>0 && falsePositiveRate>0) truePositiveRate / Math.sqrt(falsePositiveRate) else 0.0
-          val accuracy = correctPredictions(threshold-1) / d.getN_Test.toDouble
-          if(falsePositiveRate==0.0){
-            println(threshold+"\t"
-              +roundAt(3)(truePositiveRate)+"\t\t0.0\tNAN\t"
-              +roundAt(3)(accuracy))
-          }else {
-            println(threshold + "\t"
-              + roundAt(3)(truePositiveRate) + "\t"
-              + roundAt(3)(falsePositiveRate) + "\t"
-              + roundAt(3)(q) + "\t"
-              + roundAt(3)(accuracy))
+        //Merge the results of the four threads by simply summing the vectors
+        val v: Future[DenseVector[Double]] = for {
+          p1 <- predict1
+          p2 <- predict2
+          p3 <- predict3
+          p4 <- predict4
+        } yield (p1 + p2 + p3 + p4)
+
+        v onComplete {
+          case Success(v) => {
+            val quantiles = getQuantiles(v)
+            val correctPredictions = DenseVector.zeros[Int](99)
+            val truePositives = DenseVector.zeros[Int](99)
+            val falsePositives = DenseVector.zeros[Int](99)
+            for(threshold <- 0 until 99){
+              val cutOff : Double = threshold/100.0
+              val predictions = quantiles.map(x=>if(x>cutOff) -1.0 else +1.0)
+              correctPredictions(threshold) = calcCorrectPredictions(predictions, d.getLabels(Test))
+              truePositives(threshold) = calcCorrectPredictionsClass1(predictions, d.getLabels(Test))
+              falsePositives(threshold) = calcInCorrectPredictionsClass1(predictions, d.getLabels(Test))
+            }
+            val numPositive : Double = d.getLabels(Train).map(x=>if(x>0)1 else 0).reduce(_+_).toDouble
+            println("True (+) and false(-) positive rate, Q=+/sqrt(-), and total accuracy (A) for the test set and all percentiles: ")
+            println("%\t+\t\t-\tQ\tA")
+
+            for(threshold <- 1 to 99){
+              val truePositiveRate  = truePositives(threshold-1) / numPositive
+              val falsePositiveRate = falsePositives(threshold-1) / numPositive
+              val q = if (truePositiveRate>0 && falsePositiveRate>0) truePositiveRate / Math.sqrt(falsePositiveRate) else 0.0
+              val accuracy = correctPredictions(threshold-1) / d.getN_Test.toDouble
+              if(falsePositiveRate==0.0){
+                println(threshold+"\t"
+                  +roundAt(3)(truePositiveRate)+"\t\t0.0\tNAN\t"
+                  +roundAt(3)(accuracy))
+              }else {
+                println(threshold + "\t"
+                  + roundAt(3)(truePositiveRate) + "\t"
+                  + roundAt(3)(falsePositiveRate) + "\t"
+                  + roundAt(3)(q) + "\t"
+                  + roundAt(3)(accuracy))
+              }
+            }
+            promise.success(correctPredictions.reduce((a,b)=>max(a,b)))
+          }
+          case Failure(t) => {
+            println("An error occurred when trying to calculate the correct predictions for the test set!"
+              + t.getMessage)
+            promise.failure(t.getCause)
           }
         }
-        promise.success(correctPredictions.reduce((a,b)=>max(a,b)))
       }
       case Failure(t) => {
-        println("An error occurred when trying to calculate the correct predictions for the test set!"
+        println("An error occurred when trying to create the hash maps for the four test set replicates!"
           + t.getMessage)
         promise.failure(t.getCause)
       }
@@ -823,7 +838,22 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     promise.future
   }
 
-  def calcCorrectPredictions(v0: DenseVector[Double], labels: DenseVector[Int]) : Int={
+  private def extractHashMapPromisesTest = {
+    val hashMapPromise0 = getHashMap(Test, 0)
+    val hashMapPromise1 = getHashMap(Test, 1)
+    val hashMapPromise2 = getHashMap(Test, 2)
+    val hashMapPromise3 = getHashMap(Test, 3)
+
+    val combinedFuture = for {
+      map0 <- hashMapPromise0
+      map1 <- hashMapPromise1
+      map2 <- hashMapPromise2
+      map3 <- hashMapPromise3
+    } yield (map0, map1, map2, map3)
+    combinedFuture
+  }
+
+  def calcCorrectPredictions (v0: DenseVector[Double], labels: DenseVector[Int]) : Int={
     assert(v0.length == labels.length)
     (signum(v0) *:* labels.map(x => x.toDouble) ).map(x=>if(x>0) 1 else 0).reduce(_+_)
   }
