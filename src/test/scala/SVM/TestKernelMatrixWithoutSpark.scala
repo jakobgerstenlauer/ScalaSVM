@@ -5,6 +5,9 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
+import scala.util.{Failure, Success}
+import scala.concurrent.{Await, Future, Promise}
+import scala.concurrent.ExecutionContext.Implicits.global
 
 //Important flags for the Java virtual machine:
 //Force the JVM to cache Integers up to dimensionality of K and S:
@@ -63,14 +66,38 @@ object TestKernelMatrixWithoutSpark extends App {
 		algo = algo.iterate(numInt)
 		numInt += 1
 	}
-	val testSetAccuracy0 : Future[Int] = algo.predictOnTestSet(PredictionMethod.AUC)
-	Await.result(testSetAccuracy0, LeanMatrixFactory.maxDuration)
 
-	val testSetAccuracy1 : Future[Int] = algo.predictOnTestSet(PredictionMethod.STANDARD)
-	Await.result(testSetAccuracy1, LeanMatrixFactory.maxDuration)
+	val future = algo.predictOnTestSet(PredictionMethod.AUC)
+	Await.result(future, LeanMatrixFactory.maxDuration)
 
-	val testSetAccuracy2 : Future[Int] = algo.predictOnTestSet(PredictionMethod.THRESHOLD)
-	Await.result(testSetAccuracy2, LeanMatrixFactory.maxDuration)
+/*	def calcTestAccuracy(algo: NoMatrices):Future[Int] = {
+		val promise = Promise[Int]
+		val testSetAccuracy0 : Future[Int] = algo.predictOnTestSet(PredictionMethod.AUC)
+		testSetAccuracy0 onComplete {
+			case Success(acc) => {
+				val testSetAccuracy1 : Future[Int] = algo.predictOnTestSet(PredictionMethod.STANDARD)
+				testSetAccuracy1 onComplete {
+					case Success(acc) => {
+						val testSetAccuracy2 : Future[Int] = algo.predictOnTestSet(PredictionMethod.THRESHOLD)
+						testSetAccuracy2 onComplete {
+							case Success(acc) => {
+								promise.success(acc)
+							}
+							case Failure(ex) => println(ex.getCause)
+						}
+					}
+					case Failure(ex) => println(ex.getCause)
+				}
+			}
+			case Failure(ex) => println(ex.getCause)
+		}
+		promise.future
+	}
+
+	calcTestAccuracy(algo)
+	Thread.sleep(900000000)*/
+	//val testAccuracy = calcTestAccuracy(algo)
+  //Await.result(testAccuracy, LeanMatrixFactory.maxDuration)
 
  /* Synthetic dataset with 10 variables.
   Observations: 50000 (training), 50000(test)
