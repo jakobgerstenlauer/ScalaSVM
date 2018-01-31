@@ -32,7 +32,7 @@ object TestKernelMatrixWithoutSpark extends App {
 	println(kernelPar)
 	val gaussianKernel = GaussianKernel(kernelPar)
 	println(gaussianKernel)
-	val N = 40000
+	val N = 400000
   Utility.testJVMArgs(N/2)
 	val dataProperties = DataParams(N = N, d = 10)
 	println(dataProperties)
@@ -54,7 +54,7 @@ object TestKernelMatrixWithoutSpark extends App {
   //println("Training matrix S: "+numElementsS/intsPerKB+"kB:")
 
   val lmf = LeanMatrixFactory(d, gaussianKernel, epsilon)
-	val mp = ModelParams(C = 0.5, delta = 0.03)
+	val mp = ModelParams(C = 0.4, delta = 0.03)
 	val alphas = new Alphas(N=N/2, mp)
 	val ap = AlgoParams(maxIter = 30, batchProb = 0.99, learningRateDecline = 0.8, epsilon = epsilon, quantileAlphaClipping=0.0)
 	var algo = NoMatrices(alphas, ap, mp, lmf, new ListBuffer[Future[(Int,Int,Int)]])

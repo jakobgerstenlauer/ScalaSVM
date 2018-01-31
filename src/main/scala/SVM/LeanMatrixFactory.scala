@@ -445,28 +445,37 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     signum(v)
   }
 
-  private def getHashMapValidation(replicate: Int):Future[MultiMap[Integer, Integer]]={
-    replicate match{
-      case 0 => rowColumnPairsValidation1
-      case 1 => rowColumnPairsValidation2
-      case 2 => rowColumnPairsValidation3
-      case 3 => rowColumnPairsValidation4
-      case _ =>  throw new IllegalArgumentException("Unsupported replicate nr!")
-    }
-  }
+  private def getHashMap(dataSetType: DataSetType.Value, replicate: Int):Future[MultiMap[Integer, Integer]]={
 
-  private def getHashMapTest(replicate: Int):Future[MultiMap[Integer, Integer]]={
-    replicate match{
-      case 0 => rowColumnPairsTest1
-      case 1 => rowColumnPairsTest2
-      case 2 => rowColumnPairsTest3
-      case 3 => rowColumnPairsTest4
-      case _ =>  throw new IllegalArgumentException("Unsupported replicate nr!")
+    def getHashMapValidation(replicate: Int):Future[MultiMap[Integer, Integer]]={
+      replicate match{
+        case 0 => rowColumnPairsValidation1
+        case 1 => rowColumnPairsValidation2
+        case 2 => rowColumnPairsValidation3
+        case 3 => rowColumnPairsValidation4
+        case _ =>  throw new IllegalArgumentException("Unsupported replicate nr!")
+      }
+    }
+
+    def getHashMapTest(replicate: Int):Future[MultiMap[Integer, Integer]]={
+      replicate match{
+        case 0 => rowColumnPairsTest1
+        case 1 => rowColumnPairsTest2
+        case 2 => rowColumnPairsTest3
+        case 3 => rowColumnPairsTest4
+        case _ =>  throw new IllegalArgumentException("Unsupported replicate nr!")
+      }
+    }
+
+    dataSetType match{
+      case Test => getHashMapTest(replicate)
+      case Validation => getHashMapValidation(replicate)
+      case _ =>  throw new IllegalArgumentException("Unsupported data set type!")
     }
   }
 
   def predictOnValidationSet (alphas : DenseVector[Double], replicate: Int) : DenseVector[Double]  = {
-    val hashMapPromise = getHashMapValidation(replicate)
+    val hashMapPromise = getHashMap(Validation,replicate)
     val hashMap = Await.result(hashMapPromise, LeanMatrixFactory.maxDuration)
     val N_validation = d.getN_Validation
     val v = DenseVector.fill(N_validation){0.0}
@@ -482,7 +491,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   def predictOnValidationSet (alphas : Alphas, replicate: Int, maxQuantile: Int) : Future[DenseVector[Int]]  = {
     val promise = Promise[DenseVector[Int]]
     Future{
-      val hashMapPromise = getHashMapValidation(replicate)
+      val hashMapPromise = getHashMap(Validation,replicate)
       val hashMap = Await.result(hashMapPromise, LeanMatrixFactory.maxDuration)
       val N_validation = d.getN_Validation
       val N_train = d.getN_Train
@@ -561,7 +570,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   private def predictOnTestSet (alphas : Alphas, replicate: Int) : Future[DenseVector[Double]]  = {
     val promise = Promise[DenseVector[Double]]
     Future{
-      val hashMapPromise = getHashMapTest(replicate)
+      val hashMapPromise = getHashMap(Test,replicate)
       val hashMap = Await.result(hashMapPromise, LeanMatrixFactory.maxDuration)
       val N_test = d.getN_Test
       val N_train = d.getN_Train
@@ -579,7 +588,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     assert(threshold>0.0 && threshold<1.0)
     val promise = Promise[DenseVector[Double]]
     Future{
-      val hashMapPromise = getHashMapTest(replicate)
+      val hashMapPromise = getHashMap(Test, replicate)
       val hashMap = Await.result(hashMapPromise, LeanMatrixFactory.maxDuration)
       val N_test = d.getN_Test
       val N_train = d.getN_Train
@@ -603,7 +612,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   private def predictOnTestSetAUC (alphas : Alphas, replicate: Int) : Future[DenseVector[Double]]  = {
     val promise = Promise[DenseVector[Double]]
     Future{
-      val hashMapPromise = getHashMapTest(replicate)
+      val hashMapPromise = getHashMap(Test, replicate)
       val hashMap = Await.result(hashMapPromise, LeanMatrixFactory.maxDuration)
       val N_test = d.getN_Test
       val N_train = d.getN_Train
