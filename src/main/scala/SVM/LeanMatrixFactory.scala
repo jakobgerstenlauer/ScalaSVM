@@ -3,7 +3,6 @@ package SVM
 import breeze.linalg.{DenseVector, _}
 import breeze.numerics.signum
 
-import scala.collection.mutable
 import scala.collection.mutable.{HashMap, MultiMap, Set => MSet}
 import scala.concurrent.{Await, Future, Promise}
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -158,7 +157,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val map3 = initializeRowColumnPairs(N2, N3)
     val map4 = initializeRowColumnPairs(N3, N4)
 
-    val map: Future[mutable.MultiMap[Integer, Integer]] = for {
+    val map: Future[MultiMap[Integer, Integer]] = for {
       m1 <- map1
       m2 <- map2
       m3 <- map3
@@ -181,7 +180,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     N1 + diff
   }
 
-  def mergeMaps (maps: Seq[mutable.MultiMap[Integer, Integer]]):
+  def mergeMaps (maps: Seq[MultiMap[Integer, Integer]]):
   MultiMap[Integer, Integer] = {
     maps.reduceLeft ((r, m) => mergeMMaps(r,m))
   }
@@ -190,7 +189,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     * Merges two multimaps and returns new merged map
     * @return
     */
-  def mergeMMaps(mm1: mutable.MultiMap[Integer, Integer], mm2: mutable.MultiMap[Integer, Integer]):mutable.MultiMap[Integer, Integer]={
+  def mergeMMaps(mm1: MultiMap[Integer, Integer], mm2: MultiMap[Integer, Integer]):MultiMap[Integer, Integer]={
     for ( (k, vs) <- mm2; v <- vs ) mm1.addBinding(k, v)
     mm1
   }
@@ -202,7 +201,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     * @param j
     * @return
     */
-  private def addBindings (map: mutable.MultiMap[Integer, Integer], i: Int, j: Int) = {
+  private def addBindings (map: MultiMap[Integer, Integer], i: Int, j: Int) = {
     val i_ = Integer.valueOf(i)
     val j_ = Integer.valueOf(j)
     map.addBinding(i_, j_)
@@ -216,7 +215,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     * @param j
     * @return
     */
-  private def addBinding (map: mutable.MultiMap[Integer, Integer], i: Int, j: Int) = {
+  private def addBinding (map: MultiMap[Integer, Integer], i: Int, j: Int) = {
     val i_ = Integer.valueOf(i)
     val j_ = Integer.valueOf(j)
     map.addBinding(i_, j_)
@@ -287,7 +286,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val map3 = initializeRowColumnPairs(N2_train, N2_val+offset, N3_train, N3_val+offset, Validation)
     val map4 = initializeRowColumnPairs(N3_train, N3_val+offset, N4_train, N4_val+offset, Validation)
 
-    val map: Future[mutable.MultiMap[Integer, Integer]] = for {
+    val map: Future[MultiMap[Integer, Integer]] = for {
       m1 <- map1
       m2 <- map2
       m3 <- map3
@@ -343,7 +342,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val map3 = initializeRowColumnPairs(N2_train, N2_test+offset, N3_train, N3_test+offset, Test)
     val map4 = initializeRowColumnPairs(N3_train, N3_test+offset, N4_train, N4_test+offset, Test)
 
-    val map: Future[mutable.MultiMap[Integer, Integer]] = for {
+    val map: Future[MultiMap[Integer, Integer]] = for {
       m1 <- map1
       m2 <- map2
       m3 <- map3
@@ -658,7 +657,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val promise = Promise[Int]
     //Here the futures for the four hash maps for the test set replicates
     //are combined into a single future.
-    val combinedFuture: Future[(mutable.MultiMap[Integer, Integer], mutable.MultiMap[Integer, Integer], mutable.MultiMap[Integer, Integer], mutable.MultiMap[Integer, Integer])] = extractHashMapPromisesTest
+    val combinedFuture: Future[(MultiMap[Integer, Integer], MultiMap[Integer, Integer], MultiMap[Integer, Integer], MultiMap[Integer, Integer])] = extractHashMapPromisesTest
 
     //Once all hash maps have been created.
     combinedFuture onComplete{
@@ -713,7 +712,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val promise = Promise[Int]
     //Here the futures for the four hash maps for the test set replicates
     //are combined into a single future.
-    val combinedFuture: Future[(mutable.MultiMap[Integer, Integer], mutable.MultiMap[Integer, Integer], mutable.MultiMap[Integer, Integer], mutable.MultiMap[Integer, Integer])] = extractHashMapPromisesTest
+    val combinedFuture: Future[(MultiMap[Integer, Integer], MultiMap[Integer, Integer], MultiMap[Integer, Integer], MultiMap[Integer, Integer])] = extractHashMapPromisesTest
 
     //Once all hash maps have been created.
     combinedFuture onComplete{
@@ -769,7 +768,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   def predictOnTestSetAUC (alphas : Alphas) : Future[Int] = {
     val promise = Promise[Int]
 
-    val combinedFuture: Future[(mutable.MultiMap[Integer, Integer], mutable.MultiMap[Integer, Integer], mutable.MultiMap[Integer, Integer], mutable.MultiMap[Integer, Integer])] = extractHashMapPromisesTest
+    val combinedFuture: Future[(MultiMap[Integer, Integer], MultiMap[Integer, Integer], MultiMap[Integer, Integer], MultiMap[Integer, Integer])] = extractHashMapPromisesTest
 
     combinedFuture onComplete{
       case Success(maps) =>{

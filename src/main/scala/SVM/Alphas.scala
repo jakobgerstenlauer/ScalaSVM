@@ -1,8 +1,13 @@
 package SVM
 
+import java.util.concurrent.atomic.AtomicInteger
+
 import breeze.linalg.{DenseVector, sum}
 import breeze.numerics.{abs, pow, sqrt}
-import scala.math.{min,max}
+import breeze.stats.distributions.{RandBasis, ThreadLocalRandomGenerator}
+import org.apache.commons.math3.random.MersenneTwister
+
+import scala.math.{max, min}
 
 object Alphas{
   /**
@@ -31,6 +36,31 @@ object Alphas{
 case class Alphas(N: Int,
                   alpha: DenseVector[Double],
                   alphaOld: DenseVector[Double]){
+
+  /* Here I have to initiate an implicit seed generator.
+   There are two scenarios:
+   In scenario 1, the alphas are initiated in only one thread.
+    In this case it would be sufficient to create the following implicit seed:
+     implicit val basis: RandBasis = RandBasis.withSeed(0)
+   In scenario 2, alphas are initiated in several threads. In this case the different threads should not work with the same seed.
+   The necessary implicit seed can be initiated like this:
+   val int = new AtomicInteger(1234567)
+   new RandBasis(new ThreadLocalRandomGenerator(new MersenneTwister(int.getAndIncrement())))
+
+   Quote from David Hall (main Breeze contributor, compare https://github.com/scalanlp/breeze/pull/493):
+    "In Breeze, the RandBasis is passed around as an implicit argument.
+    implicit val basis: RandBasis = RandBasis.withSeed(0)
+    val myGenerator = new Gaussian(0, 1) // (basis) is implicitly passed in rather than the default argument.
+    (The scoping rules for implicits are somewhat complex, but basically anything in lexical scope is available.)
+    Because they can be used this way, it's possible for the same basis to end up on two different threads. With your implementation, both threads will be given their own generator with the same initial seed, meaning they will generate precisely the same sequence of random variables. This is almost certainly bad.
+      If, instead, we use the atomic int thing, each thread is seeded with a unique random seed. Because the first seed is 0, the first thread that uses it will be initialized to 0, as in the current implementation.
+      It's possible we should figure out something that's more stable than that (since there's a data race for who gets which seed), maybe using the name of the thread(?!?), but at least it doesn't produce a catastrophic failure like generating the same variates on every thread.
+    So, concretely, I just want the body of the method to be this:
+    val int = new AtomicInteger(seed)
+    new RandBasis(new ThreadLocalRandomGenerator(new MersenneTwister(int.getAndIncrement())))*/
+
+  val int = new AtomicInteger(1234567)
+  new RandBasis(new ThreadLocalRandomGenerator(new MersenneTwister(int.getAndIncrement())))
 
   //Secondary constructor with random default values for the alphas
   def this(N: Int, mp: ModelParams) {
