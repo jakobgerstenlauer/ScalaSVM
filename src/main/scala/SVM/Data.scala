@@ -249,8 +249,8 @@ class LocalData extends LData{
     sb.toString()
   }
 
-  def readTrainingDataSet (path: String, separator: Char, columnIndexClass: Int, transformLabel: Double => Int = (x:Double)=>if(x>0) 1 else -1) : Unit = {
-    val csvReader : CSVReader = new CSVReader(path, separator, columnIndexClass)
+  def readTrainingDataSet (path: String, separator: Char, columnIndexClass: Int, transformLabel: Double => Int = (x:Double)=>if(x>0) 1 else -1, columnIndexIgnore: Int = -1) : Unit = {
+    val csvReader : CSVReader = new CSVReader(path, separator, columnIndexClass, columnIndexIgnore)
     val (inputs, labels) = csvReader.read(transformLabel)
     X_train = inputs
     trainSummary = summary(Train)
@@ -275,8 +275,8 @@ class LocalData extends LData{
     isFilled = validationSetIsFilled && trainingSetIsFilled
   }
 
-  def readValidationDataSet (path: String, separator: Char, columnIndexClass: Int, transformLabel: Double => Int = (x:Double)=>if(x>0) 1 else -1) : Unit = {
-    val csvReader : CSVReader = new CSVReader(path, separator, columnIndexClass)
+  def readValidationDataSet (path: String, separator: Char, columnIndexClass: Int, transformLabel: Double => Int = (x:Double)=>if(x>0) 1 else -1 , columnIndexIgnore: Int = -1) : Unit = {
+    val csvReader : CSVReader = new CSVReader(path, separator, columnIndexClass, columnIndexIgnore)
     val (inputs, labels) = csvReader.read(transformLabel)
     X_validation = inputs
     var testSummary = summary(Validation)
@@ -302,8 +302,8 @@ class LocalData extends LData{
     isFilled = validationSetIsFilled && trainingSetIsFilled
   }
 
-  def readTestDataSet (path: String, separator: Char, columnIndexClass: Int, transformLabel: Double => Int = (x:Double)=>if(x>0) 1 else -1) : Unit = {
-    val csvReader : CSVReader = new CSVReader(path, separator, columnIndexClass)
+  def readTestDataSet (path: String, separator: Char, columnIndexClass: Int, transformLabel: Double => Int = (x:Double)=>if(x>0) 1 else -1 , columnIndexIgnore: Int = -1) : Unit = {
+    val csvReader : CSVReader = new CSVReader(path, separator, columnIndexClass, columnIndexIgnore)
     val (inputs, labels) = csvReader.read(transformLabel)
     X_test = inputs
     var testSummary = summary(Test)

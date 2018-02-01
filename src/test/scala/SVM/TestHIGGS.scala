@@ -15,9 +15,13 @@ object TestHIGGS extends App {
 
   //I have to define a transform function because the label codes do not correspond to the default (+1 for signal and -1 for noise)
   val transformLabel = (x:Double) => if(x<=0) -1 else +1
-  d.readTrainingDataSet (pathTrain, ',', 11, transformLabel)
-  d.readTestDataSet (pathTest, ',', 11, transformLabel)
-  d.readValidationDataSet(pathValidation, ',', 11, transformLabel)
+  //the labels are in the second column (the column index is 0 based)
+  val columnIndexLabel = 1
+  val columnIndexLineNr = 0
+  //The first column has to be skipped, it contains a line nr!!!
+  d.readTrainingDataSet (pathTrain, ',', columnIndexLabel, transformLabel, columnIndexLineNr)
+  d.readTestDataSet (pathTest, ',', columnIndexLabel, transformLabel, columnIndexLineNr)
+  d.readValidationDataSet(pathValidation, ',', columnIndexLabel, transformLabel, columnIndexLineNr)
   d.tableLabels()
 
   val epsilon = 0.0001
