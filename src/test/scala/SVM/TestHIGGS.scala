@@ -25,7 +25,7 @@ object TestHIGGS extends App {
   d.tableLabels()
 
   val epsilon = 0.0001
-  val kernelPar = GaussianKernelParameter(1.0)
+  val kernelPar = GaussianKernelParameter(100.0)
   val gaussianKernel = GaussianKernel(kernelPar)
   val kmf = LeanMatrixFactory(d, gaussianKernel, epsilon)
   val mp = ModelParams(C = 0.5, delta = 0.01)
