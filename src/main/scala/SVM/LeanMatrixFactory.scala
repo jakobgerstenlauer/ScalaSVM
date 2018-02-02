@@ -1,7 +1,7 @@
 package SVM
 
 import breeze.linalg.{DenseVector, _}
-import breeze.numerics.signum
+import breeze.numerics.{exp, signum}
 
 import scala.collection.mutable.{HashMap, MultiMap, Set => MSet}
 import scala.concurrent.{Await, Future, Promise}
@@ -9,6 +9,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success}
 import SVM.DataSetType.{Test, Train, Validation}
+import scala.collection.mutable.ListBuffer
 
 object LeanMatrixFactory{
   val maxDuration = Duration(12*60,"minutes")
@@ -90,6 +91,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     }
     map
   }
+
 
   /**
     *

@@ -25,8 +25,8 @@ object TestHIGGS extends App {
   d.tableLabels()
 
   val (epsilon, medianScale) = d.probeKernelScale()
-  println("The kernel scale parameter was estimated at "+medianScale+ "from the training data.")
-  println("The lower 0.1% quantile of the Euclidean distance of a subset of training set instances was used as estimate for the Epsilon sparsity threshold parameter:" + epsilon)
+  println("The kernel scale parameter was estimated at "+medianScale+ " from the training data.")
+  println("The lower 0.1% quantile of the Euclidean distance of a subset of training set instances was used as estimate for the Epsilon sparsity threshold parameter: " + epsilon)
 
   val kernelPar = GaussianKernelParameter(medianScale)
   val gaussianKernel = GaussianKernel(kernelPar)
