@@ -24,10 +24,14 @@ object TestHIGGS extends App {
   d.readValidationDataSet(pathValidation, ',', columnIndexLabel, transformLabel, columnIndexLineNr)
   d.tableLabels()
 
-  val epsilon = 0.0001
-  val kernelPar = GaussianKernelParameter(100.0)
+  val (epsilon, medianScale) = d.probeKernelScale()
+  println("The kernel scale parameter was estimated at "+medianScale+ "from the training data.")
+  println("The lower 0.1% quantile of the Euclidean distance of a subset of training set instances was used as estimate for the Epsilon sparsity threshold parameter:" + epsilon)
+
+  val kernelPar = GaussianKernelParameter(medianScale)
   val gaussianKernel = GaussianKernel(kernelPar)
   val kmf = LeanMatrixFactory(d, gaussianKernel, epsilon)
+
   val mp = ModelParams(C = 0.5, delta = 0.01)
   val alphas = new Alphas(N=d.N_train, mp)
   val ap = AlgoParams(batchProb = 0.99, learningRateDecline = 0.5,
