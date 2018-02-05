@@ -11,6 +11,7 @@ import scala.util.{Failure, Success}
 case class AllMatrixElementsZeroException(message:String) extends Exception(message)
 case class EmptyRowException(message:String) extends Exception(message)
 import scala.concurrent.ExecutionContext.Implicits.global
+import breeze.plot._
 
 /**
   * How should the scores s of the SVM be used to classify?

@@ -9,6 +9,8 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success}
 import SVM.DataSetType.{Test, Train, Validation}
+import breeze.plot.{Figure,plot}
+
 import scala.collection.mutable.ListBuffer
 
 object LeanMatrixFactory{
@@ -793,34 +795,61 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
             val correctPredictions = DenseVector.zeros[Int](99)
             val truePositives = DenseVector.zeros[Int](99)
             val falsePositives = DenseVector.zeros[Int](99)
+            val truePositiveRate = DenseVector.zeros[Double](99)
+            val falsePositiveRate = DenseVector.zeros[Double](99)
             val labels = d.getLabels(Test).map(x=>if(x>0) 1 else -1)
-            for(threshold <- 0 until 99){
-              val cutOff : Double = threshold/100.0
-              val predictions = quantiles.map(x=>if(x>cutOff) -1.0 else +1.0)
-              truePositives(threshold) = calcTruePositives(predictions, labels)
-              falsePositives(threshold) = calcFalsePositives(predictions, labels)
-            }
-            val numPositive : Double = d.getLabels(Test).map(x=>if(x>0)1 else 0).reduce(_+_).toDouble
+
+            val numPositive = d.getLabels(Test).map(x=>if(x>0)1 else 0).reduce(_+_)
+            val numNegatives = d.getLabels(Test).map(x=>if(x<0)1 else 0).reduce(_+_)
+            val total = numPositive + numNegatives
+            println("+:"+numPositive+" -:"+numNegatives)
             println("True (+) and false(-) positive rate, Q=+/sqrt(-), and total accuracy (A) for the test set and all percentiles: ")
             println("%\t+\t\t-\tQ\tA")
 
+            var i = 0
             for(threshold <- 1 to 99){
-              val truePositiveRate  = truePositives(threshold-1) / numPositive
-              val falsePositiveRate = falsePositives(threshold-1) / numPositive
-              val q = if (truePositiveRate>0 && falsePositiveRate>0) truePositiveRate / Math.sqrt(falsePositiveRate) else 0.0
-              val accuracy = correctPredictions(threshold-1) / d.getN_Test.toDouble
-              if(falsePositiveRate==0.0){
+              val cutOff : Double = threshold/100.0
+              val predictions = quantiles.map(x=>if(x<cutOff) +1.0 else -1.0)
+              val NumPredictionsPositive = predictions.map(x=>if(x>0) 1 else 0).reduce(_+_)
+
+              val NumTruePositives  = calcTruePositives(predictions, labels)
+              truePositives(i) = NumTruePositives
+              val truePosRate = NumTruePositives / numPositive.toDouble
+              truePositiveRate(i) = truePosRate
+
+              val NumFalsePositives = calcFalsePositives(predictions, labels)
+              falsePositives(i) = NumFalsePositives
+              //probability of false alarm
+              val falsePosRate = NumFalsePositives / NumPredictionsPositive.toDouble
+              falsePositiveRate(i) = falsePosRate
+
+              val q = if (truePosRate>0 && falsePosRate>0) truePosRate / Math.sqrt(falsePosRate) else 0.0
+              val correctPredictions = calcCorrectPredictions(predictions, labels)
+              val accuracy = correctPredictions / total.toDouble
+
+              if(falsePosRate==0.0){
                 println(threshold+"\t"
-                  +roundAt(3)(truePositiveRate)+"\t\t0.0\tNAN\t"
+                  +roundAt(3)(truePosRate)+"\t\t0.0\tNAN\t"
                   +roundAt(3)(accuracy))
               }else {
                 println(threshold + "\t"
-                  + roundAt(3)(truePositiveRate) + "\t"
-                  + roundAt(3)(falsePositiveRate) + "\t"
+                  + roundAt(3)(truePosRate) + "\t"
+                  + roundAt(3)(falsePosRate) + "\t"
                   + roundAt(3)(q) + "\t"
                   + roundAt(3)(accuracy))
               }
+              i = i+1
             }
+
+            val fig = Figure()
+            val plt = fig.subplot(0)
+            plt += plot(falsePositiveRate, truePositiveRate, '-')
+            plt.xlabel = "False negative rate."
+            plt.ylabel = "True positive rate."
+            plt.legend = true
+            fig.refresh()
+            fig.saveas("AUC.png")
+
             promise.success(correctPredictions.reduce((a,b)=>max(a,b)))
           }
           case Failure(t) => {
@@ -869,8 +898,8 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
 
   def calcFalsePositives(v0: DenseVector[Double], labels: DenseVector[Int]) : Int={
     assert(v0.length == labels.length)
-    val x : BitVector = labels>:> 0
-    val y : BitVector = v0<:< 0.0
+    val x : BitVector = labels<:< 0
+    val y : BitVector = v0>:> 0.0
     val z = x & y
     z.map(x => if (x) 1 else 0).reduce(_+_)
   }

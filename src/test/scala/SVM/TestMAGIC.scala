@@ -6,8 +6,6 @@ import scala.concurrent.{Await, Future}
 object TestMAGIC extends App {
 
   val d = new LocalData()
-  println(d)
-
   val workingDir = "/home/jakob/workspace_scala/Dist_Online_SVM/data/MagicGamma/"
   val pathTrain = workingDir + "magic04train.csv"
   val pathValidation = workingDir + "magic04validation.csv"
@@ -44,6 +42,7 @@ object TestMAGIC extends App {
     algo = algo.iterate(numInt)
     numInt += 1
   }
+
   val testSetAccuracy : Future[Int] = algo.predictOnTestSet(PredictionMethod.AUC)
   Await.result(testSetAccuracy, LeanMatrixFactory.maxDuration)
 
