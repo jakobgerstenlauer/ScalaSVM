@@ -793,14 +793,14 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
             val correctPredictions = DenseVector.zeros[Int](99)
             val truePositives = DenseVector.zeros[Int](99)
             val falsePositives = DenseVector.zeros[Int](99)
+            val labels = d.getLabels(Test).map(x=>if(x>0) 1 else -1)
             for(threshold <- 0 until 99){
               val cutOff : Double = threshold/100.0
               val predictions = quantiles.map(x=>if(x>cutOff) -1.0 else +1.0)
-              correctPredictions(threshold) = calcCorrectPredictions(predictions, d.getLabels(Test))
-              truePositives(threshold) = calcCorrectPredictionsClass1(predictions, d.getLabels(Test))
-              falsePositives(threshold) = calcInCorrectPredictionsClass1(predictions, d.getLabels(Test))
+              truePositives(threshold) = calcTruePositives(predictions, labels)
+              falsePositives(threshold) = calcFalsePositives(predictions, labels)
             }
-            val numPositive : Double = d.getLabels(Train).map(x=>if(x>0)1 else 0).reduce(_+_).toDouble
+            val numPositive : Double = d.getLabels(Test).map(x=>if(x>0)1 else 0).reduce(_+_).toDouble
             println("True (+) and false(-) positive rate, Q=+/sqrt(-), and total accuracy (A) for the test set and all percentiles: ")
             println("%\t+\t\t-\tQ\tA")
 
@@ -859,6 +859,21 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     (signum(v0) *:* labels.map(x => x.toDouble) ).map(x=>if(x>0) 1 else 0).reduce(_+_)
   }
 
+  def calcTruePositives(v0: DenseVector[Double], labels: DenseVector[Int]) : Int={
+    assert(v0.length == labels.length)
+    val x : BitVector = labels >:> 0
+    val y : BitVector = v0 >:> 0.0
+    val z = x & y
+    z.map(x => if (x) 1 else 0).reduce(_+_)
+  }
+
+  def calcFalsePositives(v0: DenseVector[Double], labels: DenseVector[Int]) : Int={
+    assert(v0.length == labels.length)
+    val x : BitVector = labels>:> 0
+    val y : BitVector = v0<:< 0.0
+    val z = x & y
+    z.map(x => if (x) 1 else 0).reduce(_+_)
+  }
   /**
     * Calculate the "true positive rate".
     * Here it is assumed that the class with label +1 is the class representing the "signal",
@@ -884,7 +899,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   def calcInCorrectPredictionsClass1(v0: DenseVector[Double], labels: DenseVector[Int]) : Int={
     assert(v0.length == labels.length)
     //If 1: it is class 2 (label: -1) else the value is 0
-    val class2 = labels.map(x => x.toDouble).map(x=>if(x<0) 1 else 0).map(x => x.toDouble)
+    val class2 = labels.map(x => x.toDouble).map(x=>if(x<=0) 1 else 0).map(x => x.toDouble)
     (signum(v0) *:* class2).map(x=>if(x>0) 1 else 0).reduce(_+_)
   }
 

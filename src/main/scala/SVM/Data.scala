@@ -219,6 +219,10 @@ class SimData (val params: DataParams) extends LData {
   }
 }
 
+object LocalData{
+  val inverseSqrt2 : Double =  Math.E / 4.0
+}
+
 /**
   * Data that is stored in the local file system as csv files.
   */
@@ -376,24 +380,20 @@ class LocalData extends LData{
     * @param maxRows
     * @return
     */
-  def probeKernelScale(maxRows: Int = 1000) : (Double,Double) = {
+  def probeKernelScale(maxRows: Int = 1000) : (Double) = {
     assert(trainingSetIsFilled,"Training set has not yet been initialize!")
     val N = Math.min(X_train.rows,maxRows)
     val listB = new ArrayBuffer[Double]
     //only iterate over the upper diagonal matrix
     for (i <- 0 until N; j <- (i+1) until N){
-      listB += calculateEuclideanDistance(X_train(i,::).t, X_train(j,::).t)
+      listB += Math.sqrt(calculateEuclideanDistance(X_train(i,::).t, X_train(j,::).t))
     }
     val sortedDistances : Array[Double] = listB.toArray.sorted[Double]
-    val median = getQuantile (0.5, sortedDistances)
-    //The median is an estimator for sigma but I use gamma as parameter of the Gaussian kernel, so I have to transform:
-    val estimateGamma = 1.0 / (2*median*median)
-    val upperQuantile = getQuantile(0.99, sortedDistances)
-    val firstEstimateEpsilon = Math.exp(-estimateGamma * Math.pow(upperQuantile,2))
-    val kernelValueMedian = Math.exp(-estimateGamma * Math.pow(median,2))
-    //The threshold paramter epsilon should not be lower than 1/100 * the median kernel value
-    val secondEstimateEpsilon = Math.max(firstEstimateEpsilon, kernelValueMedian*0.01)
-    (secondEstimateEpsilon, estimateGamma)
+    val min = getQuantile (0.01, sortedDistances)
+    val estimateSigma = min * LocalData.inverseSqrt2
+    //estimateSigma is an estimator for sigma,
+    //but I use gamma as parameter of the Gaussian kernel:
+    1.0 / (2 * Math.pow(estimateSigma,2))
   }
 
   def columnMeans(m: DenseMatrix[Double]):DenseVector[Double] = mean(m(::,*)).t

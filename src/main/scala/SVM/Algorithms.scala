@@ -85,6 +85,7 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
   val alphaMap = new mutable.HashMap[Int,Alphas]()
 
   def predictOnTestSet(predictionMethod: PredictionMethod.Value, threshold: Double = 0.5) : Future[Int] = {
+    assert(threshold>0.0 && threshold<1.0,"Invalid value for threshold! Must be between 0.0 and 1.0!")
     val promise = Promise[Int]
     //Turn the ListBuffer into a List
     val listOfFutures : List[Future[(Int,Int,Int)]] = optimalSparsityFuture.toList
