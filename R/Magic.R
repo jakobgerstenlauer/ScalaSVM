@@ -1,7 +1,9 @@
+rm(list=ls(all=TRUE))
 library(MASS)
 library(kernlab)
 library(caret)
 set.seed(5678)
+setwd("~/workspace_scala/Dist_Online_SVM/R")
 source("paths.R")
 setwd(magicDir)
 dtrain<-read.table("magic04train.csv",sep=",",header=FALSE)
@@ -33,8 +35,8 @@ svm.tune <- function(formula, data, kernels, Cs, folds) {
           svm <- ksvm(formula, data=data[-folds[[f]],], kernel=k$kernel, kpar=k$kpar,  C=C, scaled=c()) 
         }
         preds <- predict(svm, data[folds[[f]],])
-        confusionMatrix <- table(preds, data[folds[[f]],]$class)      
-        cverror[f] <- 1 - sum(diag(prop.table(confusionMatrix)))  
+        confusionMatrix <- table(preds, data[folds[[f]],]$class)   
+        cverror[f] <- 1 - sum(diag(prop.table(confusionMatrix)))
       }
       res[i,j] <- mean(cverror)
     }
@@ -52,21 +54,17 @@ CsExponents <- c(-2:2)
 Cs <- 10**CsExponents
 
 (cverrors <- svm.tune(as.factor(class)~., data=dtrain, kernels=SVMKernels, Cs=Cs, folds=folds))
-# [,1]      [,2]      [,3]      [,4]      [,5]
-# [1,] 0.9991587 0.9990534 0.9990534 0.9988431 0.9989483
+# [,1]      [,2]      [,3]     [,4]      [,5]
+# [1,] 0.2131892 0.1811113 0.1687016 0.162181 0.1593411
 
 (bestcv <- which(cverrors == min(cverrors), arr.ind = T))
 # row col
-# [1,]   1   4
-
-Cs
-#[1] 1e-02 1e-01 1e+00 1e+01 1e+02
-#The optimal C is 10.
-
+# [1,]   1   5
+#The optimal C is 100.
 
 #****************************************************************************************************
 #Let's rerun with a smaller range of possible Cs and the combined training and validation data set:
-Cs<-c(4,8,10,12)
+Cs<-c(60,80,100,120)
 
 dtrain<-read.table("magic04train.csv",sep=",",header=FALSE)
 dim(dtrain)
@@ -86,28 +84,11 @@ folds <- createFolds(dtrain$class, k = 10)
 
 (cverrors <- svm.tune(as.factor(class) ~ . , data=dtrain, kernels=SVMKernels, Cs=Cs, folds=folds))
 # [,1]      [,2]      [,3]      [,4]
-# [1,] 0.9992989 0.9992989 0.9992989 0.9992989
+# [1,] 0.1594914 0.1586502 0.1561263 0.1568276
 (bestcv <- which(cverrors == min(cverrors), arr.ind = T))
 # row col
-# [1,]   1   1
-# [2,]   1   2
-# [3,]   1   3
-# [4,]   1   4
-
-#There is no difference between the values of C!
-svm <- ksvm(as.factor(class)~., data=dtrain, kernel='rbfdot',  C=10, scaled=c(), type="C-svc") 
-# Support Vector Machine object of class "ksvm" 
-# 
-# SV type: C-svc  (classification) 
-# parameter : cost C = 10 
-# 
-# Gaussian Radial Basis kernel function. 
-# Hyperparameter : sigma =  0.000151297039339112 
-# 
-# Number of Support Vectors : 5421 
-# 
-# Objective Function Value : -47843.84 
-# Training error : 0.14477 
+# [1,]   1   3
+svm <- ksvm(as.factor(class)~., data=dtrain, kernel='rbfdot',  C=100, scaled=c(), type="C-svc") 
 
 #Read the test data:
 dtest <- read.table("magic04test.csv",sep=",",header=FALSE)
@@ -118,5 +99,20 @@ names(dtest)<-c(glue("input",1:10),"class")
 preds <- predict(svm, dtest)
 (confusionMatrix <- table(preds, dtest$class))
 # preds   -1    1
-# -1 1047  154
-# 1   627 2928
+# -1 1095  173
+# 1   579 2909
+(accuracy <- sum(diag(confusionMatrix))/sum(confusionMatrix))
+#[1] 0.8418839
+svm
+# Support Vector Machine object of class "ksvm" 
+# 
+# SV type: C-svc  (classification) 
+# parameter : cost C = 100 
+# 
+# Gaussian Radial Basis kernel function. 
+# Hyperparameter : sigma =  0.000158682277197226 
+# 
+# Number of Support Vectors : 5119 
+# 
+# Objective Function Value : -413710.1 
+# Training error : 0.121775 
