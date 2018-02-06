@@ -11,8 +11,9 @@ abstract class FileReader(path: String)
   * @param path The path to the input file.
   * @param separator The column separator in the csv file.
   * @param columnIndexClass The index of the column (starting with 0) containing the labels.
+  * @param columnIndexIgnore The index of a column (starting with 0) which should be ignored (i.e. a line nr).
   */
-class CSVReader(path: String, separator: Char, columnIndexClass: Int) extends FileReader(path) {
+class CSVReader(path: String, separator: Char, columnIndexClass: Int, columnIndexIgnore: Int = -1) extends FileReader(path) {
   /**
     * Reads a csv data set with the given separator and returns the data matrix and the reponse vector.
     * @return (X,Y) A tuple with the input matrix and the response vector.
@@ -33,21 +34,26 @@ class CSVReader(path: String, separator: Char, columnIndexClass: Int) extends Fi
       case e: IOException => { e.printStackTrace(); e.toString }
     }
     println("The input file " + path + " has "+ numLines +" lines and "+ maxColumns +" columns.")
-    val X: DenseMatrix[Double] = DenseMatrix.zeros[Double](numLines, maxColumns - 1)
+    val hasColumnToIgnore : Int = if (columnIndexIgnore >= 0) 1 else 0
+    val X: DenseMatrix[Double] = DenseMatrix.zeros[Double](numLines, maxColumns - 1 - hasColumnToIgnore)
     val Y: DenseVector[Int] = DenseVector.zeros[Int](numLines)
     //Second, read in the whole data set and store the data into separate matrices
     try {
       val bufferedSource2: BufferedSource = scala.io.Source.fromFile(path)
       for ((line, count) <- bufferedSource2.getLines.zipWithIndex) {
         val array : Array[Double] = line.split(separator).map(_.trim).map(_.toDouble)
-        var yHasPassed = false
+        var hasPassed = 0
         for(column <- 0 until maxColumns){
-          if(column == columnIndexClass){
-            Y(count)=transformLabel(array(column).toInt)
-            yHasPassed = true
-          } else{
-            val index : Int = if(yHasPassed) column-1 else column
-            X(count, index) = array(column)
+          column match {
+            case `columnIndexIgnore` => hasPassed = hasPassed + 1
+            case `columnIndexClass` => {
+              Y(count)=transformLabel(array(column).toInt)
+              hasPassed = hasPassed + 1
+            }
+            case _ =>{
+              val index : Int = column - hasPassed
+              X(count, index) = array(column)
+            }
           }
         }
       }

@@ -1,9 +1,13 @@
 package SVM
+import java.util
+
 import SVM.DataSetType.{Test, Train, Validation}
 import breeze.linalg._
 import breeze.numerics._
 import org.apache.spark.sql.{Dataset, SparkSession}
 import breeze.stats._
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
+import scala.math.{max, min}
 
 trait Data{
   def getRow(dataSetType: DataSetType.Value, rowIndex: Int) : DenseVector[Double]
@@ -215,6 +219,10 @@ class SimData (val params: DataParams) extends LData {
   }
 }
 
+object LocalData{
+  val inverseSqrt2 : Double =  Math.E / 4.0
+}
+
 /**
   * Data that is stored in the local file system as csv files.
   */
@@ -249,8 +257,8 @@ class LocalData extends LData{
     sb.toString()
   }
 
-  def readTrainingDataSet (path: String, separator: Char, columnIndexClass: Int, transformLabel: Double => Int = (x:Double)=>if(x>0) 1 else -1) : Unit = {
-    val csvReader : CSVReader = new CSVReader(path, separator, columnIndexClass)
+  def readTrainingDataSet (path: String, separator: Char, columnIndexClass: Int, transformLabel: Double => Int = (x:Double)=>if(x>0) 1 else -1, columnIndexIgnore: Int = -1) : Unit = {
+    val csvReader : CSVReader = new CSVReader(path, separator, columnIndexClass, columnIndexIgnore)
     val (inputs, labels) = csvReader.read(transformLabel)
     X_train = inputs
     trainSummary = summary(Train)
@@ -275,8 +283,8 @@ class LocalData extends LData{
     isFilled = validationSetIsFilled && trainingSetIsFilled
   }
 
-  def readValidationDataSet (path: String, separator: Char, columnIndexClass: Int, transformLabel: Double => Int = (x:Double)=>if(x>0) 1 else -1) : Unit = {
-    val csvReader : CSVReader = new CSVReader(path, separator, columnIndexClass)
+  def readValidationDataSet (path: String, separator: Char, columnIndexClass: Int, transformLabel: Double => Int = (x:Double)=>if(x>0) 1 else -1 , columnIndexIgnore: Int = -1) : Unit = {
+    val csvReader : CSVReader = new CSVReader(path, separator, columnIndexClass, columnIndexIgnore)
     val (inputs, labels) = csvReader.read(transformLabel)
     X_validation = inputs
     var testSummary = summary(Validation)
@@ -302,8 +310,8 @@ class LocalData extends LData{
     isFilled = validationSetIsFilled && trainingSetIsFilled
   }
 
-  def readTestDataSet (path: String, separator: Char, columnIndexClass: Int, transformLabel: Double => Int = (x:Double)=>if(x>0) 1 else -1) : Unit = {
-    val csvReader : CSVReader = new CSVReader(path, separator, columnIndexClass)
+  def readTestDataSet (path: String, separator: Char, columnIndexClass: Int, transformLabel: Double => Int = (x:Double)=>if(x>0) 1 else -1 , columnIndexIgnore: Int = -1) : Unit = {
+    val csvReader : CSVReader = new CSVReader(path, separator, columnIndexClass, columnIndexIgnore)
     val (inputs, labels) = csvReader.read(transformLabel)
     X_test = inputs
     var testSummary = summary(Test)
@@ -332,6 +340,60 @@ class LocalData extends LData{
       case Test => createSummary(X_test)
       case _ =>  throw new IllegalArgumentException("Unsupported data set type!")
     }
+  }
+
+  /**
+    * Returns Euclidean distance between two data points (instances)
+    * @param x
+    * @param y
+    * @return
+    */
+  def calculateEuclideanDistance(x: DenseVector[Double], y: DenseVector[Double]) : Double ={
+    assert(x.length == y.length, "Incompatible vectors x and y in probeKernelScale() function!")
+    val diff = x - y
+    val squares = diff *:* diff
+    Math.sqrt(sum(squares))
+  }
+
+  /**
+    * Functions assumes (without testing) that the Array is already sorted.
+    * @param quantile
+    * @param sortedDistances
+    * @return
+    */
+  def getQuantile (quantile: Double, sortedDistances : Array[Double]) : Double = {
+    assert(quantile>=0 && quantile<=1.0)
+    if(quantile == 0.0) return sortedDistances.min
+    if(quantile == 1.0) return sortedDistances.max
+    val N = sortedDistances.length
+    val x = (N+1) * quantile
+    val rank_high : Int = min(Math.ceil(x).toInt,N)
+    val rank_low : Int = max(Math.floor(x).toInt,1)
+    if(rank_high==rank_low) sortedDistances(rank_high-1)
+    else Alphas.mean(sortedDistances(rank_high-1), sortedDistances(rank_low-1))
+  }
+
+  /**
+    * Returns the Median and the 0.1% quantile of the euclidean distance sampled for the first maxRows instances of the training set.
+    * The Median can be used as estimate of the RBF kernel scale parameter.
+    * The 0.1% quantile can be used as epsilon (sparsity threshold).
+    * @param maxRows
+    * @return
+    */
+  def probeKernelScale(maxRows: Int = 1000) : (Double) = {
+    assert(trainingSetIsFilled,"Training set has not yet been initialize!")
+    val N = Math.min(X_train.rows,maxRows)
+    val listB = new ArrayBuffer[Double]
+    //only iterate over the upper diagonal matrix
+    for (i <- 0 until N; j <- (i+1) until N){
+      listB += Math.sqrt(calculateEuclideanDistance(X_train(i,::).t, X_train(j,::).t))
+    }
+    val sortedDistances : Array[Double] = listB.toArray.sorted[Double]
+    val min = getQuantile (0.01, sortedDistances)
+    val estimateSigma = min * LocalData.inverseSqrt2
+    //estimateSigma is an estimator for sigma,
+    //but I use gamma as parameter of the Gaussian kernel:
+    1.0 / (2 * Math.pow(estimateSigma,2))
   }
 
   def columnMeans(m: DenseMatrix[Double]):DenseVector[Double] = mean(m(::,*)).t

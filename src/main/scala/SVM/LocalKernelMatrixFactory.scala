@@ -55,8 +55,7 @@ case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc:
     assert(d.isDefined, "The input data is not defined!")
     val numCols = d.getN(dataType)
     val map = new HashMap[Integer, MSet[Integer]] with MultiMap[Integer, Integer]
-    val listOfMatrixEntries =  for (i <- 0 until d.getN_Train; j <- 0 until numCols;
-                                    value = kf.kernel(d.getRow(Train,i), d.getRow(dataType,j))
+    for (i <- 0 until d.getN_Train; j <- 0 until numCols; value = kf.kernel(d.getRow(Train,i), d.getRow(dataType,j))
                                     if value > epsilon) addBindings(map, i, j)
     map
   }
