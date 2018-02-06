@@ -6,8 +6,8 @@ import breeze.numerics._
 abstract class KernelParameter{
 }
 
-case class GaussianKernelParameter(sigma: Double) extends KernelParameter{
-	override def toString : String = "Gaussian kernel parameter sigma "+sigma+". \n"
+case class GaussianKernelParameter(gamma: Double) extends KernelParameter{
+	override def toString : String = "Gaussian kernel parameter sigma "+gamma+". \n"
 }
 
 case class PolynomialKernelParameters(scale: Double, offset: Double, degree: Double) extends KernelParameter{
@@ -24,17 +24,17 @@ case class GaussianKernel(kernelParam : GaussianKernelParameter) extends KernelF
 
 	def kernel(x: DenseVector[Double], y: DenseVector[Double]) : Double ={
 		assert(x.length == y.length, "Incompatible vectors x and y in rbf() function!")
-		assert(kernelParam.sigma>0.0, "Sigma must be positive!")
+		assert(kernelParam.gamma>0.0, "Sigma must be positive!")
 		val diff = x - y
 		val squares = diff *:* diff
 		val squared_euclidean_distance = sum(squares)
-		exp( -kernelParam.sigma * squared_euclidean_distance)
+		exp( -kernelParam.gamma * squared_euclidean_distance)
 	}
 
 	override def toString : String = {
 		val sb = new StringBuilder
 		sb.append("Gaussian kernel: \n")
-		sb.append("sigma: "+kernelParam.sigma+"\n")
+		sb.append("Gamma: "+kernelParam.gamma+"\n")
 		sb.toString()
 	}
 }

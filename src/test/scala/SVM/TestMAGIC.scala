@@ -34,7 +34,7 @@ object TestMAGIC extends App {
   val kmf = LeanMatrixFactory(d, gaussianKernel, epsilon)
   val mp = ModelParams(C = 100, delta = 0.01)
   val alphas = new Alphas(N=d.N_train, mp)
-  val ap = AlgoParams(maxIter=10, batchProb = 0.99, learningRateDecline = 0.5,
+  val ap = AlgoParams(maxIter=10, batchProb = 0.99, learningRateDecline = 0.8,
     epsilon = epsilon)
   var algo = NoMatrices(alphas, ap, mp, kmf, new ListBuffer[Future[(Int,Int,Int)]])
   var numInt = 0
@@ -46,6 +46,6 @@ object TestMAGIC extends App {
   val testSetAccuracy : Future[Int] = algo.predictOnTestSet(PredictionMethod.AUC)
   Await.result(testSetAccuracy, LeanMatrixFactory.maxDuration)
 
-  val testSetAccuracy2 : Future[Int] = algo.predictOnTestSet(PredictionMethod.THRESHOLD,0.73)
-  Await.result(testSetAccuracy2, LeanMatrixFactory.maxDuration)
+  //val testSetAccuracy2 : Future[Int] = algo.predictOnTestSet(PredictionMethod.THRESHOLD,0.73)
+  //Await.result(testSetAccuracy2, LeanMatrixFactory.maxDuration)
 }

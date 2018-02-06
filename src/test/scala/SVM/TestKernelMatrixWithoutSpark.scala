@@ -47,7 +47,7 @@ object TestKernelMatrixWithoutSpark extends App {
   //First find a value for epsilon that is manageable:
 	//val probeMatrices = ProbeMatrices(d, gaussianKernel)
 	//Number of non-sparse matrix elements with epsilon = 0.001:
-	val epsilon = 0.0001
+	val epsilon = 0.001
 	//val numElementsS =  probeMatrices.probeSparsity(Test, 0.001)
 	//val numElementsK =  probeMatrices.probeSparsity(Train, 0.001)
   //println("Projected memory requirements for epsilon ="+epsilon+":")
@@ -57,7 +57,7 @@ object TestKernelMatrixWithoutSpark extends App {
   //println("Training matrix S: "+numElementsS/intsPerKB+"kB:")
 
   val lmf = LeanMatrixFactory(d, gaussianKernel, epsilon)
-	val mp = ModelParams(C = 0.4, delta = 0.03)
+	val mp = ModelParams(C = 0.4, delta = 0.01)
 	val alphas = new Alphas(N=N/2, mp)
 	val ap = AlgoParams(maxIter = 30, batchProb = 0.99, learningRateDecline = 0.8, epsilon = epsilon, quantileAlphaClipping=0.0)
 	var algo = NoMatrices(alphas, ap, mp, lmf, new ListBuffer[Future[(Int,Int,Int)]])
@@ -70,6 +70,11 @@ object TestKernelMatrixWithoutSpark extends App {
 	val future = algo.predictOnTestSet(PredictionMethod.AUC)
 	Await.result(future, LeanMatrixFactory.maxDuration)
 
+	val future3 = algo.predictOnTestSet(PredictionMethod.THRESHOLD)
+	Await.result(future3, LeanMatrixFactory.maxDuration)
+
+	val future2 = algo.predictOnTestSet(PredictionMethod.THRESHOLD,0.01)
+	Await.result(future2, LeanMatrixFactory.maxDuration)
 /*	def calcTestAccuracy(algo: NoMatrices):Future[Int] = {
 		val promise = Promise[Int]
 		val testSetAccuracy0 : Future[Int] = algo.predictOnTestSet(PredictionMethod.AUC)

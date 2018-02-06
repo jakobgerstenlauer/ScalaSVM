@@ -843,12 +843,15 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
 
             val fig = Figure()
             val plt = fig.subplot(0)
-            plt += plot(falsePositiveRate, truePositiveRate, '-')
+            plt += plot(falsePositiveRate, truePositiveRate, '+', name = "Receiver Operating Characteristic (ROC) curve")
+            val comparisonLine = (1 to 99).map(x=> x.toDouble / 100.0)
+            plt += plot(comparisonLine, comparisonLine, '-', name = "Benchmark random classifier")
+            //plt.plot.addAnnotation(new XYTextAnnotation(txt, 3890.0, 200.0))
             plt.xlabel = "False negative rate."
             plt.ylabel = "True positive rate."
             plt.legend = true
             fig.refresh()
-            fig.saveas("AUC.png")
+            fig.saveas("ROC_curve.png",400)
 
             promise.success(correctPredictions.reduce((a,b)=>max(a,b)))
           }

@@ -32,9 +32,9 @@ object TestHIGGS extends App {
   val gaussianKernel = GaussianKernel(kernelPar)
   val kmf = LeanMatrixFactory(d, gaussianKernel, epsilon)
 
-  val mp = ModelParams(C = 100.0, delta = 0.01)
+  val mp = ModelParams(C = 1.0, delta = 0.01)
   val alphas = new Alphas(N=d.N_train, mp)
-  val ap = AlgoParams(batchProb = 0.99, learningRateDecline = 0.5,
+  val ap = AlgoParams(batchProb = 0.99, learningRateDecline = 0.8,
     epsilon = epsilon)
   var algo = NoMatrices(alphas, ap, mp, kmf, new ListBuffer[Future[(Int,Int,Int)]])
   var numInt = 0
