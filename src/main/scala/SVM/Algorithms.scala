@@ -160,11 +160,9 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
   * @param sc The Spark context of the cluster.
   */
 case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, sc: SparkContext) extends Algorithm(alphas) with hasGradientDescent {
-	val matOps : DistributedMatrixOps = new DistributedMatrixOps(sc)
-
 	def iterate(iteration: Int): SG = {
     //val (correct, misclassified) = calculateAccuracy(kmf.evaluate(alphas, ap, kmf, matOps, Train), kmf.getData().getLabels(Train))
-    val (correctT, misclassifiedT) = calculateAccuracy(kmf.evaluate(alphas, ap, kmf, matOps, Validation), kmf.getData().getLabels(Validation))
+    val (correctT, misclassifiedT) = calculateAccuracy(kmf.evaluate(alphas, ap, kmf, Validation), kmf.getData().getLabels(Validation))
     //println(createLog(correct, misclassified, correctT, misclassifiedT, alphas))
     println(createLog(correctT, misclassifiedT, alphas))
     assert(getSparsity < 99.0)
@@ -184,7 +182,7 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
     * @return An updated instance of the algorithm.
     */
   def gradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: MatrixFactory): SG = {
-    val stochasticUpdate = calculateGradientDescent (alphas, ap, mp, kmf)
+    val stochasticUpdate = kmf.calculateGradient(alphas.alpha)
     copy(alphas = alphas.copy(alpha = stochasticUpdate).updateAlphaAsConjugateGradient().clipAlphas(ap.quantileAlphaClipping))
   }
 }
