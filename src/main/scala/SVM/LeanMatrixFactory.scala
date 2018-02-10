@@ -588,7 +588,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   /**
     *
     * @param alphas
-    * @return Tuple (optimal sparsity, nr of correct predictions for this quantile):
+    * @return Tuple (optimal sparsity, nr of correct predictions for this quantile, iteration):
     */
   def predictOnValidationSet (alphas : Alphas, iteration: Int) : Future[(Int,Int,Int)] = {
     val promise = Promise[(Int,Int,Int)]

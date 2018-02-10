@@ -6,7 +6,9 @@ import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
 import org.apache.spark.rdd.RDD
 import SVM.DataSetType.{Test, Train, Validation}
 import breeze.numerics.signum
-
+import scala.concurrent.{Await, Future, Promise}
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.Duration
 import scala.collection.mutable
 import scala.collection.mutable.{HashMap, MultiMap, Set => MSet}
 
@@ -83,15 +85,34 @@ case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc:
   override def calculateGradient(alphas: DenseVector[Double]) : DenseVector[Double]  = {
     val A = matOps.distributeColumnVector(alphas, epsilon)
     val P = matOps.coordinateMatrixMultiply(Q, A)
-    matOps.collectColumnVector(P)
+    DenseVector.fill[Double](alphas.length){-1} + matOps.collectColumnVector(P)
   }
 
-  def evaluate(alphas: Alphas, ap: AlgoParams, kmf: KernelMatrixFactory, dataType: SVM.DataSetType.Value):DenseVector[Double]= {
-    val K : CoordinateMatrix = kmf.getKernelMatrix(dataType)
-    val z = kmf.z.map(x=>x.toDouble)
-    val epsilon = max(min(ap.epsilon, min(alphas.alpha)), 0.000001)
-    val A = matOps.distributeRowVector(alphas.alpha *:* z, epsilon)
-    val P = matOps.coordinateMatrixMultiply(A, K)
-    signum(matOps.collectRowVector(P))
+  /**
+    * Calculates the number of correctly and incorrectly classified instances as tuple.
+    * @param predictions The vector of class predictions.
+    * @param labels The vector of empirical classes.
+    * @return A tuple consisting of first the number of correct predictions (classifications)
+    *         and second the number of misclassifications.
+    */
+  def calculateAccuracy(predictions: DenseVector[Double], labels: DenseVector[Int]):Int = {
+    assert(predictions.length == labels.length, "Length predictions:"+predictions.length+"!= length labels:"+labels.length)
+    val product : DenseVector[Double] = predictions *:* labels.map(x => x.toDouble)
+    product.map(x=>if(x>0) 1 else 0).reduce(_+_)
+  }
+
+  def evaluate(alphas: Alphas, ap: AlgoParams, kmf: KernelMatrixFactory, dataType: SVM.DataSetType.Value, iteration: Int):Future[(Int,Int)]= {
+    val promise = Promise[(Int,Int)]
+    Future{
+      val K : CoordinateMatrix = kmf.getKernelMatrix(dataType)
+      val z = kmf.z.map(x=>x.toDouble)
+      val epsilon = max(min(ap.epsilon, min(alphas.alpha)), 0.000001)
+      val A = matOps.distributeRowVector(alphas.alpha *:* z, epsilon)
+      val P = matOps.coordinateMatrixMultiply(A, K)
+      val prediction = signum(matOps.collectRowVector(P))
+      val correct = calculateAccuracy(prediction, d.getLabels(dataType))
+      promise.success((correct, iteration))
+    }
+    promise.future
   }
 }

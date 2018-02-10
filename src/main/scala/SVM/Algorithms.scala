@@ -159,17 +159,25 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
   * @param kmf A KernelMatrixFactory for distributed matrices.
   * @param sc The Spark context of the cluster.
   */
-case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, sc: SparkContext) extends Algorithm(alphas) with hasGradientDescent {
-	def iterate(iteration: Int): SG = {
+case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, sc: SparkContext, optimalIterationFuture : ListBuffer[Future[(Int,Int)]]) extends Algorithm(alphas) with hasGradientDescent {
+
+  /**
+    * Stores the alphas after each iteration of the algorithm (key: iteration, value: Alpha after gradient descent)
+    */
+  val alphaMap = new mutable.HashMap[Int,Alphas]()
+
+  def iterate(iteration: Int): SG = {
     //val (correct, misclassified) = calculateAccuracy(kmf.evaluate(alphas, ap, kmf, matOps, Train), kmf.getData().getLabels(Train))
-    val (correctT, misclassifiedT) = calculateAccuracy(kmf.evaluate(alphas, ap, kmf, Validation), kmf.getData().getLabels(Validation))
+    //val (correctT, misclassifiedT) = calculateAccuracy(kmf.evaluate(alphas, ap, kmf, Validation), kmf.getData().getLabels(Validation))
     //println(createLog(correct, misclassified, correctT, misclassifiedT, alphas))
-    println(createLog(correctT, misclassifiedT, alphas))
+    //println(createLog(correctT, misclassifiedT, alphas))
     assert(getSparsity < 99.0)
     //Decrease the step size, i.e. learning rate:
 		val ump = mp.updateDelta(ap)
 		//Update the alphas using gradient descent
-		gradientDescent(alphas, ap, ump, kmf)
+		val algo = gradientDescent(alphas, ap, ump, kmf, iteration)
+    optimalIterationFuture.append(kmf.evaluate(alphas, ap, kmf, Train, iteration))
+    algo.copy(optimalIterationFuture=optimalIterationFuture)
 	}
 
   /**
@@ -181,8 +189,9 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
     * @param kmf A MatrixFactory object.
     * @return An updated instance of the algorithm.
     */
-  def gradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: MatrixFactory): SG = {
-    val stochasticUpdate = kmf.calculateGradient(alphas.alpha)
-    copy(alphas = alphas.copy(alpha = stochasticUpdate).updateAlphaAsConjugateGradient().clipAlphas(ap.quantileAlphaClipping))
+  def gradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: MatrixFactory, iteration: Int): SG = {
+    val stochasticUpdate = calculateGradientDescent (alphas, ap, mp, kmf)
+    alphaMap.put(iteration, alphas.copy(alpha = stochasticUpdate))
+    copy(alphas = alphas.copy(alpha = stochasticUpdate).updateAlphaAsConjugateGradient())
   }
 }
