@@ -6,11 +6,8 @@ import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
 import org.apache.spark.rdd.RDD
 import SVM.DataSetType.{Test, Train, Validation}
 import breeze.numerics.signum
-import scala.concurrent.{Await, Future, Promise}
+import scala.concurrent.{Future, Promise}
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration.Duration
-import scala.collection.mutable
-import scala.collection.mutable.{HashMap, MultiMap, Set => MSet}
 
 trait MatrixFactory{
   def calculateGradient(alpha: DenseVector[Double]):DenseVector[Double]

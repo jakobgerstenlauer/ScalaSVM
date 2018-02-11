@@ -1,7 +1,6 @@
 package SVM
 
-import test.TestKernelMatrixWithoutSpark.{N, d, epsilon, gaussianKernel}
-
+import SVM.DataSetType.{Test, Train, Validation}
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.{Await, Future}
 
@@ -34,7 +33,7 @@ object TestLocalAlgorithm extends App {
     algo = algo.iterate(numInt)
     numInt += 1
   }
-  val testSetAccuracy : Future[Int] = algo.predictOnTestSet(PredictionMethod.AUC)
+  val testSetAccuracy : Future[Int] = algo.predictOn(Test, PredictionMethod.AUC)
   Await.result(testSetAccuracy, LeanMatrixFactory.maxDuration)
 }
 /*

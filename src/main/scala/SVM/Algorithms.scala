@@ -85,7 +85,7 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
     */
   val alphaMap = new mutable.HashMap[Int,Alphas]()
 
-  def predictOnTestSet(predictionMethod: PredictionMethod.Value, threshold: Double = 0.5) : Future[Int] = {
+  def predictOn(dataType: SVM.DataSetType.Value, predictionMethod: PredictionMethod.Value, threshold: Double = 0.5) : Future[Int] = {
     assert(threshold>0.0 && threshold<1.0,"Invalid value for threshold! Must be between 0.0 and 1.0!")
     val promise = Promise[Int]
     //Turn the ListBuffer into a List
@@ -106,15 +106,15 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
         println("Predict on the test set.")
         predictionMethod match {
           case PredictionMethod.STANDARD => {
-            val promisedTestResults : Future[Int] = kmf.predictOnTestSet(optAlphas)
+            val promisedTestResults : Future[Int] = kmf.predictOn(dataType, optAlphas)
             promise.completeWith(promisedTestResults)
           }
           case PredictionMethod.THRESHOLD => {
-            val promisedTestResults : Future[Int] = kmf.predictOnTestSet(optAlphas, threshold)
+            val promisedTestResults : Future[Int] = kmf.predictOn(dataType, optAlphas, threshold)
             promise.completeWith(promisedTestResults)
           }
           case PredictionMethod.AUC => {
-            val promisedTestResults : Future[Int] = kmf.predictOnTestSetAUC(optAlphas)
+            val promisedTestResults : Future[Int] = kmf.predictOnAUC(dataType, optAlphas)
             promise.completeWith(promisedTestResults)
           }
         }
