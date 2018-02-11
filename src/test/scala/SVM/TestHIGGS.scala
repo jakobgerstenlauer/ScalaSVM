@@ -2,7 +2,7 @@ package SVM
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.{Await, Future}
-
+import SVM.DataSetType.{Test, Train, Validation}
 object TestHIGGS extends App {
 
   val d = new LocalData()
@@ -43,9 +43,9 @@ object TestHIGGS extends App {
     numInt += 1
   }
 
-  val testSetAccuracy : Future[Int] = algo.predictOnTestSet(PredictionMethod.AUC)
+  val testSetAccuracy : Future[Int] = algo.predictOn(Test, PredictionMethod.AUC)
   Await.result(testSetAccuracy, LeanMatrixFactory.maxDuration)
 
-  val testSetAccuracy2 : Future[Int] = algo.predictOnTestSet(PredictionMethod.THRESHOLD,0.66)
+  val testSetAccuracy2 : Future[Int] = algo.predictOn(Test, PredictionMethod.THRESHOLD,0.66)
   Await.result(testSetAccuracy2, LeanMatrixFactory.maxDuration)
 }

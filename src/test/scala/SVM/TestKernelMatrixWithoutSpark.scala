@@ -1,13 +1,8 @@
 package test
 import SVM._
-
-import scala.collection.mutable
+import SVM.DataSetType.{Test, Train, Validation}
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, Future}
-import scala.util.{Failure, Success}
 import scala.concurrent.{Await, Future, Promise}
-import scala.concurrent.ExecutionContext.Implicits.global
 
 //Important flags for the Java virtual machine:
 //Force the JVM to cache Integers up to dimensionality of K and S:
@@ -67,13 +62,13 @@ object TestKernelMatrixWithoutSpark extends App {
 		numInt += 1
 	}
 
-	val future = algo.predictOnTestSet(PredictionMethod.AUC)
+	val future = algo.predictOn(Test, PredictionMethod.AUC)
 	Await.result(future, LeanMatrixFactory.maxDuration)
 
-	val future3 = algo.predictOnTestSet(PredictionMethod.THRESHOLD)
+	val future3 = algo.predictOn(Test, PredictionMethod.THRESHOLD)
 	Await.result(future3, LeanMatrixFactory.maxDuration)
 
-	val future2 = algo.predictOnTestSet(PredictionMethod.THRESHOLD,0.01)
+	val future2 = algo.predictOn(Test, PredictionMethod.THRESHOLD,0.01)
 	Await.result(future2, LeanMatrixFactory.maxDuration)
 /*	def calcTestAccuracy(algo: NoMatrices):Future[Int] = {
 		val promise = Promise[Int]

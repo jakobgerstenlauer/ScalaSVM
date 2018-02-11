@@ -6,11 +6,8 @@ import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
 import org.apache.spark.rdd.RDD
 import SVM.DataSetType.{Test, Train, Validation}
 import breeze.numerics.signum
-import scala.concurrent.{Await, Future, Promise}
+import scala.concurrent.{Future, Promise}
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration.Duration
-import scala.collection.mutable
-import scala.collection.mutable.{HashMap, MultiMap, Set => MSet}
 
 trait MatrixFactory{
   def calculateGradient(alpha: DenseVector[Double]):DenseVector[Double]
@@ -101,13 +98,12 @@ case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc:
     product.map(x=>if(x>0) 1 else 0).reduce(_+_)
   }
 
-  def evaluate(alphas: Alphas, ap: AlgoParams, kmf: KernelMatrixFactory, dataType: SVM.DataSetType.Value, iteration: Int):Future[(Int,Int)]= {
+  def evaluate(alphas: Alphas, ap: AlgoParams, dataType: SVM.DataSetType.Value, iteration: Int):Future[(Int,Int)]= {
     val promise = Promise[(Int,Int)]
     Future{
-      val K : CoordinateMatrix = kmf.getKernelMatrix(dataType)
-      val z = kmf.z.map(x=>x.toDouble)
+      val K : CoordinateMatrix = getKernelMatrix(dataType)
       val epsilon = max(min(ap.epsilon, min(alphas.alpha)), 0.000001)
-      val A = matOps.distributeRowVector(alphas.alpha *:* z, epsilon)
+      val A = matOps.distributeRowVector(alphas.alpha *:* z.map(x=>x.toDouble), epsilon)
       val P = matOps.coordinateMatrixMultiply(A, K)
       val prediction = signum(matOps.collectRowVector(P))
       val correct = calculateAccuracy(prediction, d.getLabels(dataType))
@@ -115,4 +111,35 @@ case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc:
     }
     promise.future
   }
+
+  def predictOn(alphas: Alphas, ap: AlgoParams, dataType: SVM.DataSetType.Value):Future[Int]= {
+    val promise = Promise[Int]
+    Future{
+      val K : CoordinateMatrix = getKernelMatrix(dataType)
+      val epsilon = max(min(ap.epsilon, min(alphas.alpha)), 0.000001)
+      val A = matOps.distributeRowVector(alphas.alpha *:* z.map(x=>x.toDouble), epsilon)
+      val P = matOps.coordinateMatrixMultiply(A, K)
+      val prediction = signum(matOps.collectRowVector(P))
+      val correct = calculateAccuracy(prediction, d.getLabels(dataType))
+      promise.success(correct)
+    }
+    promise.future
+  }
+
+  def predictOn(alphas: Alphas, ap: AlgoParams, dataType: SVM.DataSetType.Value, threshold: Double):Future[Int]= {
+    val promise = Promise[Int]
+    Future{
+      val K : CoordinateMatrix = getKernelMatrix(dataType)
+      val epsilon = max(min(ap.epsilon, min(alphas.alpha)), 0.000001)
+      val A = matOps.distributeRowVector(alphas.alpha *:* z.map(x=>x.toDouble), epsilon)
+      val P = matOps.coordinateMatrixMultiply(A, K)
+      val prediction = matOps.collectRowVector(P).map(x => if(x > threshold) +1.0 else -1.0)
+      val correct = calculateAccuracy(prediction, d.getLabels(dataType))
+      promise.success(correct)
+    }
+    promise.future
+  }
+
+  //TODO: Implement
+  //def predictOnAUC(alphas: Alphas, ap: AlgoParams, dataType: SVM.DataSetType.Value):Future[Int]= {
 }

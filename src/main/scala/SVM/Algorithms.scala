@@ -11,7 +11,6 @@ import scala.util.{Failure, Success}
 case class AllMatrixElementsZeroException(message:String) extends Exception(message)
 case class EmptyRowException(message:String) extends Exception(message)
 import scala.concurrent.ExecutionContext.Implicits.global
-import breeze.plot._
 
 /**
   * How should the scores s of the SVM be used to classify?
@@ -85,7 +84,7 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
     */
   val alphaMap = new mutable.HashMap[Int,Alphas]()
 
-  def predictOnTestSet(predictionMethod: PredictionMethod.Value, threshold: Double = 0.5) : Future[Int] = {
+  def predictOn(dataType: SVM.DataSetType.Value, predictionMethod: PredictionMethod.Value, threshold: Double = 0.5) : Future[Int] = {
     assert(threshold>0.0 && threshold<1.0,"Invalid value for threshold! Must be between 0.0 and 1.0!")
     val promise = Promise[Int]
     //Turn the ListBuffer into a List
@@ -106,15 +105,15 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
         println("Predict on the test set.")
         predictionMethod match {
           case PredictionMethod.STANDARD => {
-            val promisedTestResults : Future[Int] = kmf.predictOnTestSet(optAlphas)
+            val promisedTestResults : Future[Int] = kmf.predictOn(dataType, optAlphas)
             promise.completeWith(promisedTestResults)
           }
           case PredictionMethod.THRESHOLD => {
-            val promisedTestResults : Future[Int] = kmf.predictOnTestSet(optAlphas, threshold)
+            val promisedTestResults : Future[Int] = kmf.predictOn(dataType, optAlphas, threshold)
             promise.completeWith(promisedTestResults)
           }
           case PredictionMethod.AUC => {
-            val promisedTestResults : Future[Int] = kmf.predictOnTestSetAUC(optAlphas)
+            val promisedTestResults : Future[Int] = kmf.predictOnAUC(dataType, optAlphas)
             promise.completeWith(promisedTestResults)
           }
         }
@@ -166,6 +165,44 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
     */
   val alphaMap = new mutable.HashMap[Int,Alphas]()
 
+  def predictOn(dataType: SVM.DataSetType.Value, predictionMethod: PredictionMethod.Value, threshold: Double = 0.5) : Future[Int] = {
+    assert(threshold>0.0 && threshold<1.0,"Invalid value for threshold! Must be between 0.0 and 1.0!")
+    val promise = Promise[Int]
+    //Turn the ListBuffer into a List
+    val listOfFutures : List[Future[(Int,Int)]] = optimalIterationFuture.toList
+    val futureList : Future[List[(Int,Int)]] = Future.sequence(listOfFutures)
+    //Wait for cross-validation results to choose the optimal level of sparsity:
+    futureList onComplete {
+      case Success(list) => {
+        //Find the optimal iteration and associated sparsity and accuracy
+        val (maxAccuracy, optIteration) = list.foldRight((0,0))((a,b) => if(a._2 <= b._2) b else a)
+        println("Based on cross-validation, max correct predictions: "+ maxAccuracy+" was achieved in iteration: "+ optIteration)
+        //Get the alphas for this optimal iteration
+        val optAlphas : Alphas = alphaMap.getOrElse(optIteration, alphas)
+        optAlphas.clipAlphas(ap.quantileAlphaClipping)
+        println("Predict on the "+dataType.toString()+" set.")
+        predictionMethod match {
+          case PredictionMethod.STANDARD => {
+            val promisedTestResults : Future[Int] = kmf.predictOn(optAlphas, this.ap, dataType)
+            promise.completeWith(promisedTestResults)
+          }
+          case PredictionMethod.THRESHOLD => {
+            val promisedTestResults : Future[Int] = kmf.predictOn(optAlphas, this.ap, dataType, threshold)
+            promise.completeWith(promisedTestResults)
+          }
+          case PredictionMethod.AUC => {
+            throw new UnsupportedOperationException()
+            //TODO: Method is not yet implemented.
+            //val promisedTestResults : Future[Int] = kmf.predictOnAUC(optAlphas, this.ap, dataType)
+            //promise.completeWith(promisedTestResults)
+          }
+        }
+      }
+      case Failure(ex) => println(ex)
+    }
+    promise.future
+  }
+
   def iterate(iteration: Int): SG = {
     //val (correct, misclassified) = calculateAccuracy(kmf.evaluate(alphas, ap, kmf, matOps, Train), kmf.getData().getLabels(Train))
     //val (correctT, misclassifiedT) = calculateAccuracy(kmf.evaluate(alphas, ap, kmf, Validation), kmf.getData().getLabels(Validation))
@@ -176,7 +213,7 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
 		val ump = mp.updateDelta(ap)
 		//Update the alphas using gradient descent
 		val algo = gradientDescent(alphas, ap, ump, kmf, iteration)
-    optimalIterationFuture.append(kmf.evaluate(alphas, ap, kmf, Train, iteration))
+    optimalIterationFuture.append(kmf.evaluate(alphas, ap, Train, iteration))
     algo.copy(optimalIterationFuture=optimalIterationFuture)
 	}
 
