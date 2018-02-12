@@ -661,7 +661,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val promise = Promise[Int]
     //Here the futures for the four hash maps for the test set replicates
     //are combined into a single future.
-    val combinedFuture: Future[(MultiMap[Integer, Integer], MultiMap[Integer, Integer], MultiMap[Integer, Integer], MultiMap[Integer, Integer])] = extractHashMapPromisesTest
+    val combinedFuture: Future[(MultiMap[Integer, Integer], MultiMap[Integer, Integer], MultiMap[Integer, Integer], MultiMap[Integer, Integer])] = extractHashMapPromises(dataType)
 
     //Once all hash maps have been created.
     combinedFuture onComplete{
@@ -716,7 +716,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     val promise = Promise[Int]
     //Here the futures for the four hash maps for the test set replicates
     //are combined into a single future.
-    val combinedFuture: Future[(MultiMap[Integer, Integer], MultiMap[Integer, Integer], MultiMap[Integer, Integer], MultiMap[Integer, Integer])] = extractHashMapPromisesTest
+    val combinedFuture: Future[(MultiMap[Integer, Integer], MultiMap[Integer, Integer], MultiMap[Integer, Integer], MultiMap[Integer, Integer])] = extractHashMapPromises(dataType)
 
     //Once all hash maps have been created.
     combinedFuture onComplete{
@@ -772,7 +772,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   def predictOnAUC (dataType: SVM.DataSetType.Value, alphas : Alphas) : Future[Int] = {
     val promise = Promise[Int]
 
-    val combinedFuture: Future[(MultiMap[Integer, Integer], MultiMap[Integer, Integer], MultiMap[Integer, Integer], MultiMap[Integer, Integer])] = extractHashMapPromisesTest
+    val combinedFuture: Future[(MultiMap[Integer, Integer], MultiMap[Integer, Integer], MultiMap[Integer, Integer], MultiMap[Integer, Integer])] = extractHashMapPromises(dataType)
 
     combinedFuture onComplete{
       case Success(maps) =>{
@@ -871,11 +871,11 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     promise.future
   }
 
-  private def extractHashMapPromisesTest = {
-    val hashMapPromise0 = getHashMap(Test, 0)
-    val hashMapPromise1 = getHashMap(Test, 1)
-    val hashMapPromise2 = getHashMap(Test, 2)
-    val hashMapPromise3 = getHashMap(Test, 3)
+  private def extractHashMapPromises(dataType: SVM.DataSetType.Value) = {
+    val hashMapPromise0 = getHashMap(dataType, 0)
+    val hashMapPromise1 = getHashMap(dataType, 1)
+    val hashMapPromise2 = getHashMap(dataType, 2)
+    val hashMapPromise3 = getHashMap(dataType, 3)
 
     val combinedFuture = for {
       map0 <- hashMapPromise0

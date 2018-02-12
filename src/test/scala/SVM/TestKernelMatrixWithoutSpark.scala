@@ -62,7 +62,7 @@ object TestKernelMatrixWithoutSpark extends App {
 		numInt += 1
 	}
 
-	val future = algo.predictOn(Test, PredictionMethod.AUC)
+	val future = algo.predictOn(Validation, PredictionMethod.AUC)
 	Await.result(future, LeanMatrixFactory.maxDuration)
 
 	val future3 = algo.predictOn(Test, PredictionMethod.THRESHOLD)
