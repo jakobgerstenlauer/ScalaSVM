@@ -25,31 +25,35 @@ object TestKernelMatrixWithoutSpark extends App {
     println("Elapsed time: " + (t1 - t0) + "ns")
     result
   }
-
-	val kernelPar = GaussianKernelParameter(1.0)
-	println(kernelPar)
-	val gaussianKernel = GaussianKernel(kernelPar)
+	val gaussianKernel = GaussianKernel(GaussianKernelParameter(1.0))
 	println(gaussianKernel)
-	val N = 200000
-  Utility.testJVMArgs(N/2)
-	val dataProperties = DataParams(N = N, d = 10)
+	val N = 4000
+  //Utility.testJVMArgs(N/2)
+	val dataProperties = DataParams(N = N, d = 10, ratioTrain = 0.5, ratioTest = 0.1)
 	println(dataProperties)
 	val d = new SimData(dataProperties)
-	println(d)
+	//println(d)
 	d.simulate()
 	println(d)
 
   //First find a value for epsilon that is manageable:
-	//val probeMatrices = ProbeMatrices(d, gaussianKernel)
 	//Number of non-sparse matrix elements with epsilon = 0.001:
 	val epsilon = 0.001
-	//val numElementsS =  probeMatrices.probeSparsity(Test, 0.001)
-	//val numElementsK =  probeMatrices.probeSparsity(Train, 0.001)
-  //println("Projected memory requirements for epsilon ="+epsilon+":")
+	//probeSparsity(epsilon: Double, typeOfMatrix: DataSetType.Value,kf: KernelFunction)
+	val sampleProb = 0.01
+	val ratioNonSparseElementsTrain =  d.probeSparsity(epsilon, Train, gaussianKernel,sampleProb)
+	val ratioNonSparseElementsValidation =  d.probeSparsity(epsilon, Validation, gaussianKernel,sampleProb)
+	val ratioNonSparseElementsTest =  d.probeSparsity(epsilon, Test, gaussianKernel,sampleProb)
+	println("Projected memory requirements for epsilon ="+epsilon+":")
   //Integer = 32 bits = 4 Byte
-  //val intsPerKB = 256
-  //println("Training matrix K: "+numElementsK/intsPerKB+"kB:")
-  //println("Training matrix S: "+numElementsS/intsPerKB+"kB:")
+  //There is also some overhead in the hash map, so I assume that one matrix element takes up to 2 Ints:
+	val intsPerKB = 256 * 0.5
+	val N_train = N * 0.5
+	val N_val = N * 0.4
+	val N_test = N * 0.1
+  println("Training matrix: "+ (ratioNonSparseElementsTrain * N_train*N_train)/intsPerKB+"kB:")
+  println("Validation matrix: "+ (ratioNonSparseElementsValidation * N_val*N_val)/intsPerKB+"kB:")
+	println("Test matrix: "+(ratioNonSparseElementsTrain * N_test*N_test)/intsPerKB+"kB:")
 
   val lmf = LeanMatrixFactory(d, gaussianKernel, epsilon)
 	val mp = ModelParams(C = 0.4, delta = 0.01)
@@ -65,11 +69,11 @@ object TestKernelMatrixWithoutSpark extends App {
 	val future = algo.predictOn(Validation, PredictionMethod.AUC)
 	Await.result(future, LeanMatrixFactory.maxDuration)
 
-	val future3 = algo.predictOn(Test, PredictionMethod.THRESHOLD)
-	Await.result(future3, LeanMatrixFactory.maxDuration)
+	//val future3 = algo.predictOn(Test, PredictionMethod.THRESHOLD)
+	//Await.result(future3, LeanMatrixFactory.maxDuration)
 
-	val future2 = algo.predictOn(Test, PredictionMethod.THRESHOLD,0.01)
-	Await.result(future2, LeanMatrixFactory.maxDuration)
+	//val future2 = algo.predictOn(Test, PredictionMethod.THRESHOLD,0.01)
+	//Await.result(future2, LeanMatrixFactory.maxDuration)
 /*	def calcTestAccuracy(algo: NoMatrices):Future[Int] = {
 		val promise = Promise[Int]
 		val testSetAccuracy0 : Future[Int] = algo.predictOnTestSet(PredictionMethod.AUC)

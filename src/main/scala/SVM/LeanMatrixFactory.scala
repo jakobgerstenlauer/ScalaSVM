@@ -620,16 +620,19 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     signum(v)
   }
 
-  private def predictOn(dataType: SVM.DataSetType.Value, alphas : Alphas, hashMap: MultiMap[Integer, Integer]) : Future[DenseVector[Double]]  = {
+  private def predictOn(dataType: SVM.DataSetType.Value, alphas : Alphas,
+                        hashMap: MultiMap[Integer, Integer]) : Future[DenseVector[Double]]  = {
     val promise = Promise[DenseVector[Double]]
     Future{
-      val N_test = d.getN_Test
-      val N_train = d.getN_Train
-      val v = DenseVector.fill(N_test){0.0}
+      println("predictOn "+dataType.toString+ " and hash map of size: "+hashMap.size)
+      val N = d.getN(dataType)
+      println("N: "+N)
+      val v = DenseVector.fill(N){0.0}
       val z : DenseVector[Double] = alphas.alpha *:* d.getLabels(Train).map(x=>x.toDouble)
       for ((i,set) <- hashMap; j <- set; valueKernelFunction = kf.kernel(d.getRow(dataType,j), d.getRow(Train,i))){
         v(j.toInt) = v(j.toInt) + z(i.toInt) * valueKernelFunction
       }
+      println("promise fulfilled!")
       promise.success(v)
     }
     promise.future
@@ -639,9 +642,8 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     assert(threshold>0.0 && threshold<1.0)
     val promise = Promise[DenseVector[Double]]
     Future{
-      val N_test = d.getN_Test
-      val N_train = d.getN_Train
-      val v = DenseVector.fill(N_test){0.0}
+      val N = d.getN(dataType)
+      val v = DenseVector.fill(N){0.0}
       val z : DenseVector[Double] = alphas.alpha *:* d.getLabels(Train).map(x=>x.toDouble)
       for ((i,set) <- hashMap; j <- set; valueKernelFunction = kf.kernel(d.getRow(dataType,j), d.getRow(Train,i))){
         v(j.toInt) = v(j.toInt) + z(i.toInt) * valueKernelFunction
@@ -722,6 +724,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     combinedFuture onComplete{
       case Success(maps) =>{
 
+        println("All hash maps are there!")
         val predict1 = predictOn(dataType, alphas.copy(), maps._1)
         val predict2 = predictOn(dataType, alphas.copy(), maps._2)
         val predict3 = predictOn(dataType, alphas.copy(), maps._3)
@@ -776,6 +779,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
 
     combinedFuture onComplete{
       case Success(maps) =>{
+        println("All hash maps are there!")
         val predict1 = predictOn(dataType, alphas.copy(), maps._1)
         val predict2 = predictOn(dataType, alphas.copy(), maps._2)
         val predict3 = predictOn(dataType, alphas.copy(), maps._3)

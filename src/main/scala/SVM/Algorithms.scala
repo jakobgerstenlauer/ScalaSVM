@@ -95,14 +95,14 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
     futureList onComplete {
       case Success(list) => {
         //Free memory of validation set HashMaps
-        kmf.freeValidationHashMaps()
+        //kmf.freeValidationHashMaps()
         //Find the optimal iteration and associated sparsity and accuracy
         val (optSparsity, maxAccuracy, optIteration) = list.foldRight((0,0,0))((a,b) => if(a._2 <= b._2) b else a)
         println("Based on cross-validation, the optimal sparsity of: "+ optSparsity +" with max correct predictions: "+ maxAccuracy+" was achieved in iteration: "+ optIteration)
         //Get the alphas for this optimal iteration
         val optAlphas : Alphas = alphaMap.getOrElse(optIteration, alphas)
         if(optSparsity > 0.0) optAlphas.clipAlphas(0.01 * optSparsity)
-        println("Predict on the test set.")
+        println("Predict on the "+dataType.toString+" set with prediction method "+predictionMethod.toString+".")
         predictionMethod match {
           case PredictionMethod.STANDARD => {
             val promisedTestResults : Future[Int] = kmf.predictOn(dataType, optAlphas)
