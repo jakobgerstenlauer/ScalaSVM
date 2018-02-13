@@ -120,6 +120,7 @@ case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc:
       val P = matOps.coordinateMatrixMultiply(A, K)
       val prediction = signum(matOps.collectRowVector(P))
       val correct = calculateAccuracy(prediction, d.getLabels(dataType))
+      println("Accuracy on "+dataType.toString()+" set:" + correct.toDouble / prediction.length)
       (correct, iteration)
   }
 
