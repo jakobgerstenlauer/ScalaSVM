@@ -191,7 +191,7 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
     val ump = mp.updateDelta(ap)
     //Update the alphas using gradient descent
     val algo = gradientDescent(alphas, ap, ump, kmf, iteration)
-    optimalIteration.append(kmf.evaluate(alphas, ap, Train, iteration))
+    optimalIteration.append(kmf.evaluate(alphas, ap, Validation, iteration))
     algo.copy(optimalIteration=optimalIteration)
   }
 
