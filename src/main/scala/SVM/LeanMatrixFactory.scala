@@ -624,15 +624,12 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
                         hashMap: MultiMap[Integer, Integer]) : Future[DenseVector[Double]]  = {
     val promise = Promise[DenseVector[Double]]
     Future{
-      println("predictOn "+dataType.toString+ " and hash map of size: "+hashMap.size)
       val N = d.getN(dataType)
-      println("N: "+N)
       val v = DenseVector.fill(N){0.0}
       val z : DenseVector[Double] = alphas.alpha *:* d.getLabels(Train).map(x=>x.toDouble)
       for ((i,set) <- hashMap; j <- set; valueKernelFunction = kf.kernel(d.getRow(dataType,j), d.getRow(Train,i))){
         v(j.toInt) = v(j.toInt) + z(i.toInt) * valueKernelFunction
       }
-      println("promise fulfilled!")
       promise.success(v)
     }
     promise.future
@@ -723,8 +720,6 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     //Once all hash maps have been created.
     combinedFuture onComplete{
       case Success(maps) =>{
-
-        println("All hash maps are there!")
         val predict1 = predictOn(dataType, alphas.copy(), maps._1)
         val predict2 = predictOn(dataType, alphas.copy(), maps._2)
         val predict3 = predictOn(dataType, alphas.copy(), maps._3)

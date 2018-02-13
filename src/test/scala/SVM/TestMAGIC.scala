@@ -13,15 +13,13 @@ object TestMAGIC extends App {
   val pathTest = workingDir + "magic04test.csv"
 
   //The labels are in the second column (the column index is 0 based)
-  val columnIndexLabel = 11
+  val indexLabel = 11
   //The first column has to be skipped, it contains a line nr!!!
-  val columnIndexLineNr = 0
-  val transformLabel = (x:Double) => if(x<=0) -1 else +1
-  d.readTrainingDataSet (pathTrain, ',', columnIndexLabel, transformLabel, columnIndexLineNr)
-  d.readTestDataSet (pathTest, ',', columnIndexLabel, transformLabel, columnIndexLineNr)
-  d.readValidationDataSet(pathValidation, ',', columnIndexLabel, transformLabel, columnIndexLineNr)
-  d.readTestDataSet (pathTest, ',', columnIndexLabel, transformLabel, columnIndexLineNr)
-  d.readValidationDataSet(pathValidation, ',', columnIndexLabel, transformLabel, columnIndexLineNr)
+  val indexSkip = 0
+  val transLabel = (x:Double) => if(x<=0) -1 else +1
+  d.readTrainingDataSet (pathTrain, ',', indexLabel, transLabel, indexSkip)
+  d.readTestDataSet (pathTest, ',', indexLabel, transLabel, indexSkip)
+  d.readValidationDataSet(pathValidation, ',', indexLabel, transLabel, indexSkip)
   d.tableLabels()
 
   val medianScale = d.probeKernelScale()
