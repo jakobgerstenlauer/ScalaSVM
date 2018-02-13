@@ -50,6 +50,7 @@ case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc:
     dataType match {
       case Validation => this.V
       case Test => this.T
+      case _ => throw new IllegalArgumentException("Invalid type of kernel matrix!")
     }
   }
 
