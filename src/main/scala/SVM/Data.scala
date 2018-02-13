@@ -1,13 +1,14 @@
 package SVM
-import java.util
-
+import util.Random._
 import SVM.DataSetType.{Test, Train, Validation}
 import breeze.linalg._
 import breeze.numerics._
 import org.apache.spark.sql.{Dataset, SparkSession}
 import breeze.stats._
+
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.math.{max, min}
+import scala.util.Random
 
 trait Data{
   def getRow(dataSetType: DataSetType.Value, rowIndex: Int) : DenseVector[Double]
@@ -135,6 +136,34 @@ abstract class LData extends Data {
     tableLabels(z_train, "Training")
     tableLabels(z_validation, "Validation")
     tableLabels(z_test, "Test")
+  }
+
+  /**
+    * Returns the number of non-sparse matrix elements for a given epsilon and a given data set and kernel function.
+    * @param epsilon Value below which similarities will be ignored.
+    * @param typeOfMatrix Type of the data set for which the data matrix should be probed.
+    * @param kf The kernel function that should be evaluated.
+    * @param probability The sampling probability.
+    * @return The estimated ratio of non-sparse matrix elements (1 means all elements are >0).
+    */
+  def probeSparsity(epsilon: Double, typeOfMatrix: DataSetType.Value,kf: KernelFunction, probability: Double=0.1): Double = {
+    val N = getN_Train
+    val N2 = getN(typeOfMatrix)
+    val numElementsSampled = N * N2 * probability
+    var size = 0
+    //The diagonal is not sparse for the training matrix K because it describes the self similiarity of data points.
+    if(typeOfMatrix==Train){
+      size = N
+    }else{ //For the kernel matrix of the validation and test set we have to check the elements
+      for (i <- 0 until N; j <- i until N2 if (Random.nextDouble<probability) && (kf.kernel(getRow(Train,i), getRow(typeOfMatrix,j)) > epsilon)){
+        size = size + 1
+      }
+    }
+    //only iterate over the upper diagonal matrix
+    for (i <- 0 until N; j <- i until N2 if (Random.nextDouble<probability) && (kf.kernel(getRow(Train,i), getRow(typeOfMatrix,j)) > epsilon)){
+      size = size + 2
+    }
+    size.toDouble / numElementsSampled
   }
 }
 
