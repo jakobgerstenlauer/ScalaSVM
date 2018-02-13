@@ -98,7 +98,7 @@ case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc:
     product.map(x=>if(x>0) 1 else 0).reduce(_+_)
   }
 
-  def evaluate(alphas: Alphas, ap: AlgoParams, dataType: SVM.DataSetType.Value, iteration: Int):Future[(Int,Int)]= {
+  def evaluateFuture(alphas: Alphas, ap: AlgoParams, dataType: SVM.DataSetType.Value, iteration: Int):Future[(Int,Int)]= {
     val promise = Promise[(Int,Int)]
     Future{
       val K : CoordinateMatrix = getKernelMatrix(dataType)
@@ -112,7 +112,17 @@ case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc:
     promise.future
   }
 
-  def predictOn(alphas: Alphas, ap: AlgoParams, dataType: SVM.DataSetType.Value):Future[Int]= {
+  def evaluate(alphas: Alphas, ap: AlgoParams, dataType: SVM.DataSetType.Value, iteration: Int):(Int,Int)= {
+      val K : CoordinateMatrix = getKernelMatrix(dataType)
+      val epsilon = max(min(ap.epsilon, min(alphas.alpha)), 0.000001)
+      val A = matOps.distributeRowVector(alphas.alpha *:* z.map(x=>x.toDouble), epsilon)
+      val P = matOps.coordinateMatrixMultiply(A, K)
+      val prediction = signum(matOps.collectRowVector(P))
+      val correct = calculateAccuracy(prediction, d.getLabels(dataType))
+      (correct, iteration)
+  }
+
+  def predictOnFuture(alphas: Alphas, ap: AlgoParams, dataType: SVM.DataSetType.Value):Future[Int]= {
     val promise = Promise[Int]
     Future{
       val K : CoordinateMatrix = getKernelMatrix(dataType)
@@ -126,7 +136,17 @@ case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc:
     promise.future
   }
 
-  def predictOn(alphas: Alphas, ap: AlgoParams, dataType: SVM.DataSetType.Value, threshold: Double):Future[Int]= {
+  def predictOn(alphas: Alphas, ap: AlgoParams, dataType: SVM.DataSetType.Value):Int= {
+      val K : CoordinateMatrix = getKernelMatrix(dataType)
+      val epsilon = max(min(ap.epsilon, min(alphas.alpha)), 0.000001)
+      val A = matOps.distributeRowVector(alphas.alpha *:* z.map(x=>x.toDouble), epsilon)
+      val P = matOps.coordinateMatrixMultiply(A, K)
+      val prediction = signum(matOps.collectRowVector(P))
+      val correct = calculateAccuracy(prediction, d.getLabels(dataType))
+      correct
+  }
+
+  def predictOnFuture(alphas: Alphas, ap: AlgoParams, dataType: SVM.DataSetType.Value, threshold: Double):Future[Int]= {
     val promise = Promise[Int]
     Future{
       val K : CoordinateMatrix = getKernelMatrix(dataType)
@@ -140,6 +160,15 @@ case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc:
     promise.future
   }
 
+  def predictOn(alphas: Alphas, ap: AlgoParams, dataType: SVM.DataSetType.Value, threshold: Double):Int= {
+      val K : CoordinateMatrix = getKernelMatrix(dataType)
+      val epsilon = max(min(ap.epsilon, min(alphas.alpha)), 0.000001)
+      val A = matOps.distributeRowVector(alphas.alpha *:* z.map(x=>x.toDouble), epsilon)
+      val P = matOps.coordinateMatrixMultiply(A, K)
+      val prediction = matOps.collectRowVector(P).map(x => if(x > threshold) +1.0 else -1.0)
+      val correct = calculateAccuracy(prediction, d.getLabels(dataType))
+      correct
+  }
   //TODO: Implement
   //def predictOnAUC(alphas: Alphas, ap: AlgoParams, dataType: SVM.DataSetType.Value):Future[Int]= {
 }

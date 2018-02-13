@@ -150,6 +150,7 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
   }
 }
 
+
 /**
   * Sequential gradient descent algorithm with distributed matrices
   * @param alphas The current and old values of the alphas.
@@ -158,7 +159,67 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
   * @param kmf A KernelMatrixFactory for distributed matrices.
   * @param sc The Spark context of the cluster.
   */
-case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, sc: SparkContext, optimalIterationFuture : ListBuffer[Future[(Int,Int)]]) extends Algorithm(alphas) with hasGradientDescent {
+case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, sc: SparkContext, optimalIteration : ListBuffer[(Int,Int)]) extends Algorithm(alphas) with hasGradientDescent {
+
+  /**
+    * Stores the alphas after each iteration of the algorithm (key: iteration, value: Alpha after gradient descent)
+    */
+  val alphaMap = new mutable.HashMap[Int,Alphas]()
+
+  def predictOn(dataType: SVM.DataSetType.Value, predictionMethod: PredictionMethod.Value, threshold: Double = 0.5, optIteration: Int) : Int = {
+    assert(threshold>0.0 && threshold<1.0,"Invalid value for threshold! Must be between 0.0 and 1.0!")
+    //Get the alphas for this optimal iteration
+    val optAlphas : Alphas = alphaMap.getOrElse(optIteration, alphas)
+    optAlphas.clipAlphas(ap.quantileAlphaClipping)
+    println("Predict on the "+dataType.toString()+" set.")
+    predictionMethod match {
+      case PredictionMethod.STANDARD => kmf.predictOn(optAlphas, this.ap, dataType)
+      case PredictionMethod.THRESHOLD => kmf.predictOn(optAlphas, this.ap, dataType, threshold)
+      case PredictionMethod.AUC => throw new UnsupportedOperationException()
+      case _ => throw new UnsupportedOperationException()
+    }
+  }
+
+  /**
+    * Function that works in a sequential way.
+    * @param iteration
+    * @return updated algorithm object.
+    */
+  def iterate(iteration: Int): SG = {
+    assert(getSparsity < 99.0)
+    //Decrease the step size, i.e. learning rate:
+    val ump = mp.updateDelta(ap)
+    //Update the alphas using gradient descent
+    val algo = gradientDescent(alphas, ap, ump, kmf, iteration)
+    optimalIteration.append(kmf.evaluate(alphas, ap, Train, iteration))
+    algo.copy(optimalIteration=optimalIteration)
+  }
+
+  /**
+    * Performs a stochastic gradient update with clipping of the alphas.
+    * Note the difference in the return type.
+    * @param alphas The primal variables.
+    * @param ap The properties of the algorithm.
+    * @param mp The properties of the model.
+    * @param kmf A MatrixFactory object.
+    * @return An updated instance of the algorithm.
+    */
+  def gradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: MatrixFactory, iteration: Int): SG = {
+    val stochasticUpdate = calculateGradientDescent (alphas, ap, mp, kmf)
+    alphaMap.put(iteration, alphas.copy(alpha = stochasticUpdate))
+    copy(alphas = alphas.copy(alpha = stochasticUpdate).updateAlphaAsConjugateGradient())
+  }
+}
+
+/**
+  * Sequential gradient descent algorithm with distributed matrices
+  * @param alphas The current and old values of the alphas.
+  * @param ap Properties of the algorithm
+  * @param mp Properties of the model
+  * @param kmf A KernelMatrixFactory for distributed matrices.
+  * @param sc The Spark context of the cluster.
+  */
+case class SGwithFutures(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrixFactory, sc: SparkContext, optimalIterationFuture : ListBuffer[Future[(Int,Int)]]) extends Algorithm(alphas) with hasGradientDescent {
 
   /**
     * Stores the alphas after each iteration of the algorithm (key: iteration, value: Alpha after gradient descent)
@@ -183,11 +244,11 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
         println("Predict on the "+dataType.toString()+" set.")
         predictionMethod match {
           case PredictionMethod.STANDARD => {
-            val promisedTestResults : Future[Int] = kmf.predictOn(optAlphas, this.ap, dataType)
+            val promisedTestResults : Future[Int] = kmf.predictOnFuture(optAlphas, this.ap, dataType)
             promise.completeWith(promisedTestResults)
           }
           case PredictionMethod.THRESHOLD => {
-            val promisedTestResults : Future[Int] = kmf.predictOn(optAlphas, this.ap, dataType, threshold)
+            val promisedTestResults : Future[Int] = kmf.predictOnFuture(optAlphas, this.ap, dataType, threshold)
             promise.completeWith(promisedTestResults)
           }
           case PredictionMethod.AUC => {
@@ -203,7 +264,12 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
     promise.future
   }
 
-  def iterate(iteration: Int): SG = {
+  /**
+    * Function that works with a asynchronous programming based on Futures.
+    * @param iteration
+    * @return
+    */
+  def iterate(iteration: Int): SGwithFutures = {
     //val (correct, misclassified) = calculateAccuracy(kmf.evaluate(alphas, ap, kmf, matOps, Train), kmf.getData().getLabels(Train))
     //val (correctT, misclassifiedT) = calculateAccuracy(kmf.evaluate(alphas, ap, kmf, Validation), kmf.getData().getLabels(Validation))
     //println(createLog(correct, misclassified, correctT, misclassifiedT, alphas))
@@ -213,7 +279,7 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
 		val ump = mp.updateDelta(ap)
 		//Update the alphas using gradient descent
 		val algo = gradientDescent(alphas, ap, ump, kmf, iteration)
-    optimalIterationFuture.append(kmf.evaluate(alphas, ap, Train, iteration))
+    optimalIterationFuture.append(kmf.evaluateFuture(alphas, ap, Train, iteration))
     algo.copy(optimalIterationFuture=optimalIterationFuture)
 	}
 
@@ -226,7 +292,7 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
     * @param kmf A MatrixFactory object.
     * @return An updated instance of the algorithm.
     */
-  def gradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: MatrixFactory, iteration: Int): SG = {
+  def gradientDescent (alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: MatrixFactory, iteration: Int): SGwithFutures = {
     val stochasticUpdate = calculateGradientDescent (alphas, ap, mp, kmf)
     alphaMap.put(iteration, alphas.copy(alpha = stochasticUpdate))
     copy(alphas = alphas.copy(alpha = stochasticUpdate).updateAlphaAsConjugateGradient())
