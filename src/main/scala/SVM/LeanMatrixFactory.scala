@@ -819,7 +819,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
               val NumFalsePositives = calcFalsePositives(predictions, labels)
               falsePositives(i) = NumFalsePositives
               //probability of false alarm
-              val falsePosRate = NumFalsePositives / NumPredictionsPositive.toDouble
+              val falsePosRate = NumFalsePositives / numPositive.toDouble
               falsePositiveRate(i) = falsePosRate
 
               val q = if (truePosRate>0 && falsePosRate>0) truePosRate / Math.sqrt(falsePosRate) else 0.0
