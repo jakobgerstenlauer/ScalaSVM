@@ -685,9 +685,11 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
             val correctPredictions = calcCorrectPredictions(predictions, d.getLabels(dataType))
             val correctPredictionsClass1 = calcCorrectPredictionsClass1(signum(v), d.getLabels(dataType))
             val correctPredictionsClass2 = calcCorrectPredictionsClass2(signum(v), d.getLabels(dataType))
+            val numPositives = d.getLabels(dataType).map(x=>if(x>0)1 else 0).reduce(_+_)
+            val numNegatives = d.getLabels(dataType).map(x=>if(x<0)1 else 0).reduce(_+_)
             println("Nr of correct predictions for test set: " + correctPredictions + "/" + getData().getN(dataType))
-            println("Nr of correct predictions for class 1 (+1) in test set: " + correctPredictionsClass1 + "/" + getData().getN(dataType))
-            println("Nr of correct predictions for class 2 (-1) test set: " + correctPredictionsClass2 + "/" + getData().getN(dataType))
+            println("Nr of correct predictions for class 1 (+1) in test set: " + correctPredictionsClass1 + "/" + numPositives)
+            println("Nr of correct predictions for class 2 (-1) test set: " + correctPredictionsClass2 + "/" + numNegatives)
             promise.success(correctPredictions)
           }
           case Failure(t) => {
@@ -738,9 +740,11 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
             val correctPredictions = calcCorrectPredictions(signum(v), d.getLabels(dataType))
             val correctPredictionsClass1 = calcCorrectPredictionsClass1(signum(v), d.getLabels(dataType))
             val correctPredictionsClass2 = calcCorrectPredictionsClass2(signum(v), d.getLabels(dataType))
+            val numPositives = d.getLabels(dataType).map(x=>if(x>0)1 else 0).reduce(_+_)
+            val numNegatives = d.getLabels(dataType).map(x=>if(x<0)1 else 0).reduce(_+_)
             println("Nr of correct predictions for " + dataType.toString() + " set: "+correctPredictions +"/"+ getData().getN(dataType))
-            println("Nr of correct predictions for class 1 (+1) in " + dataType.toString() + " set: "+correctPredictionsClass1 +"/"+ getData().getN(dataType))
-            println("Nr of correct predictions for class 2 (-1) in " + dataType.toString() + " set: "+correctPredictionsClass2 +"/"+ getData().getN(dataType))
+            println("Nr of correct predictions for class 1 (+1) in " + dataType.toString() + " set: "+correctPredictionsClass1 +"/"+ numPositives)
+            println("Nr of correct predictions for class 2 (-1) in " + dataType.toString() + " set: "+correctPredictionsClass2 +"/"+ numNegatives)
             promise.success(correctPredictions)
           }
           case Failure(t) => {
@@ -794,64 +798,99 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
             val correctPredictions = DenseVector.zeros[Int](99)
             val truePositives = DenseVector.zeros[Int](99)
             val falsePositives = DenseVector.zeros[Int](99)
+            /**
+              * True positive rate:
+              * Given that the model predicts class +, how high is the probability that is really is class +?
+              */
             val truePositiveRate = DenseVector.zeros[Double](99)
+            /**
+              * False positive rate:
+              * Given that the model predicts class +, how high is the probability that is really is class -?
+              */
             val falsePositiveRate = DenseVector.zeros[Double](99)
-            val labels = d.getLabels(dataType).map(x=>if(x>0) 1 else -1)
+            /**
+              * sensitivity:
+              * Given that the true class is +,
+              * how high is the probability that the model prediction is correct?
+              */
+            val sensitivity = DenseVector.zeros[Double](99)
 
+            /**
+              * specificity:
+              * Given that the true class is -,
+              * how high is the probability that the model prediction is correct?
+              */
+            val specificity = DenseVector.zeros[Double](99)
+
+            val labels = d.getLabels(dataType).map(x=>if(x>0) 1 else -1)
             val numPositive = d.getLabels(dataType).map(x=>if(x>0)1 else 0).reduce(_+_)
             val numNegatives = d.getLabels(dataType).map(x=>if(x<0)1 else 0).reduce(_+_)
             val total = numPositive + numNegatives
             println("+:"+numPositive+" -:"+numNegatives)
-            println("True (+) and false(-) positive rate, Q=+/sqrt(-), and total accuracy (A) for the test set and all percentiles: ")
-            println("%\t+\t\t-\tQ\tA")
+            println("True (+) and false(-) positive rate, Q=+/sqrt(-)," +
+              "sensitivity, specificity,  and total accuracy (A) for the test set and all percentiles: ")
+            println("%\t+\t\t-\tQ\tsens\tspec\tA")
 
             var i = 0
             for(threshold <- 1 to 99){
               val cutOff : Double = threshold/100.0
               val predictions = quantiles.map(x=>if(x<cutOff) +1.0 else -1.0)
               val NumPredictionsPositive = predictions.map(x=>if(x>0) 1 else 0).reduce(_+_)
-
               val NumTruePositives  = calcTruePositives(predictions, labels)
               truePositives(i) = NumTruePositives
-              val truePosRate = NumTruePositives / numPositive.toDouble
+              val truePosRate = NumTruePositives / NumPredictionsPositive.toDouble
               truePositiveRate(i) = truePosRate
-
               val NumFalsePositives = calcFalsePositives(predictions, labels)
               falsePositives(i) = NumFalsePositives
               //probability of false alarm
-              val falsePosRate = NumFalsePositives / numPositive.toDouble
+              val falsePosRate = NumFalsePositives / NumPredictionsPositive.toDouble
               falsePositiveRate(i) = falsePosRate
-
+              val NumTrueNegatives  = calcTrueNegatives(predictions, labels)
+              val sensitivitY = NumTruePositives / numPositive.toDouble
+              sensitivity(i) = sensitivitY
+              val specificitY = NumTrueNegatives / numNegatives.toDouble
+              specificity(i) = specificitY
               val q = if (truePosRate>0 && falsePosRate>0) truePosRate / Math.sqrt(falsePosRate) else 0.0
               val correctPredictions = calcCorrectPredictions(predictions, labels)
               val accuracy = correctPredictions / total.toDouble
 
               if(falsePosRate==0.0){
                 println(threshold+"\t"
-                  +roundAt(3)(truePosRate)+"\t\t0.0\tNAN\t"
-                  +roundAt(3)(accuracy))
+                  +roundAt(4)(truePosRate)+"\t\t0.0\t0.0\t0.0\tNAN\t"
+                  +roundAt(4)(accuracy))
               }else {
                 println(threshold + "\t"
-                  + roundAt(3)(truePosRate) + "\t"
-                  + roundAt(3)(falsePosRate) + "\t"
-                  + roundAt(3)(q) + "\t"
-                  + roundAt(3)(accuracy))
+                  + roundAt(4)(truePosRate) + "\t"
+                  + roundAt(4)(falsePosRate) + "\t"
+                  + roundAt(4)(q) + "\t"
+                  + roundAt(4)(sensitivitY) + "\t"
+                  + roundAt(4)(specificitY) + "\t"
+                  + roundAt(4)(accuracy))
               }
               i = i+1
             }
-
-            val fig = Figure()
-            val plt = fig.subplot(0)
-            plt += plot(falsePositiveRate, truePositiveRate, '+', name = "Receiver Operating Characteristic (ROC) curve")
-            val comparisonLine = (1 to 99).map(x=> x.toDouble / 100.0)
-            plt += plot(comparisonLine, comparisonLine, '-', name = "Benchmark random classifier")
-            //plt.plot.addAnnotation(new XYTextAnnotation(txt, 3890.0, 200.0))
-            plt.xlabel = "False negative rate."
-            plt.ylabel = "True positive rate."
-            plt.legend = true
-            fig.refresh()
-            fig.saveas("ROC_curve.png",400)
-
+            try {
+              val labelingFunction = (quantile: Int) => quantile.toString()
+              val fig = Figure()
+              val plt = fig.subplot(0)
+              plt += plot(DenseVector.ones[Double](specificity.length)- specificity,
+                sensitivity, '+',
+                name = "Receiver Operating Characteristic (ROC) curve",
+                labels = labelingFunction)
+              val comparisonLine = (1 to 99).map(x => x.toDouble / 100.0)
+              plt += plot(comparisonLine, comparisonLine, '-', name = "Benchmark random classifier")
+              //plt.plot.addAnnotation(new XYTextAnnotation(txt, 3890.0, 200.0))
+              plt.xlabel = "1 - specificity"
+              plt.ylabel = "sensitivity"
+              plt.legend = true
+              fig.refresh()
+              //fig.saveas("ROC_curve.png", 400)
+            }catch{
+              case e: java.lang.ArrayIndexOutOfBoundsException => {
+                //e.printStackTrace()
+                //do nothing, stay silent.
+              }
+            }
             promise.success(correctPredictions.reduce((a,b)=>max(a,b)))
           }
           case Failure(t) => {
@@ -888,6 +927,14 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   def calcCorrectPredictions (v0: DenseVector[Double], labels: DenseVector[Int]) : Int={
     assert(v0.length == labels.length)
     (signum(v0) *:* labels.map(x => x.toDouble) ).map(x=>if(x>0) 1 else 0).reduce(_+_)
+  }
+
+  def calcTrueNegatives(v0: DenseVector[Double], labels: DenseVector[Int]) : Int={
+    assert(v0.length == labels.length)
+    val x : BitVector = labels <:< 0
+    val y : BitVector = v0 <:< 0.0
+    val z = x & y
+    z.map(x => if (x) 1 else 0).reduce(_+_)
   }
 
   def calcTruePositives(v0: DenseVector[Double], labels: DenseVector[Int]) : Int={

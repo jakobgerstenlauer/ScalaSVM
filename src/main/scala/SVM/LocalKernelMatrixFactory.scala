@@ -155,7 +155,7 @@ case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc:
       val epsilon = max(min(ap.epsilon, min(alphas.alpha)), 0.000001)
       val A = matOps.distributeRowVector(alphas.alpha *:* z.map(x=>x.toDouble), epsilon)
       val P = matOps.coordinateMatrixMultiply(A, K)
-      val prediction = matOps.collectRowVector(P).map(x => if(x > threshold) +1.0 else -1.0)
+      val prediction = matOps.collectRowVector(P).map(x => if(x<threshold) +1.0 else -1.0)
       val correct = calculateAccuracy(prediction, d.getLabels(dataType))
       promise.success(correct)
     }
@@ -167,7 +167,7 @@ case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc:
       val epsilon = max(min(ap.epsilon, min(alphas.alpha)), 0.000001)
       val A = matOps.distributeRowVector(alphas.alpha *:* z.map(x=>x.toDouble), epsilon)
       val P = matOps.coordinateMatrixMultiply(A, K)
-      val prediction = matOps.collectRowVector(P).map(x => if(x > threshold) +1.0 else -1.0)
+      val prediction = matOps.collectRowVector(P).map(x => if(x<threshold) +1.0 else -1.0)
       val correct = calculateAccuracy(prediction, d.getLabels(dataType))
       correct
   }
