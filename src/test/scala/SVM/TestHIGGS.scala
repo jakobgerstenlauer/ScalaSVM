@@ -46,6 +46,6 @@ object TestHIGGS extends App {
   val testSetAccuracy : Future[Int] = algo.predictOn(Test, PredictionMethod.AUC)
   Await.result(testSetAccuracy, LeanMatrixFactory.maxDuration)
 
-  val testSetAccuracy2 : Future[Int] = algo.predictOn(Test, PredictionMethod.THRESHOLD,0.66)
+  val testSetAccuracy2 : Future[Int] = algo.predictOn(Test, PredictionMethod.THRESHOLD,0.64)
   Await.result(testSetAccuracy2, LeanMatrixFactory.maxDuration)
 }

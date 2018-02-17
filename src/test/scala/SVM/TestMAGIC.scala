@@ -27,7 +27,7 @@ object TestMAGIC extends App {
   println("The kernel scale parameter was estimated at "+medianScale+ " from the training data.")
   //println("The lower 0.1% quantile of the Euclidean distance of a subset of training set instances was used as estimate for the Epsilon sparsity threshold parameter: " + epsilon)
 
-  val epsilon = 0.00001
+  val epsilon = 0.001
   val kernelPar = GaussianKernelParameter(medianScale)
   val gaussianKernel = GaussianKernel(kernelPar)
   val kmf = LeanMatrixFactory(d, gaussianKernel, epsilon)
@@ -45,6 +45,6 @@ object TestMAGIC extends App {
   val testSetAccuracy : Future[Int] = algo.predictOn(Validation, PredictionMethod.AUC)
   Await.result(testSetAccuracy, LeanMatrixFactory.maxDuration)
 
-  val testSetAccuracy2 : Future[Int] = algo.predictOn(Test, PredictionMethod.THRESHOLD,0.73)
+  val testSetAccuracy2 : Future[Int] = algo.predictOn(Test, PredictionMethod.THRESHOLD,0.71)
   Await.result(testSetAccuracy2, LeanMatrixFactory.maxDuration)
 }
