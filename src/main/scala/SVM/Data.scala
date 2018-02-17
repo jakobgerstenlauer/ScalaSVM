@@ -1,10 +1,14 @@
 package SVM
+import java.util.concurrent.atomic.AtomicInteger
+
 import util.Random._
 import SVM.DataSetType.{Test, Train, Validation}
-import breeze.linalg._
+import breeze.linalg.{DenseMatrix, _}
 import breeze.numerics._
 import org.apache.spark.sql.{Dataset, SparkSession}
 import breeze.stats._
+import breeze.stats.distributions.{RandBasis, ThreadLocalRandomGenerator}
+import org.apache.commons.math3.random.MersenneTwister
 
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.math.{max, min}
@@ -250,44 +254,47 @@ class SimData (val params: DataParams) extends LData {
 
 object LocalData{
   val inverseSqrt2 : Double =  Math.E / 4.0
+  val int = new AtomicInteger(1234567)
+  new RandBasis(new ThreadLocalRandomGenerator(new MersenneTwister(int.getAndIncrement())))
 }
+
 
 /**
   * Data that is stored in the local file system as csv files.
   */
-class LocalData extends LData{
+class LocalData extends LData {
   //Matrix with 3 rows for mean, variance, and standard deviation and columns for data columns
-  var trainSummary = DenseMatrix.zeros[Double](0,0)
+  var trainSummary = DenseMatrix.zeros[Double](0, 0)
   var means = DenseVector.zeros[Double](0)
   var stdev = DenseVector.zeros[Double](0)
-  var N : Int = 0
-  var N_train : Int = 0
-  var N_validation : Int = 0
-  var N_test : Int = 0
-  var d : Int = 0
+  var N: Int = 0
+  var N_train: Int = 0
+  var N_validation: Int = 0
+  var N_test: Int = 0
+  var d: Int = 0
   var isFilled = false
   var validationSetIsFilled = false
   var trainingSetIsFilled = false
   var testSetIsFilled = false
   //empty data matrices for training and validation set
-  var X_train, X_validation, X_test : DenseMatrix[Double] = DenseMatrix.zeros[Double](1, 1)
+  var X_train, X_validation, X_test: DenseMatrix[Double] = DenseMatrix.zeros[Double](1, 1)
   //empty vectors for the labels of training and validation set
-  var z_train, z_validation, z_test : DenseVector[Int] = DenseVector.zeros[Int](1)
+  var z_train, z_validation, z_test: DenseVector[Int] = DenseVector.zeros[Int](1)
 
   //Was the data set correctly initialized?
-  override def isDefined : Boolean = isFilled
+  override def isDefined: Boolean = isFilled
 
-  override def toString : String = {
+  override def toString: String = {
     val sb = new StringBuilder
-    sb.append("Empirical dataset from local file system with "+ d+" variables.\n")
-    sb.append("Observations: "+ N_train +" (training), " + N_validation+ " (validation)\n")
-    if(isFilled) sb.append("Data was already generated.\n")
+    sb.append("Empirical dataset from local file system with " + d + " variables.\n")
+    sb.append("Observations: " + N_train + " (training), " + N_validation + " (validation)\n")
+    if (isFilled) sb.append("Data was already generated.\n")
     else sb.append("Data was not yet generated.\n")
     sb.toString()
   }
 
-  def readTrainingDataSet (path: String, separator: Char, columnIndexClass: Int, transformLabel: Double => Int = (x:Double)=>if(x>0) 1 else -1, columnIndexIgnore: Int = -1) : Unit = {
-    val csvReader : CSVReader = new CSVReader(path, separator, columnIndexClass, columnIndexIgnore)
+  def readTrainingDataSet (path: String, separator: Char, columnIndexClass: Int, transformLabel: Double => Int = (x: Double) => if (x > 0) 1 else -1, columnIndexIgnore: Int = -1): Unit = {
+    val csvReader: CSVReader = new CSVReader(path, separator, columnIndexClass, columnIndexIgnore)
     val (inputs, labels) = csvReader.read(transformLabel)
     X_train = inputs
     trainSummary = summary(Train)
@@ -310,6 +317,74 @@ class LocalData extends LData{
     N_train = X_train.rows
     trainingSetIsFilled = true
     isFilled = validationSetIsFilled && trainingSetIsFilled
+  }
+
+  private def selectInstances (X: DenseMatrix[Double], y: DenseVector[Double], lambda: Double): (DenseVector[Double]) = {
+    val K = X * X.t
+    val I = DenseMatrix.eye[Double](X.rows)
+    pinv(K + lambda * I) * y
+  }
+
+  private def calculateProjections(sampleProb: Double): DenseVector[Double] = {
+    val prob : DenseVector[Double] = DenseVector.rand(N_train)
+    val Nsubset = Math.floor(N_train*sampleProb).toInt
+    val inputs: DenseMatrix[Double] = DenseMatrix.zeros[Double](Nsubset, d)
+    val labels: DenseVector[Double] = DenseVector.zeros[Double](Nsubset)
+    var j = 0
+    for (i <- 0 until N_train; if prob(i) < sampleProb && j < Nsubset) {
+      inputs(j, ::) := X_train(i, ::)
+      labels(j) = z_train(i)
+      j = j + 1
+    }
+    val lambda = 0.5
+    val alphas = selectInstances(inputs, labels, lambda)
+    val K = inputs * X_train.t
+    (alphas.t * K).t
+  }
+
+  /**
+    * Reduces the training data set based on the projections calculated using a small subset and the linear kernel.
+    * @param sampleProb The probability for instances to end up in the subset used to calculate the alphas.
+    * @param minQuantile The minimum quantile to be included in the final training set.
+    * @param maxQuantile The maximum quantile to be included in the final training set.
+    */
+  def selectInstances(sampleProb: Double, minQuantile: Double, maxQuantile: Double):Unit = {
+
+    val numReplicates = Math.max(N_train / 20000,1)
+    var projections = DenseVector.zeros[Double](N_train)
+    for(replicates <- 0 until numReplicates) {
+      projections = projections + calculateProjections(sampleProb/numReplicates)
+    }
+    projections = projections / numReplicates.toDouble
+
+    def getSortedProjections : Array[Double] = projections.toArray.sorted[Double]
+    def getQuantileProjections (quantile: Double) : Double = {
+      assert(quantile>=0 && quantile<=1.0)
+      if(quantile == 0.0) return projections.reduce(min(_,_))
+      if(quantile == 1.0) return projections.reduce(max(_,_))
+      val N = projections.length
+      val x = (N+1) * quantile
+      val rank_high : Int = min(Math.ceil(x).toInt,N)
+      val rank_low : Int = max(Math.floor(x).toInt,1)
+      if(rank_high==rank_low) (getSortedProjections(rank_high-1))
+      else Alphas.mean(getSortedProjections(rank_high-1), getSortedProjections(rank_low-1))
+    }
+    val lowerQuantile = getQuantileProjections(minQuantile)
+    val upperQuantile = getQuantileProjections(maxQuantile)
+    val isValid = projections.map(x=>if(x>lowerQuantile && x<upperQuantile) 1 else 0)
+    val finalDataSize = isValid.reduce(_+_)
+    println(finalDataSize+" out of "+N_train+" instances are selected based on linear kernel projection.")
+    val inputs2: DenseMatrix[Double] = DenseMatrix.zeros[Double](finalDataSize, d)
+    val labels2: DenseVector[Int] = DenseVector.zeros[Int](finalDataSize)
+    var k = 0
+    for(i <- 0 until N_train; if isValid(i)==1){
+      inputs2(k,::) := X_train(i, ::)
+      labels2(k) = z_train(i)
+      k=k+1
+    }
+    X_train=inputs2
+    N_train=finalDataSize
+    z_train=labels2
   }
 
   def readValidationDataSet (path: String, separator: Char, columnIndexClass: Int, transformLabel: Double => Int = (x:Double)=>if(x>0) 1 else -1 , columnIndexIgnore: Int = -1) : Unit = {
