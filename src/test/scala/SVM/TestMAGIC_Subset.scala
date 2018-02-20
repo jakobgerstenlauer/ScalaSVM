@@ -1,10 +1,11 @@
 package SVM
 
+import SVM.DataSetType.{Test, Validation}
+
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.{Await, Future}
-import SVM.DataSetType.{Test, Train, Validation}
 
-object TestMAGIC extends App {
+object TestMAGIC_Subset extends App {
 
   val d = new LocalData()
   val workingDir = "/home/jakob/workspace_scala/Dist_Online_SVM/data/MagicGamma/"
@@ -17,7 +18,7 @@ object TestMAGIC extends App {
   //The first column has to be skipped, it contains a line nr!!!
   val indexSkip = 0
   val transLabel = (x:Double) => if(x<=0) -1 else +1
-  d.readTrainingDataSet (pathTrain, ',', indexLabel, transLabel, indexSkip)
+  d.readTrainingDataSet(pathTrain, ',', indexLabel, transLabel, indexSkip)
   d.readTestDataSet (pathTest, ',', indexLabel, transLabel, indexSkip)
   d.readValidationDataSet(pathValidation, ',', indexLabel, transLabel, indexSkip)
   d.tableLabels()
@@ -26,6 +27,8 @@ object TestMAGIC extends App {
 
   println("The kernel scale parameter was estimated at "+medianScale+ " from the training data.")
   //println("The lower 0.1% quantile of the Euclidean distance of a subset of training set instances was used as estimate for the Epsilon sparsity threshold parameter: " + epsilon)
+
+  d.selectInstances(sampleProb=0.1, minQuantile=0.1, maxQuantile=0.9)
 
   val epsilon = 0.001
   val kernelPar = GaussianKernelParameter(medianScale)
@@ -45,6 +48,6 @@ object TestMAGIC extends App {
   val testSetAccuracy : Future[Int] = algo.predictOn(Validation, PredictionMethod.AUC)
   Await.result(testSetAccuracy, LeanMatrixFactory.maxDuration)
 
-  val testSetAccuracy2 : Future[Int] = algo.predictOn(Test, PredictionMethod.THRESHOLD,0.71)
+  val testSetAccuracy2 : Future[Int] = algo.predictOn(Test, PredictionMethod.THRESHOLD,0.60)
   Await.result(testSetAccuracy2, LeanMatrixFactory.maxDuration)
 }

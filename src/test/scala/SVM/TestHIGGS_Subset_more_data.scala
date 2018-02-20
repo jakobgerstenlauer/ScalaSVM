@@ -1,17 +1,19 @@
 package SVM
 
+import SVM.DataSetType.{Test, Validation}
+
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.{Await, Future}
-import SVM.DataSetType.{Test, Train, Validation}
-object TestHIGGS extends App {
+
+object TestHIGGS_Subset_more_data extends App {
 
   val d = new LocalData()
   println(d)
 
   val workingDir = "/home/jakob/workspace_scala/Dist_Online_SVM/data/HIGGS/"
-  val pathTrain = workingDir + "higgsTrain.csv"
-  val pathValidation = workingDir + "higgsValidation.csv"
-  val pathTest = workingDir + "higgsTest.csv"
+  val pathTrain = workingDir + "higgsTrain2.csv"
+  val pathValidation = workingDir + "higgsValidation2.csv"
+  val pathTest = workingDir + "higgsTest2.csv"
 
   //I have to define a transform function because the label codes do not correspond to the default (+1 for signal and -1 for noise)
   val transformLabel = (x:Double) => if(x<=0) -1 else +1
@@ -26,6 +28,8 @@ object TestHIGGS extends App {
 
   val medianScale = d.probeKernelScale()
   println("The kernel scale parameter was estimated at "+medianScale+ " from the training data.")
+
+  d.selectInstances(sampleProb=0.1, minQuantile=0.45, maxQuantile=0.55)
 
   val epsilon = 0.0001
   val kernelPar = GaussianKernelParameter(medianScale)
@@ -43,9 +47,9 @@ object TestHIGGS extends App {
     numInt += 1
   }
 
-  val testSetAccuracy : Future[Int] = algo.predictOn(Test, PredictionMethod.AUC)
+  val testSetAccuracy : Future[Int] = algo.predictOn(Validation, PredictionMethod.AUC)
   Await.result(testSetAccuracy, LeanMatrixFactory.maxDuration)
 
-  val testSetAccuracy2 : Future[Int] = algo.predictOn(Test, PredictionMethod.THRESHOLD,0.64)
+  val testSetAccuracy2 : Future[Int] = algo.predictOn(Test, PredictionMethod.THRESHOLD,0.60)
   Await.result(testSetAccuracy2, LeanMatrixFactory.maxDuration)
 }
