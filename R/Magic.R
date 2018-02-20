@@ -88,7 +88,11 @@ folds <- createFolds(dtrain$class, k = 10)
 (bestcv <- which(cverrors == min(cverrors), arr.ind = T))
 # row col
 # [1,]   1   3
+start.time <- Sys.time()
 svm <- ksvm(as.factor(class)~., data=dtrain, kernel='rbfdot',  C=100, scaled=c(), type="C-svc") 
+end.time <- Sys.time()
+print(end.time - start.time)
+#Time difference of 34.02896 secs
 
 #Read the test data:
 dtest <- read.table("magic04test.csv",sep=",",header=FALSE)
@@ -96,13 +100,17 @@ dim(dtest)
 #The first column contains only the line nr and can be omitted:
 dtest <- dtest[,-1]
 names(dtest)<-c(glue("input",1:10),"class")
+start.time <- Sys.time()
 preds <- predict(svm, dtest)
+end.time <- Sys.time()
+#Time difference of 1.536178 secs
+print(end.time - start.time)
 (confusionMatrix <- table(preds, dtest$class))
 # preds   -1    1
-# -1 1095  173
-# 1   579 2909
+# -1 1096  168
+# 1   578 2914
 (accuracy <- sum(diag(confusionMatrix))/sum(confusionMatrix))
-#[1] 0.8418839
+#[1] 0.8431455
 svm
 # Support Vector Machine object of class "ksvm" 
 # 
@@ -110,9 +118,9 @@ svm
 # parameter : cost C = 100 
 # 
 # Gaussian Radial Basis kernel function. 
-# Hyperparameter : sigma =  0.000158682277197226 
+# Hyperparameter : sigma =  0.000154854566754842 
 # 
-# Number of Support Vectors : 5119 
+# Number of Support Vectors : 5121 
 # 
-# Objective Function Value : -413710.1 
-# Training error : 0.121775 
+# Objective Function Value : -415451.8 
+# Training error : 0.121915 
