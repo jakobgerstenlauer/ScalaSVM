@@ -57,7 +57,7 @@ case class DataParams(N: Int = 1000, d: Int = 5, ratioTrain: Double = 0.5, ratio
     /**
    * Number of observations in the training set.  
    */
-  val N_train = Math.floor(N * ratioTrain).toInt
+  var N_train = Math.floor(N * ratioTrain).toInt
   
    /**
    * Number of observations in the validation set.
