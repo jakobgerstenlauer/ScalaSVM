@@ -201,7 +201,7 @@ abstract class LData extends Data {
     * @param sampleProb The probability for instances to end up in the subset used to calculate the alphas.
     * @param maxErrorRate The empirical probability of misclassified instances according to the cutoff.
     */
-  def selectInstances(sampleProb: Double=0.1, maxErrorRate: Double=0.01):Unit = {
+  def selectInstances(sampleProb: Double=0.1, maxErrorRate: Double=0.01):Int = {
 
     val numReplicates = Math.max(getN_Train / 10000,1)
     var projections = DenseVector.zeros[Double](getN_Train)
@@ -242,11 +242,16 @@ abstract class LData extends Data {
       labels2(k) = z_train(i)
       k=k+1
     }
+    val numLabels = sum(labels2.map(x=>if(x!=0)1 else 0))
+    assert(labels2.length==numLabels)
+    assert(labels2.length==finalDataSize)
     X_train=inputs2
+    assert(X_train.rows==finalDataSize,"The number of rows "+X_train.rows+" in the filtered data set is not "+finalDataSize+" as required!")
     setN_train(finalDataSize)
     z_train=labels2
-  }
-
+    assert(z_train.length==finalDataSize,"The number of elements "+z_train.length+" in the filtered vector of class labels is not "+finalDataSize+" as required!")
+    finalDataSize
+ }
 }
 
 /**

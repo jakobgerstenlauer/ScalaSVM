@@ -385,6 +385,7 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
       val hashMap = Await.result(rowColumnPairs, LeanMatrixFactory.maxDuration)
       val N = d.getN_Train
       val labels: DenseVector[Double] = d.getLabels(Train).map(x => x.toDouble)
+      assert(alphas.length==labels.length)
       val z: DenseVector[Double] = alphas *:* labels
 
       val N1:Int = N/4
