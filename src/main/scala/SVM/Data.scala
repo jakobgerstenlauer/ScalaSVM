@@ -1,7 +1,6 @@
 package SVM
 import java.util.concurrent.atomic.AtomicInteger
-
-import util.Random._
+import scala.collection.immutable.ListMap
 import SVM.DataSetType.{Test, Train, Validation}
 import breeze.linalg.{DenseMatrix, _}
 import breeze.numerics._
@@ -10,6 +9,7 @@ import breeze.stats._
 import breeze.stats.distributions.{RandBasis, ThreadLocalRandomGenerator}
 import org.apache.commons.math3.random.MersenneTwister
 
+import scala.collection.SortedMap
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.math.{max, min}
 import scala.util.Random
@@ -97,6 +97,8 @@ class SparkDataSet[T <: basicDataSetEntry](dataSetTrain: Dataset[T], dataSetVali
 
 abstract class LData extends Data {
 
+  def setN_train(finalDataSize:Int) : Unit
+
   //empty data matrices for training and validation set
   var X_train: DenseMatrix[Double]
   var X_validation: DenseMatrix[Double]
@@ -169,6 +171,87 @@ abstract class LData extends Data {
     }
     size.toDouble / numElementsSampled
   }
+
+
+  private def calculateAlphas (X: DenseMatrix[Double], y: DenseVector[Double], lambda: Double): (DenseVector[Double]) = {
+    val K = X * X.t
+    val I = DenseMatrix.eye[Double](X.rows)
+    pinv(K + lambda * I) * y
+  }
+
+  private def calculateProjections(sampleProb: Double): DenseVector[Double] = {
+    val prob : DenseVector[Double] = DenseVector.rand(getN_Train)
+    val Nsubset = Math.floor(getN_Train*sampleProb).toInt
+    val inputs: DenseMatrix[Double] = DenseMatrix.zeros[Double](Nsubset, getd)
+    val labels: DenseVector[Double] = DenseVector.zeros[Double](Nsubset)
+    var j = 0
+    for (i <- 0 until getN_Train; if prob(i) < sampleProb && j < Nsubset) {
+      inputs(j, ::) := X_train(i, ::)
+      labels(j) = z_train(i)
+      j = j + 1
+    }
+    val lambda = 0.5
+    val alphas = calculateAlphas(inputs, labels, lambda)
+    val K = inputs * X_train.t
+    (alphas.t * K).t
+  }
+
+  /**
+    * Reduces the training data set based on the projections calculated using a small subset and the linear kernel.
+    * @param sampleProb The probability for instances to end up in the subset used to calculate the alphas.
+    * @param maxErrorRate The empirical probability of misclassified instances according to the cutoff.
+    */
+  def selectInstances(sampleProb: Double=0.1, maxErrorRate: Double=0.01):Int = {
+
+    val numReplicates = Math.max(getN_Train / 10000,1)
+    var projections = DenseVector.zeros[Double](getN_Train)
+    //Create arithmetic mean of projections from numReplicates small random subsets of the training set:
+    for(replicates <- 0 until numReplicates) {
+      projections = projections + calculateProjections(sampleProb/numReplicates)
+    }
+    projections = projections / numReplicates.toDouble
+
+    //case class orderedProjection(label: Int, projection: Double)
+    //val ordered = z_train zip projections
+    import scala.collection.breakOut
+    val orderedProjections = (projections.toArray.toList zip z_train.toArray.toList)(breakOut): SortedMap[Double,Int]
+    val max_misclassifications = Math.floor(getN_Train * maxErrorRate * 0.5).toInt
+    var misclass=0
+    var threshold_low : Double=0.0
+    for((key,value)<-orderedProjections; if(misclass<max_misclassifications)){
+      if(value==1)misclass=misclass+1
+      if(misclass==max_misclassifications)threshold_low=key
+    }
+
+    val inverselyOrderedProjections = orderedProjections.toSeq.sortWith(_._1 > _._1)
+    misclass=0
+    var threshold_high:Double=1.0
+    for((key,value)<-inverselyOrderedProjections; if(misclass<max_misclassifications)){
+      if(value==(-1))misclass=misclass+1
+      if(misclass==max_misclassifications)threshold_high=key
+    }
+
+    val isValid = projections.map(x=>if(x>threshold_low && x<threshold_high) 1 else 0)
+    val finalDataSize = isValid.reduce(_+_)
+    println(finalDataSize+" out of "+getN_Train+" instances are selected based on linear kernel projection.")
+    val inputs2: DenseMatrix[Double] = DenseMatrix.zeros[Double](finalDataSize, getd)
+    val labels2: DenseVector[Int] = DenseVector.zeros[Int](finalDataSize)
+    var k = 0
+    for(i <- 0 until getN_Train; if isValid(i)==1){
+      inputs2(k,::) := X_train(i, ::)
+      labels2(k) = z_train(i)
+      k=k+1
+    }
+    val numLabels = sum(labels2.map(x=>if(x!=0)1 else 0))
+    assert(labels2.length==numLabels)
+    assert(labels2.length==finalDataSize)
+    X_train=inputs2
+    assert(X_train.rows==finalDataSize,"The number of rows "+X_train.rows+" in the filtered data set is not "+finalDataSize+" as required!")
+    setN_train(finalDataSize)
+    z_train=labels2
+    assert(z_train.length==finalDataSize,"The number of elements "+z_train.length+" in the filtered vector of class labels is not "+finalDataSize+" as required!")
+    finalDataSize
+ }
 }
 
 /**
@@ -250,6 +333,10 @@ class SimData (val params: DataParams) extends LData {
     }
     isFilled = true
   }
+
+  override def setN_train (finalDataSize: Int): Unit = {
+    params.N_train=finalDataSize
+  }
 }
 
 object LocalData{
@@ -317,74 +404,6 @@ class LocalData extends LData {
     N_train = X_train.rows
     trainingSetIsFilled = true
     isFilled = validationSetIsFilled && trainingSetIsFilled
-  }
-
-  private def selectInstances (X: DenseMatrix[Double], y: DenseVector[Double], lambda: Double): (DenseVector[Double]) = {
-    val K = X * X.t
-    val I = DenseMatrix.eye[Double](X.rows)
-    pinv(K + lambda * I) * y
-  }
-
-  private def calculateProjections(sampleProb: Double): DenseVector[Double] = {
-    val prob : DenseVector[Double] = DenseVector.rand(N_train)
-    val Nsubset = Math.floor(N_train*sampleProb).toInt
-    val inputs: DenseMatrix[Double] = DenseMatrix.zeros[Double](Nsubset, d)
-    val labels: DenseVector[Double] = DenseVector.zeros[Double](Nsubset)
-    var j = 0
-    for (i <- 0 until N_train; if prob(i) < sampleProb && j < Nsubset) {
-      inputs(j, ::) := X_train(i, ::)
-      labels(j) = z_train(i)
-      j = j + 1
-    }
-    val lambda = 0.5
-    val alphas = selectInstances(inputs, labels, lambda)
-    val K = inputs * X_train.t
-    (alphas.t * K).t
-  }
-
-  /**
-    * Reduces the training data set based on the projections calculated using a small subset and the linear kernel.
-    * @param sampleProb The probability for instances to end up in the subset used to calculate the alphas.
-    * @param minQuantile The minimum quantile to be included in the final training set.
-    * @param maxQuantile The maximum quantile to be included in the final training set.
-    */
-  def selectInstances(sampleProb: Double, minQuantile: Double, maxQuantile: Double):Unit = {
-
-    val numReplicates = Math.max(N_train / 20000,1)
-    var projections = DenseVector.zeros[Double](N_train)
-    for(replicates <- 0 until numReplicates) {
-      projections = projections + calculateProjections(sampleProb/numReplicates)
-    }
-    projections = projections / numReplicates.toDouble
-
-    def getSortedProjections : Array[Double] = projections.toArray.sorted[Double]
-    def getQuantileProjections (quantile: Double) : Double = {
-      assert(quantile>=0 && quantile<=1.0)
-      if(quantile == 0.0) return projections.reduce(min(_,_))
-      if(quantile == 1.0) return projections.reduce(max(_,_))
-      val N = projections.length
-      val x = (N+1) * quantile
-      val rank_high : Int = min(Math.ceil(x).toInt,N)
-      val rank_low : Int = max(Math.floor(x).toInt,1)
-      if(rank_high==rank_low) (getSortedProjections(rank_high-1))
-      else Alphas.mean(getSortedProjections(rank_high-1), getSortedProjections(rank_low-1))
-    }
-    val lowerQuantile = getQuantileProjections(minQuantile)
-    val upperQuantile = getQuantileProjections(maxQuantile)
-    val isValid = projections.map(x=>if(x>lowerQuantile && x<upperQuantile) 1 else 0)
-    val finalDataSize = isValid.reduce(_+_)
-    println(finalDataSize+" out of "+N_train+" instances are selected based on linear kernel projection.")
-    val inputs2: DenseMatrix[Double] = DenseMatrix.zeros[Double](finalDataSize, d)
-    val labels2: DenseVector[Int] = DenseVector.zeros[Int](finalDataSize)
-    var k = 0
-    for(i <- 0 until N_train; if isValid(i)==1){
-      inputs2(k,::) := X_train(i, ::)
-      labels2(k) = z_train(i)
-      k=k+1
-    }
-    X_train=inputs2
-    N_train=finalDataSize
-    z_train=labels2
   }
 
   def readValidationDataSet (path: String, separator: Char, columnIndexClass: Int, transformLabel: Double => Int = (x:Double)=>if(x>0) 1 else -1 , columnIndexIgnore: Int = -1) : Unit = {
@@ -521,4 +540,6 @@ class LocalData extends LData {
     case Test => N_test
     case _ =>  throw new IllegalArgumentException("Unsupported data set type!")
   }
+
+  override def setN_train (finalDataSize: Int): Unit = N_train=finalDataSize
 }

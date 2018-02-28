@@ -2,7 +2,7 @@ package SVM
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.{Await, Future}
-import SVM.DataSetType.{Test, Train, Validation}
+import SVM.DataSetType.{Test}
 object TestHIGGS extends App {
 
   val d = new LocalData()

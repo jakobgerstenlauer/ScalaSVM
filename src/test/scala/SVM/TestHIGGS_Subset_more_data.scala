@@ -29,7 +29,7 @@ object TestHIGGS_Subset_more_data extends App {
   val medianScale = d.probeKernelScale()
   println("The kernel scale parameter was estimated at "+medianScale+ " from the training data.")
 
-  d.selectInstances(sampleProb=0.1, minQuantile=0.45, maxQuantile=0.55)
+  d.selectInstances(sampleProb=0.1, 0.31)
 
   val epsilon = 0.0001
   val kernelPar = GaussianKernelParameter(medianScale)
