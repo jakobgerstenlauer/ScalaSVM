@@ -34,17 +34,17 @@ case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc:
   /**
     * Q matrix for training set
     */
-  val Q = initQMatrix()
+  val Q: CoordinateMatrix = initQMatrix()
 
   /**
     * Kernel matrix for validation set
     */
-  val V = initKernelMatrix(Validation)
+  val V: CoordinateMatrix = initKernelMatrix(Validation)
 
   /**
     * Kernel matrix for test set
     */
-  val T  = initKernelMatrix(Test)
+  val T: CoordinateMatrix = initKernelMatrix(Test)
 
   def getKernelMatrix(dataType : SVM.DataSetType.Value): CoordinateMatrix = {
     dataType match {
@@ -76,7 +76,7 @@ case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc:
     // Create an RDD of matrix entries ignoring all matrix entries which are smaller than epsilon.
     val entries: RDD[MatrixEntry] = sc.parallelize(listOfMatrixEntries)
     val m = new CoordinateMatrix(entries, d.getN_Train, numCols)
-    println("Kernel matrix of type "+dataType.toString()+" has rows: "+ m.numRows() +" and columns: "+ m.numCols())
+    println("Kernel matrix of type "+dataType.toString+" has rows: "+ m.numRows() +" and columns: "+ m.numCols())
     m
   }
 
@@ -120,7 +120,7 @@ case class KernelMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double, sc:
       val P = matOps.coordinateMatrixMultiply(A, K)
       val prediction = signum(matOps.collectRowVector(P))
       val correct = calculateAccuracy(prediction, d.getLabels(dataType))
-      println("Accuracy on "+dataType.toString()+" set:" + correct.toDouble / prediction.length)
+      println("Accuracy on "+dataType.toString+" set:" + correct.toDouble / prediction.length)
       (correct, iteration)
   }
 

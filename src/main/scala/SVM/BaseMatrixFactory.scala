@@ -64,6 +64,6 @@ abstract class BaseMatrixFactory (d: Data, kf: KernelFunction, epsilon: Double) 
     signum(v)
   }
 
-  override def getData (): Data = d
+  override def getData: Data = d
 }
 

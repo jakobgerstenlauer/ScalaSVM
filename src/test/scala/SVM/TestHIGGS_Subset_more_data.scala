@@ -36,7 +36,7 @@ object TestHIGGS_Subset_more_data extends App {
   val gaussianKernel = GaussianKernel(kernelPar)
   val kmf = LeanMatrixFactory(d, gaussianKernel, epsilon)
 
-  val mp = ModelParams(C = 1.0, delta = 0.01)
+  val mp = ModelParams(delta = 0.01)
   val alphas = new Alphas(N=d.N_train, mp)
   val ap = AlgoParams(batchProb = 0.99, learningRateDecline = 0.8,
     epsilon = epsilon)

@@ -57,17 +57,17 @@ case class DataParams(N: Int = 1000, d: Int = 5, ratioTrain: Double = 0.5, ratio
     /**
    * Number of observations in the training set.  
    */
-  var N_train = Math.floor(N * ratioTrain).toInt
+  var N_train: Int = Math.floor(N * ratioTrain).toInt
   
    /**
    * Number of observations in the validation set.
    */
-  val N_validation = Math.floor(N * (1.0 - (ratioTrain+ratioTest))).toInt
+  val N_validation: Int = Math.floor(N * (1.0 - (ratioTrain+ratioTest))).toInt
 
   /**
     * Number of observations in the validation set.
     */
-  val N_test = Math.floor(N * ratioTest).toInt
+  val N_test: Int = Math.floor(N * ratioTest).toInt
 
   assert(N == N_train + N_validation + N_test)
 

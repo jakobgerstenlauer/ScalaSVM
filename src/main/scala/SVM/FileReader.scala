@@ -31,7 +31,7 @@ class CSVReader(path: String, separator: Char, columnIndexClass: Int, columnInde
       }
       bufferedSource.close
     }catch {
-      case e: IOException => { e.printStackTrace(); e.toString }
+      case e: IOException => e.printStackTrace(); e.toString
     }
     println("The input file " + path + " has "+ numLines +" lines and "+ maxColumns +" columns.")
     val hasColumnToIgnore : Int = if (columnIndexIgnore >= 0) 1 else 0
@@ -46,21 +46,19 @@ class CSVReader(path: String, separator: Char, columnIndexClass: Int, columnInde
         for(column <- 0 until maxColumns){
           column match {
             case `columnIndexIgnore` => hasPassed = hasPassed + 1
-            case `columnIndexClass` => {
+            case `columnIndexClass` =>
               Y(count)=transformLabel(array(column).toInt)
               hasPassed = hasPassed + 1
-            }
-            case _ =>{
+            case _ =>
               val index : Int = column - hasPassed
               X(count, index) = array(column)
-            }
           }
         }
       }
       bufferedSource2.close
     }
     catch {
-      case e: IOException => { e.printStackTrace(); e.toString }
+      case e: IOException => e.printStackTrace(); e.toString
     }
     (X,Y)
   }

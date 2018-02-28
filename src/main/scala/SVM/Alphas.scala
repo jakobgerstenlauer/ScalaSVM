@@ -75,14 +75,14 @@ case class Alphas(N: Int,
 
   def getQuantile (quantile: Double) : Double = {
     assert(quantile>=0 && quantile<=1.0)
-    if(quantile == 0.0) return alpha.reduce(min(_,_))  
+    if(quantile == 0.0) return alpha.reduce(min(_,_))
     if(quantile == 1.0) return alpha.reduce(max(_,_))
     val sortedAlphas : Array[Double] = getSortedAlphas
     val N = alpha.length
     val x = (N+1) * quantile
     val rank_high : Int = min(Math.ceil(x).toInt,N)
     val rank_low : Int = max(Math.floor(x).toInt,1)
-    if(rank_high==rank_low) (sortedAlphas(rank_high-1))
+    if(rank_high==rank_low) sortedAlphas(rank_high - 1)
     else Alphas.mean(sortedAlphas(rank_high-1), sortedAlphas(rank_low-1))
   }
 

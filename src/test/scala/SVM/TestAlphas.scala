@@ -1,7 +1,5 @@
-package test
 import SVM.Alphas
 import breeze.linalg._
-import breeze.numerics._
 
 object TestAlphas extends App {
 	val N = 1000
@@ -13,7 +11,4 @@ object TestAlphas extends App {
 	println("20% Quantile: "+alphas.getQuantile(0.2))
 	println("Median: "+alphas.getQuantile(0.5))
 	println("90% Quantile: "+alphas.getQuantile(0.9))
-	//println("alpha before update : "+alphas.alpha)
-	//alphas.updateAlphaAsConjugateGradient()
-	//println("alpha after update: "+alphas.alpha)
 }

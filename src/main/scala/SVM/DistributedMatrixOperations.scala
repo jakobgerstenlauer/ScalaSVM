@@ -160,7 +160,7 @@ class DistributedMatrixOps(sc: SparkContext){
       try{
           Some(new DenseVector(values(0)))
       } catch {
-          case e: Exception => None
+          case _: Exception => None
       }
   }
 }

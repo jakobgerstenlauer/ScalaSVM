@@ -1,4 +1,3 @@
-package test
 import SVM.ModelParams
 import SVM.DataParams
 import SVM.SimData

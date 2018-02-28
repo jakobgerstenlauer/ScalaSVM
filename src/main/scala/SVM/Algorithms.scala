@@ -93,7 +93,7 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
     val futureList : Future[List[(Int,Int,Int)]] = Future.sequence(listOfFutures)
     //Wait for cross-validation results to choose the optimal level of sparsity:
     futureList onComplete {
-      case Success(list) => {
+      case Success(list) =>
         //Free memory of validation set HashMaps
         //kmf.freeValidationHashMaps()
         //Find the optimal iteration and associated sparsity and accuracy
@@ -104,20 +104,16 @@ case class NoMatrices(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: Lean
         if(optSparsity > 0.0) optAlphas.clipAlphas(0.01 * optSparsity)
         println("Predict on the "+dataType.toString+" set with prediction method "+predictionMethod.toString+".")
         predictionMethod match {
-          case PredictionMethod.STANDARD => {
+          case PredictionMethod.STANDARD =>
             val promisedTestResults : Future[Int] = kmf.predictOn(dataType, optAlphas)
             promise.completeWith(promisedTestResults)
-          }
-          case PredictionMethod.THRESHOLD => {
+          case PredictionMethod.THRESHOLD =>
             val promisedTestResults : Future[Int] = kmf.predictOn(dataType, optAlphas, threshold)
             promise.completeWith(promisedTestResults)
-          }
-          case PredictionMethod.AUC => {
+          case PredictionMethod.AUC =>
             val promisedTestResults : Future[Int] = kmf.predictOnAUC(dataType, optAlphas)
             promise.completeWith(promisedTestResults)
-          }
         }
-      }
       case Failure(ex) => println(ex)
     }
     promise.future
@@ -171,7 +167,7 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
     //Get the alphas for this optimal iteration
     val optAlphas : Alphas = alphaMap.getOrElse(optIteration, alphas)
     optAlphas.clipAlphas(ap.quantileAlphaClipping)
-    println("Predict on the "+dataType.toString()+" set.")
+    println("Predict on the "+dataType.toString+" set.")
     predictionMethod match {
       case PredictionMethod.STANDARD => kmf.predictOn(optAlphas, this.ap, dataType)
       case PredictionMethod.THRESHOLD => kmf.predictOn(optAlphas, this.ap, dataType, threshold)
@@ -182,7 +178,7 @@ case class SG(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: KernelMatrix
 
   /**
     * Function that works in a sequential way.
-    * @param iteration
+    * @param iteration The iteration nr.
     * @return updated algorithm object.
     */
   def iterate(iteration: Int): SG = {
@@ -234,31 +230,27 @@ case class SGwithFutures(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: K
     val futureList : Future[List[(Int,Int)]] = Future.sequence(listOfFutures)
     //Wait for cross-validation results to choose the optimal level of sparsity:
     futureList onComplete {
-      case Success(list) => {
+      case Success(list) =>
         //Find the optimal iteration and associated sparsity and accuracy
         val (maxAccuracy, optIteration) = list.foldRight((0,0))((a,b) => if(a._2 <= b._2) b else a)
         println("Based on cross-validation, max correct predictions: "+ maxAccuracy+" was achieved in iteration: "+ optIteration)
         //Get the alphas for this optimal iteration
         val optAlphas : Alphas = alphaMap.getOrElse(optIteration, alphas)
         optAlphas.clipAlphas(ap.quantileAlphaClipping)
-        println("Predict on the "+dataType.toString()+" set.")
+        println("Predict on the "+dataType.toString+" set.")
         predictionMethod match {
-          case PredictionMethod.STANDARD => {
+          case PredictionMethod.STANDARD =>
             val promisedTestResults : Future[Int] = kmf.predictOnFuture(optAlphas, this.ap, dataType)
             promise.completeWith(promisedTestResults)
-          }
-          case PredictionMethod.THRESHOLD => {
+          case PredictionMethod.THRESHOLD =>
             val promisedTestResults : Future[Int] = kmf.predictOnFuture(optAlphas, this.ap, dataType, threshold)
             promise.completeWith(promisedTestResults)
-          }
-          case PredictionMethod.AUC => {
+          case PredictionMethod.AUC =>
             throw new UnsupportedOperationException()
             //TODO: Method is not yet implemented.
             //val promisedTestResults : Future[Int] = kmf.predictOnAUC(optAlphas, this.ap, dataType)
             //promise.completeWith(promisedTestResults)
-          }
         }
-      }
       case Failure(ex) => println(ex)
     }
     promise.future
@@ -266,7 +258,7 @@ case class SGwithFutures(alphas: Alphas, ap: AlgoParams, mp: ModelParams, kmf: K
 
   /**
     * Function that works with a asynchronous programming based on Futures.
-    * @param iteration
+    * @param iteration The iteration nr.
     * @return
     */
   def iterate(iteration: Int): SGwithFutures = {

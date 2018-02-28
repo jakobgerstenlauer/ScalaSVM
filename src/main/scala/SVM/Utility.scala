@@ -14,7 +14,7 @@ object Utility {
     * Flightweight pattern and reduce the memmory footprint of Integer objects.
     * In order to use this strategy, it is necessary to set the value of the parameter
     * "java.lang.Integer.IntegerCache.high" to the dimensionality of the kernel matrices.
-    * @param intMax
+    * @param intMax The maximal integer nr to be cached by the Java Virtual Machine.
     */
   def testJVMArgs(intMax: Int):Unit= {
 

@@ -25,7 +25,7 @@ object TestLocalAlgorithm extends App {
   val kmf = LeanMatrixFactory(d, gaussianKernel, epsilon)
   val mp = ModelParams(C = 0.5, delta = 0.01)
   val alphas = new Alphas(N=d.N_train, mp)
-  val ap = AlgoParams(batchProb = 0.99, learningRateDecline = 0.5,
+  val ap = AlgoParams(batchProb = 0.99,
     epsilon = epsilon)
   var algo = NoMatrices(alphas, ap, mp, kmf, new ListBuffer[Future[(Int,Int,Int)]])
   var numInt = 0

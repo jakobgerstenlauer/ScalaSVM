@@ -29,14 +29,14 @@ object TestHIGGS_Subset extends App {
   val medianScale = d.probeKernelScale()
   println("The kernel scale parameter was estimated at "+medianScale+ " from the training data.")
 
-  d.selectInstances(sampleProb=0.1, maxErrorRate=0.05)
+  d.selectInstances(maxErrorRate=0.05)
 
   val epsilon = 0.0001
   val kernelPar = GaussianKernelParameter(medianScale)
   val gaussianKernel = GaussianKernel(kernelPar)
   val kmf = LeanMatrixFactory(d, gaussianKernel, epsilon)
 
-  val mp = ModelParams(C = 1.0, delta = 0.01)
+  val mp = ModelParams(delta = 0.01)
   val alphas = new Alphas(N=d.N_train, mp)
   val ap = AlgoParams(batchProb = 0.99, learningRateDecline = 0.8,
     epsilon = epsilon)

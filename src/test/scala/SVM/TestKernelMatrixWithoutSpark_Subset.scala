@@ -1,8 +1,7 @@
-package test
 import SVM._
-import SVM.DataSetType.{Test, Train, Validation}
+import SVM.DataSetType.{Test, Validation}
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.{Await, Future, Promise}
+import scala.concurrent.{Await, Future}
 
 //Important flags for the Java virtual machine:
 //Force the JVM to cache Integers up to dimensionality of K and S:
@@ -29,7 +28,7 @@ object TestKernelMatrixWithoutSpark_Subset extends App {
 	println(gaussianKernel)
 	val N = 300000
 	//Utility.testJVMArgs(N/2)
-	val dataProperties = DataParams(N = N, d = 10, ratioTrain = 0.5, ratioTest = 0.1)
+	val dataProperties = DataParams(N = N, d = 10)
 	println(dataProperties)
 	val d = new SimData(dataProperties)
 	//println(d)
@@ -60,7 +59,7 @@ object TestKernelMatrixWithoutSpark_Subset extends App {
 	val lmf = LeanMatrixFactory(d, gaussianKernel, epsilon)
 	val mp = ModelParams(C = 0.4, delta = 0.01)
 	val alphas = new Alphas(N=N_train, mp)
-	val ap = AlgoParams(maxIter = 30, batchProb = 0.99, learningRateDecline = 0.8, epsilon = epsilon, quantileAlphaClipping=0.0)
+	val ap = AlgoParams(batchProb = 0.99, learningRateDecline = 0.8, epsilon = epsilon)
 	var algo = NoMatrices(alphas, ap, mp, lmf, new ListBuffer[Future[(Int,Int,Int)]])
 	var numInt = 0
 	while(numInt < ap.maxIter && algo.getSparsity < 99.0){

@@ -206,7 +206,7 @@ abstract class LData extends Data {
     val numReplicates = Math.max(getN_Train / 10000,1)
     var projections = DenseVector.zeros[Double](getN_Train)
     //Create arithmetic mean of projections from numReplicates small random subsets of the training set:
-    for(replicates <- 0 until numReplicates) {
+    for(_ <- 0 until numReplicates) {
       projections = projections + calculateProjections(sampleProb/numReplicates)
     }
     projections = projections / numReplicates.toDouble
@@ -351,9 +351,9 @@ object LocalData{
   */
 class LocalData extends LData {
   //Matrix with 3 rows for mean, variance, and standard deviation and columns for data columns
-  var trainSummary = DenseMatrix.zeros[Double](0, 0)
-  var means = DenseVector.zeros[Double](0)
-  var stdev = DenseVector.zeros[Double](0)
+  var trainSummary: DenseMatrix[Double] = DenseMatrix.zeros[Double](0, 0)
+  var means: DenseVector[Double] = DenseVector.zeros[Double](0)
+  var stdev: DenseVector[Double] = DenseVector.zeros[Double](0)
   var N: Int = 0
   var N_train: Int = 0
   var N_validation: Int = 0
