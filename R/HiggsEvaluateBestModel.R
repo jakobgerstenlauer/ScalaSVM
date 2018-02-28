@@ -17,7 +17,11 @@ dtrain <- dtrain[,-1]
 #The following 28 columns are the numeric inputs.
 names(dtrain)<-c("class",glue("input",1:28))
 
+start.time <- Sys.time()
 svm <- ksvm(as.factor(class)~., data=dtrain, kernel='rbfdot',  C=100, scaled=c(), type="C-svc") 
+end.time <- Sys.time()
+print(end.time - start.time)
+#Time difference of 1.771862 hours
 
 #Read the test data:
 dtest <- read.table("higgsTest.csv",sep=",",header=FALSE)
