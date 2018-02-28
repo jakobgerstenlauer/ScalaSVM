@@ -773,8 +773,9 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   }
 
   /**
-    *
-    * @param alphas
+    * Predict on any data set type.
+    * @param dataType The data set type (training, test, validation).
+    * @param alphas The dual variables of the model.
     * @return Tuple (optimal sparsity, nr of correct predictions for this quantile):
     */
   def predictOn(dataType: SVM.DataSetType.Value, alphas : Alphas) : Future[Int] = {
@@ -827,8 +828,9 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
   def roundAt(p: Int)(n: Double): Double = { val s = math pow (10, p); (math round n * s) / s }
 
   /**
-    *
-    * @param alphas
+    * Predict on any data set type creating a ROC curve.
+    * @param dataType The data set type (training, test, validation).
+    * @param alphas The dual variables of the model.
     * @return Tuple (optimal sparsity, nr of correct predictions for this quantile):
     */
   def predictOnAUC (dataType: SVM.DataSetType.Value, alphas : Alphas) : Future[Int] = {
@@ -964,6 +966,11 @@ case class LeanMatrixFactory(d: Data, kf: KernelFunction, epsilon: Double) exten
     promise.future
   }
 
+  /**
+    * Extract a combined Future for the hash map representing the respective data set.
+    * @param dataType The data set type (training, test, validation).
+    * @return The respective hash map for this data set type.
+    */
   private def extractHashMapPromises(dataType: SVM.DataSetType.Value) = {
     val hashMapPromise0 = getHashMap(dataType, 0)
     val hashMapPromise1 = getHashMap(dataType, 1)
