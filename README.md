@@ -173,6 +173,11 @@ After training the support vector machine on the training set, it is possible to
 val future = algo.predictOn(Validation, PredictionMethod.AUC)
 	Await.result(future, LeanMatrixFactory.maxDuration)
 ```
-The function then prints both a graphical and a text representation of the ROC curve which enables the user to decide on the optimal decision threshold.
+The function then prints both a graphical and a text representation of the ROC curve which enables the user to decide on the optimal decision threshold. Based on this optimal threshold (0.66 in the example below), the final model can be evaluated on the test set in order to assess the generalization error:
+```scala
+val future3 = algo.predictOn(Test, PredictionMethod.THRESHOLD,0.66)
+	Await.result(future3, LeanMatrixFactory.maxDuration)
+```
+
 
 
