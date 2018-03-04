@@ -161,7 +161,7 @@ val ap = AlgoParams(maxIter = 30, batchProb = 0.99, learningRateDecline = 0.8, e
 The iterative gradient descent optimization is run with:
 ```scala
 var numIt = 0
-while(numIt < 5){
+while(numIt < ap.maxIter){
   algo1 = algo1.iterate(numIt)
   numIt += 1
 }
