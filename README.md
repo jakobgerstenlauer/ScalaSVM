@@ -58,6 +58,15 @@ Based on the Gaussian kernel, a local representations of the kernel matrices for
 ```scala
   val kmf = LeanMatrixFactory(d, gaussianKernel, epsilon)
 ```    
+Apart from the Gaussian kernel, the linear and the polynomial kernel are also available and they can be used equivalently:
+
+```scala
+  val epsilon = 0.0001
+  val scale = 0.0
+  val kernelParPoly = PolynomialKernelParameters(scale=1.0, offset=0.0, degree=3.0)
+  val polynomialKernel = PolynomialKernel(kernelParPoly)
+  val kmf = LeanMatrixFactory(d, polynomialKernel, epsilon)  
+```    
 
 ### Running a local SVM algorithm
 
@@ -145,6 +154,10 @@ val alphas = new Alphas(N=N/2, mp)
 val ap = AlgoParams(maxIter = 30, batchProb = 0.99, learningRateDecline = 0.8, epsilon = epsilon, quantileAlphaClipping=0.0)
 var algo1 = new SG(alphas, ap, mp, kmf, sc, new ListBuffer[(Int,Int)])
 ```    
+By default, the distributed algorithm does not enforce sparsity. However, sparsity can be enforced using the argument *quantileAlphaClipping*. Setting this parameter to 0.1 enforces a sparsity of 10%:
+```scala
+val ap = AlgoParams(maxIter = 30, batchProb = 0.99, learningRateDecline = 0.8, epsilon = epsilon, quantileAlphaClipping=0.1)
+```   
 The iterative gradient descent optimization is run with:
 ```scala
 var numIt = 0
@@ -153,3 +166,13 @@ while(numIt < 5){
   numIt += 1
 }
 ```    
+### Deciding on a classification threshold
+ 
+After training the support vector machine on the training set, it is possible to evaluate the final model on the validation set for all percentiles of the dual variables:
+```scala
+val future = algo.predictOn(Validation, PredictionMethod.AUC)
+	Await.result(future, LeanMatrixFactory.maxDuration)
+```
+The function then prints both a graphical and a text representation of the ROC curve which enables the user to decide on the optimal decision threshold.
+
+
