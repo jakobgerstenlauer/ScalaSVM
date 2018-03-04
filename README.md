@@ -8,7 +8,7 @@ Apart from the algorithm that learns the support vector machine, additional tool
 
 ## Usage
 ### Creating artifical data sets
-In order to try out the library, it is possible to create artifical data sets with a given number of observations *N* and features *d* and a binary output: 
+In order to get started with the library, it is possible to create artifical data sets with a binary output (label) and a given number of observations *N* and features *d*: 
 ```scala
 import SVM._
 val N = 200000
@@ -16,7 +16,101 @@ val dataProperties = DataParams(N = N, d = 10)
 val d = new SimData(dataProperties)
 d.simulate()
 ```    
+By default, 50% of the instances are assigned to a training set, 10% are assigned to a test set, and 40% are assigned to a validation set. The user can specify different ratios using the *ratioTrain* and *ratioTest* arguments of the *DataParams* constructor:
+```scala
+val dataProperties = DataParams(N = N, d = 10, ratioTrain = 0.8, ratioTest: Double = 0.1)
+```    
 
 ### Reading in empirical data sets
-### Defining the kernel function
-### 
+When fitting a support vector machine locally on a data set, it is assumed that the user can separate the data set into three separate csv text files for the training, validation and test set. The input files should not have a header and consist only of numeric data types. Any separator can be specified via the *separator* argument. The user additionally has to specify the complete path to the input files as string and the index of class labels and any column that should be ignored using zero-based indexing. It is implicitly assumed that the class labels are +1 for the signal and -1 for the background class. If the class labels follow a different code, a anonymous function has to be specified which transforms the labels into the correct code (in the example code this function is called *transLabel*).
+
+```scala
+  val workingDir = "/home/user/data/"
+  val pathTrain = workingDir + "magicTrain.csv"
+  val pathValidation = workingDir + "magicValidation.csv"
+  val pathTest = workingDir + "magicTest.csv"
+  val indexLabel = 11 
+  val indexSkip = 0 //The first column has to be skipped (line nr!)
+  val transLabel = (x:Double) => if(x<=0) -1 else +1
+  val d = new LocalData()
+  d.readTrainingDataSet (pathTrain, ',', indexLabel, transLabel, indexSkip)
+  d.readTestDataSet (pathTest, ',', indexLabel, transLabel, indexSkip)
+  d.readValidationDataSet(pathValidation, ',', indexLabel, transLabel, indexSkip)
+```    
+After having read the input files, the user may want to print the class distribution for all data sets:
+```scala
+  d.tableLabels()
+```    
+
+### Defining the kernel function 
+The function *probeKernelScale()* can be used to determine a useful estimate for the kernel parameter of the Gaussian kernel function:
+```scala
+  val medianScale = d.probeKernelScale()
+  println("Estimated kernel scale parameter: "+medianScale)
+```    
+Now, a Gaussian kernel function can be defined with an appropriate sparsity threshold epsilon:
+```scala
+  val epsilon = 0.0001
+  val kernelPar = GaussianKernelParameter(medianScale)
+  val gaussianKernel = GaussianKernel(kernelPar)
+```    
+Based on the Gaussian kernel, a local representations of the kernel matrices for the three data sets is created:
+```scala
+  val kmf = LeanMatrixFactory(d, gaussianKernel, epsilon)
+```    
+
+### Running a local SVM algorithm
+
+The algorithm itself is initiated given this matrix factory object, a new *Alphas* object and a *ModelParams* object which bundles the parameters *C* and the learning rate delta. 
+```scala
+  val alphas = new Alphas(N=d.N_train, mp)
+  val ap = AlgoParams(maxIter=10,batchProb = 0.99,learningRateDecline = 0.8,epsilon = epsilon)
+  var algo = NoMatrices(alphas, ap, mp, kmf, new ListBuffer[Future[(Int,Int,Int)]])
+```    
+The algorithm is iterated using a loop construct. At the end of the loop, a blocking *Await.result()* is needed to keep the main thread from shutting down before the parallel evaluation of the final model on the test set has finalized:
+```scala
+  var algo = NoMatrices(alphas, ap, mp, kmf, new ListBuffer[Future[(Int,Int,Int)]])
+  var numInt = 0
+  while(numInt < ap.maxIter){
+    algo = algo.iterate(numInt); numInt += 1
+  }
+  Await.result(algo.predictOn(Test, PredictionMethod.STANDARD), LeanMatrixFactory.maxDuration)
+```    
+
+The complete code example as a self-contained Scala application is:
+```scala
+package SVM
+import scala.collection.mutable.ListBuffer
+import scala.concurrent.{Await, Future}
+import SVM.DataSetType.{Test, Train, Validation}
+
+object TestMAGIC extends App {
+  val workingDir = "/home/user/data/"
+  val pathTrain = workingDir + "magicTrain.csv"
+  val pathValidation = workingDir + "magicValidation.csv"
+  val pathTest = workingDir + "magicTest.csv"
+  val indexLabel = 11 
+  val indexSkip = 0 //The first column has to be skipped (line nr!)
+  val transLabel = (x:Double) => if(x<=0) -1 else +1
+  val d = new LocalData()
+  d.readTrainingDataSet (pathTrain, ',', indexLabel, transLabel, indexSkip)
+  d.readTestDataSet (pathTest, ',', indexLabel, transLabel, indexSkip)
+  d.readValidationDataSet(pathValidation, ',', indexLabel, transLabel, indexSkip)
+  d.tableLabels()
+  val medianScale = d.probeKernelScale()
+  println("Estimated kernel scale parameter: "+medianScale)
+  val epsilon = 0.0001
+  val kernelPar = GaussianKernelParameter(medianScale)
+  val gaussianKernel = GaussianKernel(kernelPar)
+  val kmf = LeanMatrixFactory(d, gaussianKernel, epsilon)
+  val mp = ModelParams(C = 100, delta = 0.01)
+  val alphas = new Alphas(N=d.N_train, mp)
+  val ap = AlgoParams(maxIter=10,batchProb = 0.99,learningRateDecline = 0.8,epsilon = epsilon)
+  var algo = NoMatrices(alphas, ap, mp, kmf, new ListBuffer[Future[(Int,Int,Int)]])
+  var numInt = 0
+  while(numInt < ap.maxIter){
+    algo = algo.iterate(numInt); numInt += 1
+  }
+  Await.result(algo.predictOn(Test, PredictionMethod.STANDARD), LeanMatrixFactory.maxDuration)
+}
+```    
