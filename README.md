@@ -7,3 +7,16 @@ Kernelized machine learning methods are able to predict highly nonlinear relatio
 Apart from the algorithm that learns the support vector machine, additional tools are provided: First, a subsection selection heuristic that uses a efficient projection method to filter instances. Second, a set of representative kernels and a heuristic for finding an appropriate value for the Gaussian kernel. Third, a visualization tool that helps to evaluate the quality of the classifier and decide on a decision threshold based on a receiver operator characteristic (ROC) curve for the validation set. And finally, a general cross-validation scheme that i) implements an early stopping strategy by selecting the model coefficients from the optimal iteration, ii) finds the optimal level of sparsity, iii) and helps to decide on a useful decision threshold. Asynchronous programming principles are used, to accelerate the computations and facilitate parallelization. 
 
 ## Usage
+### Creating artifical data sets
+In order to try out the library, it is possible to create artifical data sets with a given number of observations *N* and features *d* and a binary output: 
+```scala
+import SVM._
+val N = 200000
+val dataProperties = DataParams(N = N, d = 10)
+val d = new SimData(dataProperties)
+d.simulate()
+```    
+
+### Reading in empirical data sets
+### Defining the kernel function
+### 
