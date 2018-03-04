@@ -77,7 +77,7 @@ The algorithm is iterated using a loop construct. At the end of the loop, a bloc
   Await.result(algo.predictOn(Test, PredictionMethod.STANDARD), LeanMatrixFactory.maxDuration)
 ```    
 
-The complete code example as a self-contained Scala application is:
+The complete code example as a self-contained local Scala application is:
 ```scala
 package SVM
 import scala.collection.mutable.ListBuffer
@@ -112,5 +112,44 @@ object TestMAGIC extends App {
     algo = algo.iterate(numInt); numInt += 1
   }
   Await.result(algo.predictOn(Test, PredictionMethod.STANDARD), LeanMatrixFactory.maxDuration)
+}
+```    
+### Running a distributed SVM algorithm
+
+In order to use the distributed algorithms, the user needs access to a local Spark cluster or a commercial Spark cloud solution. Depending on the number of central processing units (CPUs) available to the driver node, it is recommended to use the sequential *SG* or the parallelized *SGwithFutures* algorithm. Some code snippets for the sequential algorithm are shown below. 
+
+First, an artificial data set is created:
+```scala
+import SVM._
+val N = 40000
+val kernelPar = GaussianKernelParameter(1.0)
+val gaussianKernel = GaussianKernel(kernelPar)
+val ratioTrainingObservations=0.5
+val dataProperties = DataParams(N=N, d=10, ratioTrain=ratioTrainingObservations)
+val d = new SimData(dataProperties)
+d.simulate()
+```    
+Then, the distributed matrices for the training set, validation set, and test set are created:
+```scala
+val epsilon = 0.001
+//returns the underlying SparkContext
+val sc = spark.sparkContext
+val kmf = new KernelMatrixFactory(d, gaussianKernel, epsilon, sc)
+```    
+Now, the model itself and the algorithm is created:
+```scala
+import scala.collection.mutable.ListBuffer
+import scala.concurrent.{Await, Future}
+val mp = ModelParams(C = 0.5, delta = 0.01)
+val alphas = new Alphas(N=N/2, mp)
+val ap = AlgoParams(maxIter = 30, batchProb = 0.99, learningRateDecline = 0.8, epsilon = epsilon, quantileAlphaClipping=0.0)
+var algo1 = new SG(alphas, ap, mp, kmf, sc, new ListBuffer[(Int,Int)])
+```    
+The iterative gradient descent optimization is run with:
+```scala
+var numIt = 0
+while(numIt < 5){
+  algo1 = algo1.iterate(numIt)
+  numIt += 1
 }
 ```    
